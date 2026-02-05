@@ -1,16 +1,16 @@
 # Quick Start Guide
 
-This guide gets you up and running with AudioRAG in 5 minutes.
+This guide gets you up and running with AudioRAG.
 
 ## Prerequisites
 
 - Python 3.12 or higher
-- An API key from at least one provider (OpenAI recommended for beginners)
+- API keys from providers you want to use
 
 ## Installation
 
 ```bash
-# Install with uv (fastest)
+# Install with uv
 uv add audiorag
 
 # Or with pip
@@ -21,14 +21,25 @@ pip install audiorag
 
 ### 1. Set Up Environment Variables
 
+Choose your providers and set the corresponding API keys:
+
 ```bash
+# Example with OpenAI
 export AUDIORAG_OPENAI_API_KEY="sk-your-key-here"
+export AUDIORAG_STT_PROVIDER="openai"
+export AUDIORAG_EMBEDDING_PROVIDER="openai"
+export AUDIORAG_GENERATION_PROVIDER="openai"
+export AUDIORAG_VECTOR_STORE_PROVIDER="chromadb"
 ```
 
 Or create a `.env` file:
 
 ```
 AUDIORAG_OPENAI_API_KEY=sk-your-key-here
+AUDIORAG_STT_PROVIDER=openai
+AUDIORAG_EMBEDDING_PROVIDER=openai
+AUDIORAG_GENERATION_PROVIDER=openai
+AUDIORAG_VECTOR_STORE_PROVIDER=chromadb
 ```
 
 ### 2. Index Your First Audio
@@ -127,8 +138,9 @@ pipeline = AudioRAGPipeline(config)
 
 ```python
 config = AudioRAGConfig(
-    openai_api_key="sk-...",  # Still needed for embeddings
+    voyage_api_key="...",  # Required for embeddings
     anthropic_api_key="sk-ant-...",
+    embedding_provider="voyage",
     generation_provider="anthropic",
     generation_model="claude-3-7-sonnet-20250219",
 )
@@ -138,7 +150,7 @@ config = AudioRAGConfig(
 
 ```python
 config = AudioRAGConfig(
-    openai_api_key="sk-...",
+    openai_api_key="sk-...",  # Required for embeddings/generation
     pinecone_api_key="pc-...",
     vector_store_provider="pinecone",
     pinecone_index_name="my-audio-index",

@@ -18,13 +18,17 @@ import asyncio
 from audiorag import AudioRAGPipeline, AudioRAGConfig
 
 async def main():
-    # Configure with environment variables or pass directly
+    # Configure with your chosen providers
     config = AudioRAGConfig(
-        openai_api_key="sk-...",
         stt_provider="openai",
+        stt_model="whisper-1",
         embedding_provider="openai",
+        embedding_model="text-embedding-3-small",
         vector_store_provider="chromadb",
         generation_provider="openai",
+        generation_model="gpt-4o-mini",
+        # API keys can also be set via environment variables
+        openai_api_key="sk-...",
     )
     
     # Initialize pipeline
@@ -40,14 +44,15 @@ async def main():
     # Access sources with timestamps
     for source in result.sources:
         print(f"{source.video_title} at {source.start_time}s")
-        print(f"URL: {source.youtube_timestamp_url}")\n
+        print(f"URL: {source.youtube_timestamp_url}")
+
 asyncio.run(main())
 ```
 
 ## Installation
 
 ```bash
-# Install with uv (recommended)
+# Install with uv
 uv add audiorag
 
 # Or with pip
@@ -57,10 +62,13 @@ pip install audiorag
 ### Optional Dependencies
 
 ```bash
-# All defaults (OpenAI, ChromaDB, yt-dlp)
+# Audio scraping utilities (yt-dlp, pydub)
 uv add audiorag[defaults]
 
-# Specific providers
+# All providers and utilities
+uv add audiorag[all]
+
+# Specific providers only
 uv add audiorag[openai,chromadb,scraping,cohere]
 ```
 
@@ -69,14 +77,18 @@ uv add audiorag[openai,chromadb,scraping,cohere]
 AudioRAG uses pydantic-settings with environment variable support. All settings use the `AUDIORAG_` prefix.
 
 ```bash
-# Required API keys
+# Example: Using OpenAI for STT, embeddings, and generation
 export AUDIORAG_OPENAI_API_KEY="sk-..."
+export AUDIORAG_STT_PROVIDER="openai"
+export AUDIORAG_EMBEDDING_PROVIDER="openai"
+export AUDIORAG_VECTOR_STORE_PROVIDER="chromadb"
+export AUDIORAG_GENERATION_PROVIDER="openai"
 
-# Provider selection
-export AUDIORAG_STT_PROVIDER="openai"        # openai | deepgram | assemblyai | groq
-export AUDIORAG_EMBEDDING_PROVIDER="openai"  # openai | voyage | cohere
-export AUDIORAG_VECTOR_STORE_PROVIDER="chromadb"  # chromadb | pinecone | weaviate | supabase
-export AUDIORAG_GENERATION_PROVIDER="openai" # openai | anthropic | gemini
+# Example: Using different providers
+export AUDIORAG_DEEPGRAM_API_KEY="..."
+export AUDIORAG_STT_PROVIDER="deepgram"
+export AUDIORAG_VOYAGE_API_KEY="..."
+export AUDIORAG_EMBEDDING_PROVIDER="voyage"
 
 # Processing settings
 export AUDIORAG_CHUNK_DURATION_SECONDS="300"
@@ -88,7 +100,7 @@ See [Configuration Guide](docs/configuration.md) for all options.
 
 ## Documentation
 
-- [Quick Start Guide](docs/quickstart.md) - Get up and running in 5 minutes
+- [Quick Start Guide](docs/quickstart.md) - Get up and running
 - [Configuration](docs/configuration.md) - All configuration options
 - [Providers](docs/providers.md) - Available providers and setup
 - [Architecture](docs/architecture.md) - Pipeline stages and data flow

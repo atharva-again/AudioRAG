@@ -114,20 +114,27 @@ Configuration management with environment variable support.
 
 **Key Attributes:**
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `stt_provider` | str | `"openai"` | STT provider name |
-| `embedding_provider` | str | `"openai"` | Embedding provider name |
-| `vector_store_provider` | str | `"chromadb"` | Vector store provider name |
-| `generation_provider` | str | `"openai"` | Generation provider name |
-| `reranker_provider` | str | `"cohere"` | Reranker provider name |
-| `openai_api_key` | str | `""` | OpenAI API key |
-| `chunk_duration_seconds` | int | `300` | Duration per chunk |
-| `retrieval_top_k` | int | `10` | Documents to retrieve |
-| `rerank_top_n` | int | `3` | Documents after rerank |
-| `database_path` | str | `"audiorag.db"` | SQLite database path |
-| `cleanup_audio` | bool | `True` | Cleanup temp files |
-| `log_level` | str | `"INFO"` | Logging level |
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `stt_provider` | str | STT provider name (openai, deepgram, assemblyai, groq) |
+| `embedding_provider` | str | Embedding provider name (openai, voyage, cohere) |
+| `vector_store_provider` | str | Vector store provider name (chromadb, pinecone, weaviate, supabase) |
+| `generation_provider` | str | Generation provider name (openai, anthropic, gemini) |
+| `reranker_provider` | str | Reranker provider name (cohere, passthrough) |
+| `openai_api_key` | str | OpenAI API key |
+| `deepgram_api_key` | str | Deepgram API key |
+| `assemblyai_api_key` | str | AssemblyAI API key |
+| `groq_api_key` | str | Groq API key |
+| `voyage_api_key` | str | Voyage AI API key |
+| `cohere_api_key` | str | Cohere API key |
+| `anthropic_api_key` | str | Anthropic API key |
+| `google_api_key` | str | Google API key for Gemini |
+| `chunk_duration_seconds` | int | Duration per chunk in seconds |
+| `retrieval_top_k` | int | Documents to retrieve from vector store |
+| `rerank_top_n` | int | Documents to keep after reranking |
+| `database_path` | str | SQLite database path |
+| `cleanup_audio` | bool | Whether to cleanup temp files after processing |
+| `log_level` | str | Logging level (DEBUG, INFO, WARNING, ERROR) |
 
 **Methods:**
 
