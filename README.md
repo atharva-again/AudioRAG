@@ -1,139 +1,127 @@
 # AudioRAG
 
-RAG over audio files with provider-agnostic pipeline.
+Provider-agnostic RAG pipeline for audio content. Download, transcribe, chunk, embed, and search audio from YouTube and other sources.
 
-## Development Setup
+## Features
 
-### Prerequisites
+- **Multi-provider support**: OpenAI, Deepgram, AssemblyAI, Groq (STT); OpenAI, Voyage, Cohere (embeddings); OpenAI, Anthropic, Gemini (generation); ChromaDB, Pinecone, Weaviate, Supabase (vector stores)
+- **Resumable processing**: SQLite state tracking with hash-based IDs
+- **Automatic chunking**: Time-based segmentation with configurable duration
+- **Audio splitting**: Handles large files by splitting before transcription
+- **Structured logging**: Context-aware logging with operation timing
+- **Type-safe**: Python 3.12+ with full type annotations
 
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) package manager
+## Quick Start
 
-### Installation
+```python
+import asyncio
+from audiorag import AudioRAGPipeline, AudioRAGConfig
+
+async def main():
+    # Configure with environment variables or pass directly
+    config = AudioRAGConfig(
+        openai_api_key="sk-...",
+        stt_provider="openai",
+        embedding_provider="openai",
+        vector_store_provider="chromadb",
+        generation_provider="openai",
+    )
+    
+    # Initialize pipeline
+    pipeline = AudioRAGPipeline(config)
+    
+    # Index audio from YouTube
+    await pipeline.index("https://youtube.com/watch?v=...")
+    
+    # Query the indexed content
+    result = await pipeline.query("What are the main points discussed?")
+    print(result.answer)
+    
+    # Access sources with timestamps
+    for source in result.sources:
+        print(f"{source.video_title} at {source.start_time}s")
+        print(f"URL: {source.youtube_timestamp_url}")\n
+asyncio.run(main())
+```
+
+## Installation
 
 ```bash
-# Clone the repository
+# Install with uv (recommended)
+uv add audiorag
+
+# Or with pip
+pip install audiorag
+```
+
+### Optional Dependencies
+
+```bash
+# All defaults (OpenAI, ChromaDB, yt-dlp)
+uv add audiorag[defaults]
+
+# Specific providers
+uv add audiorag[openai,chromadb,scraping,cohere]
+```
+
+## Configuration
+
+AudioRAG uses pydantic-settings with environment variable support. All settings use the `AUDIORAG_` prefix.
+
+```bash
+# Required API keys
+export AUDIORAG_OPENAI_API_KEY="sk-..."
+
+# Provider selection
+export AUDIORAG_STT_PROVIDER="openai"        # openai | deepgram | assemblyai | groq
+export AUDIORAG_EMBEDDING_PROVIDER="openai"  # openai | voyage | cohere
+export AUDIORAG_VECTOR_STORE_PROVIDER="chromadb"  # chromadb | pinecone | weaviate | supabase
+export AUDIORAG_GENERATION_PROVIDER="openai" # openai | anthropic | gemini
+
+# Processing settings
+export AUDIORAG_CHUNK_DURATION_SECONDS="300"
+export AUDIORAG_RETRIEVAL_TOP_K="10"
+export AUDIORAG_RERANK_TOP_N="3"
+```
+
+See [Configuration Guide](docs/configuration.md) for all options.
+
+## Documentation
+
+- [Quick Start Guide](docs/quickstart.md) - Get up and running in 5 minutes
+- [Configuration](docs/configuration.md) - All configuration options
+- [Providers](docs/providers.md) - Available providers and setup
+- [Architecture](docs/architecture.md) - Pipeline stages and data flow
+- [API Reference](docs/api-reference.md) - Complete API documentation
+
+## Development
+
+```bash
+# Clone and setup
 git clone <repository-url>
 cd audiorag
-
-# Install dependencies (including dev dependencies)
 uv sync
 
-# Install prek hooks
-uv run prek install
-uv run prek install --hook-type pre-push
-```
-
-### Git Hooks
-
-This project uses **prek** (Rust-based, drop-in pre-commit replacement) with hooks from the Astral ecosystem:
-
-**Pre-commit hooks** (run on every commit - fast feedback):
-- **Astral Ruff** - Linting with auto-fix and formatting
-- **Astral uv** - Lock file validation
-- **Ty** - Type checking (100x faster than mypy)
-- **validate-pyproject** - pyproject.toml validation
-- Large file check (max 1MB)
-- JSON/TOML/YAML validation
-- Trailing whitespace removal
-- Security scanning (gitleaks)
-- Common file checks (merge conflicts, private keys, etc.)
-
-**Pre-push hooks** (run before pushing):
-- Fast test suite (`pytest --maxfail=3 -x`)
-
-#### Why prek?
-
-- **10-100x faster** than pre-commit (Rust-based)
-- **Single binary** - no Python venv overhead
-- **Parallel execution** of hooks
-- **Native uv integration** for Python environments
-- **Drop-in replacement** - same `.pre-commit-config.yaml` format
-- Used by Astral's own projects (ruff, ty, uv)
-
-You can run hooks manually:
-
-```bash
-# Run all hooks on all files
-uv run prek run --all-files
-
-# Run specific hook
-uv run prek run ruff
-
-# Run only pre-commit stage hooks
-uv run prek run --hook-stage pre-commit
-
-# Run only pre-push stage hooks
-uv run prek run --hook-stage pre-push
-
-# List all configured hooks
-uv run prek list
-```
-
-To bypass hooks temporarily (not recommended):
-
-```bash
-git commit --no-verify
-git push --no-verify
-```
-
-### Code Quality Tools
-
-#### Ruff (Linting & Formatting)
-
-```bash
-# Check all files
-uv run ruff check .
-
-# Fix auto-fixable issues
-uv run ruff check . --fix
-
-# Format all files
-uv run ruff format .
-
-# Check specific file
-uv run ruff check src/audiorag/models.py
-```
-
-Configuration: `pyproject.toml` under `[tool.ruff]`
-
-#### Ty (Type Checking)
-
-```bash
-# Type check entire project
-uv run ty check
-
-# Type check specific file
-uv run ty check src/audiorag/models.py
-
-# Watch mode for development
-uv run ty check --watch
-```
-
-Configuration: `pyproject.toml` under `[tool.ty]`
-
-### Running Tests
-
-```bash
-# Run all tests
+# Run tests
 uv run pytest
 
-# Run with coverage
-uv run pytest --cov=src/audiorag --cov-report=term-missing
+# Run checks
+uv run ruff check . --fix
+uv run ty check
 
-# Run specific test file
-uv run pytest tests/test_models.py
-
-# Run specific test
-uv run pytest tests/test_models.py::TestChunkMetadata
+# Install pre-commit hooks
+uv run prek install
 ```
 
-### Building
+## Pipeline Stages
 
-```bash
-uv build
-```
+1. **Download**: Fetch audio from URL (YouTube supported)
+2. **Split**: Divide large files into processable chunks
+3. **Transcribe**: Convert audio to text using STT provider
+4. **Chunk**: Group transcription into time-based segments
+5. **Embed**: Generate vector embeddings for each chunk
+6. **Store**: Persist embeddings in vector database
 
----
+## License
 
-**Stack:** Python 3.12+ · uv · Ruff · Ty · prek · pytest
+MIT License
