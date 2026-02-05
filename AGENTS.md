@@ -1,10 +1,6 @@
 # AudioRAG - Agent Guidelines
 
-This document provides guidelines for AI agents working in the AudioRAG codebase.
-
-## Project Overview
-
-AudioRAG is a provider-agnostic RAG (Retrieval-Augmented Generation) pipeline for audio files. It downloads audio from sources (primarily YouTube), transcribes it, chunks it, embeds it, and enables semantic search with LLM-generated answers.
+Provider-agnostic RAG pipeline for audio files. Downloads, transcribes, chunks, embeds, and enables semantic search over audio content.
 
 - **Language**: Python 3.12+
 - **Package Manager**: `uv`
@@ -16,23 +12,28 @@ AudioRAG is a provider-agnostic RAG (Retrieval-Augmented Generation) pipeline fo
 # Install dependencies
 uv sync
 
-# Install with all optional dependencies
-uv sync --all-extras
-
 # Run all tests
 uv run pytest
 
-# Run single test file
+# Run single test file/class/method
 uv run pytest tests/test_models.py
-
-# Run single test class
 uv run pytest tests/test_models.py::TestChunkMetadata
-
-# Run single test method
 uv run pytest tests/test_models.py::TestChunkMetadata::test_valid_creation
 
-# Run with coverage (requires 80% coverage)
+# Coverage (requires 80%)
 uv run pytest --cov=src/audiorag --cov-report=term-missing
+
+# Linting and formatting (Ruff)
+uv run ruff check . --fix      # Check with auto-fix
+uv run ruff format .           # Format all files
+
+# Type checking (Ty - 100x faster than mypy)
+uv run ty check
+uv run ty check --watch        # Watch mode
+
+# Pre-commit hooks (prek - Rust-based)
+uv run prek run --all-files
+uv run prek run ruff           # Run specific hook
 
 # Build package
 uv build
@@ -41,81 +42,78 @@ uv build
 ## Code Style Guidelines
 
 ### Imports
-- Use `from __future__ import annotations` in all files for forward reference support
-- Group imports: stdlib → third-party → local
-- Use absolute imports for local modules (e.g., `from audiorag.models import X`)
-- **Lazy imports required** for optional dependencies (e.g., `openai`, `cohere`, `chromadb`)
-  - Import inside `__init__` or methods, NOT at module level
-  - This prevents `ModuleNotFoundError` when optional deps aren't installed
+- `from __future__ import annotations` in all files
+- Group: stdlib → third-party → local
+- Absolute imports for local modules
+- **Lazy imports** for optional dependencies inside methods, NOT module level
 
 ### Type Hints
-- Use modern Python syntax: `str | None` instead of `Optional[str]`
-- Use `list[T]` instead of `List[T]` (no typing imports needed)
-- Use `dict[str, Any]` instead of `Dict[str, Any]`
-- Use `from __future__ import annotations` to avoid forward reference issues
+- Modern syntax: `str | None`, `list[T]`, `dict[str, Any]`
+- No `Optional`, `List`, `Dict` from typing
 
 ### Naming Conventions
-- **Classes**: PascalCase (e.g., `AudioRAGPipeline`, `StateManager`)
-- **Functions/Methods**: snake_case (e.g., `chunk_transcription`, `get_source_status`)
-- **Variables**: snake_case (e.g., `chunk_duration_seconds`, `source_path`)
-- **Constants**: UPPER_SNAKE_CASE for module-level constants
-- **Private methods**: prefix with underscore (e.g., `_ensure_initialized`)
-- **Protocols**: Suffix with `Provider` (e.g., `STTProvider`, `EmbeddingProvider`)
+- **Classes**: PascalCase (`AudioRAGPipeline`, `StateManager`)
+- **Functions/Methods**: snake_case (`chunk_transcription`)
+- **Variables**: snake_case (`chunk_duration_seconds`)
+- **Constants**: UPPER_SNAKE_CASE
+- **Private**: prefix underscore (`_ensure_initialized`)
+- **Protocols**: Suffix with `Provider` (`STTProvider`, `EmbeddingProvider`)
 
 ### Pydantic Models
-- All data models extend `BaseModel` from pydantic
-- Use `computed_field` decorator for computed properties that should be serialized
+- Extend `BaseModel` from pydantic
+- Use `computed_field` decorator for serialized computed properties
 - Use `StrEnum` from `enum` module for status enums
-- Add docstrings to all model classes
+- Docstrings for all model classes
 
 ### Async Patterns
-- Use `async`/`await` throughout for I/O operations
-- Database operations use `aiosqlite`
-- External API calls use async clients (`AsyncOpenAI`, `AsyncClientV2`)
-- Pytest uses `pytest-asyncio` with `asyncio_mode = "auto"`
+- Use `async`/`await` throughout for I/O
+- Database: `aiosqlite`
+- External APIs: async clients (`AsyncOpenAI`, `AsyncClientV2`)
+- Pytest: `pytest-asyncio` with `asyncio_mode = "auto"`
 
 ### Error Handling
-- **Use structured exceptions** from `audiorag.exceptions`:
-  - `AudioRAGError` - Base exception for all errors
-  - `PipelineError` - Pipeline execution errors (has `stage`, `source_url` attributes)
-  - `ProviderError` - External provider errors (has `provider`, `retryable` attributes)
-  - `ConfigurationError` - Configuration validation errors
-  - `StateError` - Database/state management errors
-- Log errors before raising: `logger.error("Pipeline failed for %s: %s", url, e)`
-- Use `try/except/finally` for cleanup (e.g., temp directories)
-- State tracking includes FAILED status with error messages
-- Check `e.retryable` for ProviderError to decide if retry is appropriate
+Use structured exceptions from `audiorag.exceptions`:
+- `AudioRAGError` - Base for all errors
+- `PipelineError` - Pipeline failures (has `stage`, `source_url`)
+- `ProviderError` - External provider errors (has `provider`, `retryable`)
+- `ConfigurationError` - Config validation errors
+- `StateError` - Database/state errors
+
+Log before raising: `logger.error("Pipeline failed for %s: %s", url, e)`
 
 ### Retry Logic
-- All external API calls use tenacity retry decorators
-- Configuration: 3 attempts, exponential backoff (4s min, 10s max)
+- All external APIs use tenacity retry decorators
+- 3 attempts, exponential backoff (4s min, 60s max)
 - Retry on: `RateLimitError`, transient API errors
-- Import tenacity: `from tenacity import retry, stop_after_attempt, wait_exponential, ...`
 
 ### Documentation
-- Use Google-style docstrings
-- Document all public methods with Args and Returns sections
-- Include type information in docstrings
-- Add module-level docstrings explaining purpose
+- Google-style docstrings
+- Document public methods with Args/Returns
+- Module-level docstrings explaining purpose
+- **Line length**: 100 characters (Ruff config)
 
-### Protocols (Interfaces)
-- Define protocols in `src/audiorag/protocols/`
-- All providers implement protocol interfaces
-- Use structural subtyping (duck typing) via Protocol
+### Protocols
+- Define in `src/audiorag/protocols/`
+- Use `runtime_checkable` decorator
+- Structural subtyping via Protocol
 
 ### State Management
-- Use SQLite with WAL mode for concurrency
+- SQLite with WAL mode for concurrency
 - Hash-based IDs using SHA-256
 - ISO 8601 timestamps in UTC
-- Support for async context managers (`__aenter__`/`__aexit__`)
+- Async context managers support
+
+### Logging
+- Use structured logging: `from audiorag.logging_config import get_logger`
+- Bind context: `logger.bind(provider="openai", operation="embed")`
+- Levels: debug (verbose), info (operations), warning (retries), error (failures)
 
 ### Testing
-- Tests in `tests/` directory mirroring source structure
-- Use `conftest.py` for shared fixtures
-- Mock external providers using `AsyncMock`
-- Use `pytest-mock` for spying and patching
-- Class-based test organization by feature
-- Tests should be async when testing async code
+- Tests mirror source structure in `tests/`
+- Use `conftest.py` for fixtures
+- Mock providers with `AsyncMock`
+- Class-based organization by feature
+- Async tests for async code
 
 ## Project Structure
 
@@ -127,14 +125,22 @@ src/audiorag/
   pipeline.py          # Main orchestrator
   state.py             # SQLite state management
   chunking.py          # Audio chunking logic
+  retry_config.py      # Centralized retry logic
+  logging_config.py    # Structured logging setup
+  exceptions.py        # Exception hierarchy
   providers/           # Provider implementations
-    __init__.py
-    openai_*.py        # OpenAI providers
-    chromadb_store.py  # ChromaDB vector store
-    youtube_scraper.py # YouTube audio source
-    ...
+    openai_*.py        # OpenAI providers (embeddings, STT, generation)
+    voyage_embeddings.py
+    cohere_*.py        # Cohere providers
+    deepgram_stt.py
+    assemblyai_stt.py
+    chromadb_store.py
+    pinecone_store.py
+    weaviate_store.py
+    youtube_scraper.py
+    audio_splitter.py
+    passthrough_reranker.py
   protocols/           # Protocol definitions
-    __init__.py
     stt.py
     embedding.py
     vector_store.py
@@ -142,17 +148,9 @@ src/audiorag/
     reranker.py
     audio_source.py
 tests/
-  conftest.py          # Shared pytest fixtures
+  conftest.py          # Shared fixtures
   test_*.py            # Test files
 ```
-
-## Important Patterns
-
-1. **Provider Pattern**: All external services (STT, embeddings, LLM, etc.) are abstracted behind protocols
-2. **Lazy Initialization**: Default providers are created lazily in `__init__` to allow custom overrides
-3. **Shared Clients**: Share clients between related providers (e.g., one `AsyncOpenAI` client for both embeddings and generation)
-4. **State Tracking**: All pipeline stages track status in SQLite for resumability
-5. **Config-driven**: All settings via `AudioRAGConfig` with environment variable support
 
 ## Environment Variables
 
@@ -161,12 +159,27 @@ All config uses `AUDIORAG_` prefix:
 - `AUDIORAG_COHERE_API_KEY`
 - `AUDIORAG_DATABASE_PATH`
 - `AUDIORAG_CHUNK_DURATION_SECONDS`
-- etc.
+- `AUDIORAG_STT_PROVIDER`
+- `AUDIORAG_EMBEDDING_PROVIDER`
+- `AUDIORAG_VECTOR_STORE_PROVIDER`
+- `AUDIORAG_GENERATION_PROVIDER`
+
+## Important Patterns
+
+1. **Provider Pattern**: All external services abstracted behind protocols
+2. **Lazy Initialization**: Default providers created lazily in `__init__`
+3. **Shared Clients**: One client per provider type (e.g., single `AsyncOpenAI`)
+4. **State Tracking**: All pipeline stages tracked in SQLite for resumability
+5. **Config-driven**: All settings via `AudioRAGConfig` with env var support
+6. **Retry Decorators**: Use `create_retry_decorator()` from `retry_config.py`
+7. **Logger Binding**: Always bind provider name and operation to loggers
 
 ## Common Gotchas
 
 - Never import optional dependencies at module level
 - Always call `initialize()` on `StateManager` before use
-- Use `source_path` (URL) as the unique key, not video title
+- Use `source_path` (URL) as unique key, not video title
 - `ChunkMetadata` is different from chunk dict stored in SQLite
 - Vector store uses chunk IDs generated by `StateManager`
+- Check `e.retryable` on `ProviderError` for retry decisions
+- All tests are async - use `async def test_*()`
