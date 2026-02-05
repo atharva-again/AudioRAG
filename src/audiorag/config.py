@@ -10,12 +10,13 @@ class AudioRAGConfig(BaseSettings):
 
     Environment Variables (all prefixed with AUDIORAG_):
         Provider Selection:
-            STT_PROVIDER: openai, deepgram, assemblyai
+            STT_PROVIDER: openai, deepgram, assemblyai, groq
             EMBEDDING_PROVIDER: openai, voyage, cohere
-            VECTOR_STORE_PROVIDER: chromadb, pinecone, weaviate
+            VECTOR_STORE_PROVIDER: chromadb, pinecone, weaviate, supabase
             GENERATION_PROVIDER: openai, anthropic, gemini
 
         STT Models:
+            Groq: whisper-large-v3 (default)
             Deepgram: nova-2 (default), nova-2-general, nova-2-meeting,
                       nova-2-phonecall, nova-2-voicemail, nova-2-finance,
                       nova-2-conversationalai, nova-2-video, nova-2-medical,
@@ -51,9 +52,9 @@ class AudioRAGConfig(BaseSettings):
     # =========================================================================
     # Provider Selection
     # =========================================================================
-    stt_provider: str = "openai"  # openai | deepgram | assemblyai
+    stt_provider: str = "openai"  # openai | deepgram | assemblyai | groq
     embedding_provider: str = "openai"  # openai | voyage | cohere
-    vector_store_provider: str = "chromadb"  # chromadb | pinecone | weaviate
+    vector_store_provider: str = "chromadb"  # chromadb | pinecone | weaviate | supabase
     generation_provider: str = "openai"  # openai | anthropic | gemini
     reranker_provider: str = "cohere"  # cohere | passthrough
 
@@ -68,6 +69,9 @@ class AudioRAGConfig(BaseSettings):
 
     # AssemblyAI (STT)
     assemblyai_api_key: str = ""
+
+    # Groq (STT)
+    groq_api_key: str = ""
 
     # Voyage AI (embeddings)
     voyage_api_key: str = ""
@@ -88,6 +92,11 @@ class AudioRAGConfig(BaseSettings):
     weaviate_url: str = ""
     weaviate_api_key: str = ""
 
+    # Supabase (vector store)
+    supabase_connection_string: str = ""
+    supabase_collection_name: str = "audiorag"
+    supabase_vector_dimension: int = 1536
+
     # =========================================================================
     # Vector Store Settings
     # =========================================================================
@@ -104,6 +113,20 @@ class AudioRAGConfig(BaseSettings):
     work_dir: Path | None = None
 
     # =========================================================================
+    # YouTube Scraping (Large-Scale)
+    # =========================================================================
+    # Download archive file tracks already processed videos (resumable scraping)
+    youtube_download_archive: str | None = None
+    # Concurrent fragments per download (higher = faster but more bandwidth)
+    youtube_concurrent_fragments: int = 3
+    # Skip playlist after N consecutive errors
+    youtube_skip_after_errors: int = 3
+    # Batch size for channel scraping (videos per batch)
+    youtube_batch_size: int = 100
+    # Max concurrent downloads within a batch
+    youtube_max_concurrent: int = 3
+
+    # =========================================================================
     # Audio Processing
     # =========================================================================
     chunk_duration_seconds: int = 300
@@ -114,6 +137,7 @@ class AudioRAGConfig(BaseSettings):
     # Model Configuration
     # =========================================================================
     # STT Models:
+    #   - Groq: "whisper-large-v3"
     #   - Deepgram: "nova-2", "nova-2-general", "nova-2-meeting", "nova-2-phonecall",
     #               "nova-2-voicemail", "nova-2-finance", "nova-2-conversationalai",
     #               "nova-2-video", "nova-2-medical", "nova-1", "enhanced", "base"
@@ -168,6 +192,8 @@ class AudioRAGConfig(BaseSettings):
 
     def get_stt_model(self) -> str:
         """Get the appropriate STT model based on provider."""
+        if self.stt_provider == "groq":
+            return self.stt_model if self.stt_model != "whisper-1" else "whisper-large-v3"
         if self.stt_provider == "deepgram":
             return self.stt_model if self.stt_model != "whisper-1" else "nova-2"
         if self.stt_provider == "assemblyai":

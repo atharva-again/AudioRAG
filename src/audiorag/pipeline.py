@@ -81,7 +81,15 @@ class AudioRAGPipeline:
         else:
             from audiorag.providers.youtube_scraper import YouTubeScraper  # noqa: PLC0415
 
-            self._audio_source = YouTubeScraper(retry_config=retry_config)
+            archive_path = (
+                Path(config.youtube_download_archive) if config.youtube_download_archive else None
+            )
+            self._audio_source = YouTubeScraper(
+                retry_config=retry_config,
+                download_archive=archive_path,
+                concurrent_fragments=config.youtube_concurrent_fragments,
+                skip_playlist_after_errors=config.youtube_skip_after_errors,
+            )
 
         # Initialize STT provider based on config
         if stt is not None:
@@ -126,6 +134,14 @@ class AudioRAGPipeline:
         """Create STT provider based on config."""
         provider_name = config.stt_provider.lower()
 
+        if provider_name == "groq":
+            from audiorag.providers.groq_stt import GroqSTTProvider  # noqa: PLC0415
+
+            return GroqSTTProvider(
+                api_key=config.groq_api_key or None,
+                model=config.get_stt_model(),
+                retry_config=retry_config,
+            )
         if provider_name == "deepgram":
             from audiorag.providers.deepgram_stt import DeepgramSTTProvider  # noqa: PLC0415
 
@@ -197,6 +213,15 @@ class AudioRAGPipeline:
         """Create vector store provider based on config."""
         provider_name = config.vector_store_provider.lower()
 
+        if provider_name == "supabase":
+            from audiorag.providers.supabase_pgvector import SupabasePgVectorStore  # noqa: PLC0415
+
+            return SupabasePgVectorStore(
+                connection_string=config.supabase_connection_string,
+                collection_name=config.supabase_collection_name,
+                dimension=config.supabase_vector_dimension,
+                retry_config=retry_config,
+            )
         if provider_name == "pinecone":
             from audiorag.providers.pinecone_store import PineconeVectorStore  # noqa: PLC0415
 

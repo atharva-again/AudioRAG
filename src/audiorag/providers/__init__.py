@@ -9,11 +9,14 @@ __all__ = [
     "CohereReranker",
     "DeepgramSTTProvider",
     "GeminiGenerationProvider",
+    "GroqSTTProvider",
     "OpenAIEmbeddingProvider",
     "OpenAIGenerationProvider",
     "OpenAISTTProvider",
     "PassthroughReranker",
     "PineconeVectorStore",
+    "SupabasePgVectorStore",
+    "VideoInfo",
     "VoyageEmbeddingProvider",
     "WeaviateVectorStore",
     "YouTubeScraper",
@@ -45,6 +48,10 @@ def __getattr__(name: str) -> object:  # noqa: PLR0911, PLR0912
         from .assemblyai_stt import AssemblyAISTTProvider  # noqa: PLC0415
 
         return AssemblyAISTTProvider
+    if name == "GroqSTTProvider":
+        from .groq_stt import GroqSTTProvider  # noqa: PLC0415
+
+        return GroqSTTProvider
 
     # Embedding Providers
     if name == "OpenAIEmbeddingProvider":
@@ -73,6 +80,16 @@ def __getattr__(name: str) -> object:  # noqa: PLR0911, PLR0912
         from .weaviate_store import WeaviateVectorStore  # noqa: PLC0415
 
         return WeaviateVectorStore
+    if name == "SupabasePgVectorStore":
+        from .supabase_pgvector import SupabasePgVectorStore  # noqa: PLC0415
+
+        return SupabasePgVectorStore
+
+    # Audio Source
+    if name == "VideoInfo":
+        from .youtube_scraper import VideoInfo  # noqa: PLC0415
+
+        return VideoInfo
 
     # Generation Providers
     if name == "OpenAIGenerationProvider":
