@@ -1,7 +1,166 @@
+[build-system]
+requires = ["uv_build>=0.9.18,<0.10.0"]
+build-backend = "uv_build"
+
 [project]
 name = "audiorag"
 version = "0.1.0"
-description = "Add your description here"
+description = "RAG over audio files with provider-agnostic pipeline"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "aiosqlite>=0.19",
+    "tenacity>=8.0",
+    "structlog>=24.0",
+]
+
+[project.optional-dependencies]
+defaults = [
+    "openai>=1.0",
+    "chromadb>=0.4",
+    "yt-dlp>=2024.0",
+    "pydub>=0.25",
+    "cohere>=5.0",
+]
+openai = ["openai>=1.0"]
+chromadb = ["chromadb>=0.4"]
+scraping = ["yt-dlp>=2024.0", "pydub>=0.25"]
+cohere = ["cohere>=5.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "pytest-mock>=3.0",
+    "ruff>=0.9.0",
+    "ty>=0.1.0",
+    "prek>=0.3.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src/audiorag"]
+omit = ["*/tests/*", "*/test_*"]
+
+[tool.coverage.report]
+fail_under = 80
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    # Pyflakes
+    "F",
+    # pycodestyle
+    "E",
+    "W",
+    # Pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # pep8-naming
+    "N",
+    # pydocstyle
+    "D",
+    # flake8-annotations
+    "ANN",
+    # flake8-bandit
+    "S",
+    # flake8-comprehensions
+    "C4",
+    # flake8-implicit-str-concat
+    "ISC",
+    # flake8-pytest-style
+    "PT",
+    # flake8-return
+    "RET",
+    # flake8-unused-arguments
+    "ARG",
+    # pylint
+    "PL",
+    # ruff-specific
+    "RUF",
+]
+ignore = [
+    # Do not require docstrings for every public module
+    "D100",
+    # Do not require docstrings for every public class
+    "D101",
+    # Do not require docstrings for every public method
+    "D102",
+    # Do not require docstrings for every public function
+    "D103",
+    # Do not require docstrings for every public package
+    "D104",
+    # Do not require docstrings for magic methods
+    "D105",
+    # Do not require docstrings for nested classes
+    "D106",
+    # Do not require docstrings for __init__
+    "D107",
+    # Allow missing return type annotation for special methods
+    "ANN204",
+    # Allow `Any` type
+    "ANN401",
+    # Allow assert statements in tests
+    "S101",
+    # Allow subprocess calls (we need them for yt-dlp)
+    "S603",
+    # Allow possible SQL injection in tests
+    "S608",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "ANN",      # Don't require annotations in tests
+    "S",        # Don't enforce security in tests
+    "D",        # Don't require docstrings in tests
+    "PLR2004",  # Allow magic numbers in tests
+]
+"**/__init__.py" = [
+    "F401",     # Allow unused imports in __init__.py
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ty]
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.rules]
+# Ty doesn't support 'all' rule - configure individual rules as needed
+
+[tool.ty.src]
+include = ["src", "tests"]
+exclude = [
+    "**/__pycache__",
+    "**/node_modules",
+    "**/.venv",
+    "**/dist",
+]
+
+[tool.ty.terminal]
+error-on-warning = true
+output-format = "full"
