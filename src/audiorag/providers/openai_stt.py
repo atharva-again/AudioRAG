@@ -89,11 +89,21 @@ class OpenAISTTProvider:
             segments = []
             if hasattr(response, "segments") and response.segments:
                 for segment in response.segments:
+                    # Handle both objects and dicts (SDK version dependent)
+                    if isinstance(segment, dict):
+                        start = segment.get("start", 0.0)
+                        end = segment.get("end", 0.0)
+                        text = segment.get("text", "")
+                    else:
+                        start = getattr(segment, "start", 0.0)
+                        end = getattr(segment, "end", 0.0)
+                        text = getattr(segment, "text", "")
+
                     segments.append(
                         TranscriptionSegment(
-                            start_time=segment.start,
-                            end_time=segment.end,
-                            text=segment.text,
+                            start_time=start,
+                            end_time=end,
+                            text=text,
                         )
                     )
 

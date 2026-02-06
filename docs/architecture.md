@@ -151,7 +151,7 @@ Pydantic-settings based configuration with environment variable support.
 
 4. **Chunk**
    - Group segments by duration
-   - Configurable chunk size (default: 300s)
+    - Configurable chunk size (default: 30s)
    - Filter empty chunks
    - Preserve metadata
 

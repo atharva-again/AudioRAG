@@ -89,6 +89,11 @@ class AudioRAGPipeline:
                 download_archive=archive_path,
                 concurrent_fragments=config.youtube_concurrent_fragments,
                 skip_playlist_after_errors=config.youtube_skip_after_errors,
+                cookie_file=config.youtube_cookie_file,
+                po_token=config.youtube_po_token,
+                impersonate_client=config.youtube_impersonate,
+                player_clients=config.youtube_player_clients,
+                js_runtime=config.js_runtime,
             )
 
         # Initialize STT provider based on config

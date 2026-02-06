@@ -212,7 +212,7 @@ export AUDIORAG_SUPABASE_VECTOR_DIMENSION="1536"
 
 ```bash
 # Duration of each chunk in seconds
-export AUDIORAG_CHUNK_DURATION_SECONDS="300"
+export AUDIORAG_CHUNK_DURATION_SECONDS="30"
 
 # Audio format for downloads
 export AUDIORAG_AUDIO_FORMAT="mp3"

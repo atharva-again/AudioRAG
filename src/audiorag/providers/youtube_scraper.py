@@ -54,6 +54,11 @@ class YouTubeScraper:
         skip_playlist_after_errors: int = 3,
         extract_flat: bool = False,
         playlist_items: str | None = None,
+        cookie_file: Path | str | None = None,
+        po_token: str | None = None,
+        impersonate_client: str | None = "chrome",
+        player_clients: list[str] | None = None,
+        js_runtime: str | None = "node",
     ) -> None:
         """Initialize YouTubeScraper and validate FFmpeg availability.
 
@@ -69,6 +74,13 @@ class YouTubeScraper:
                 Set True for channel listings, False for full downloads.
             playlist_items: Specific items to download (e.g., "1:100" for first 100).
                 Useful for batch processing large channels.
+            cookie_file: Path to netscape format cookie file for YouTube authentication.
+                Required if YouTube blocks downloads (HTTP 403).
+            po_token: Proof of Origin token to bypass bot detection (HTTP 403).
+            impersonate_client: Client to impersonate (e.g. "chrome", "safari").
+                Requires curl_cffi to be installed.
+            player_clients: List of YouTube player clients to use.
+            js_runtime: JavaScript runtime to use for EJS scripts (e.g. "node", "deno").
         """
         self._logger = logger.bind(provider="youtube_scraper")
         self._retry_config = retry_config or RetryConfig()
@@ -77,6 +89,11 @@ class YouTubeScraper:
         self._skip_playlist_after_errors = skip_playlist_after_errors
         self._extract_flat = extract_flat
         self._playlist_items = playlist_items
+        self._cookie_file = Path(cookie_file) if cookie_file else None
+        self._po_token = po_token
+        self._impersonate_client = impersonate_client
+        self._player_clients = player_clients or ["tv", "web", "mweb"]
+        self._js_runtime = js_runtime
 
         if not shutil.which("ffmpeg"):
             self._logger.error("ffmpeg_not_found")
@@ -96,13 +113,44 @@ class YouTubeScraper:
     def _get_base_ydl_opts(self) -> dict[str, Any]:
         """Get base yt-dlp options with large-scale optimizations."""
         opts: dict[str, Any] = {
-            "format": "bestaudio/best",
+            "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
             "quiet": True,
             "no_warnings": True,
             "ignoreerrors": True,  # Continue on individual video errors
-            "concurrent_fragments": self._concurrent_fragments,
             "skip_playlist_after_errors": self._skip_playlist_after_errors,
+            "extractor_args": {
+                "youtube": {
+                    "player_client": self._player_clients,
+                }
+            },
         }
+
+        if self._po_token:
+            token = self._po_token
+            if "+" not in token:
+                # Default to mweb.gvs context if not provided
+                token = f"mweb.gvs+{token}"
+            opts["extractor_args"]["youtube"]["po_token"] = [token]
+
+        if self._impersonate_client:
+            try:
+                from yt_dlp.networking.impersonate import ImpersonateTarget
+
+                opts["impersonate"] = ImpersonateTarget.from_str(self._impersonate_client)
+            except (ImportError, ValueError):
+                opts["impersonate"] = self._impersonate_client
+
+        if self._js_runtime:
+            if ":" in self._js_runtime:
+                name, path = self._js_runtime.split(":", 1)
+                expanded_path = str(Path(path).expanduser())
+                opts["js_runtimes"] = {name: {"path": expanded_path}}
+            elif self._js_runtime.startswith("/") or self._js_runtime.startswith("~"):
+                expanded_path = str(Path(self._js_runtime).expanduser())
+                opts["js_runtimes"] = {"deno": {"path": expanded_path}}
+            else:
+                opts["js_runtimes"] = {self._js_runtime: {}}
+            opts["remote_components"] = {"ejs:github"}
 
         # Archive file to track downloaded videos (essential for large channels)
         if self._download_archive:
@@ -117,6 +165,9 @@ class YouTubeScraper:
         # Specific playlist items (for batch processing)
         if self._playlist_items:
             opts["playlist_items"] = self._playlist_items
+
+        if self._cookie_file and self._cookie_file.exists():
+            opts["cookiefile"] = str(self._cookie_file)
 
         return opts
 

@@ -125,11 +125,16 @@ class AudioRAGConfig(BaseSettings):
     youtube_batch_size: int = 100
     # Max concurrent downloads within a batch
     youtube_max_concurrent: int = 3
+    youtube_cookie_file: str | None = None
+    youtube_po_token: str | None = None
+    youtube_impersonate: str | None = "chrome"
+    youtube_player_clients: list[str] = ["tv", "web", "mweb"]
+    js_runtime: str | None = "deno:~/.deno/bin/deno"
 
     # =========================================================================
     # Audio Processing
     # =========================================================================
-    chunk_duration_seconds: int = 300
+    chunk_duration_seconds: int = 30
     audio_format: str = "mp3"
     audio_split_max_size_mb: int = 24
 
