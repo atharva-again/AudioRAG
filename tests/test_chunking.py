@@ -1,8 +1,7 @@
 """Comprehensive unit tests for chunk_transcription function."""
 
-
 from audiorag.chunking import chunk_transcription
-from audiorag.models import ChunkMetadata, TranscriptionSegment
+from audiorag.core.models import ChunkMetadata, TranscriptionSegment
 
 
 class TestChunkingBasic:

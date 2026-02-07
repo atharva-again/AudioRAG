@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from audiorag.state import StateManager
+from audiorag.core.state import StateManager
 
 # ============================================================================
 # Test Fixtures

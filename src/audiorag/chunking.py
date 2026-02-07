@@ -1,6 +1,6 @@
 """Time-based text chunking for transcription segments."""
 
-from audiorag.models import ChunkMetadata, TranscriptionSegment
+from audiorag.core.models import ChunkMetadata, TranscriptionSegment
 
 
 def chunk_transcription(

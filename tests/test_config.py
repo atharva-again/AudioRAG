@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from audiorag.config import AudioRAGConfig
+from audiorag.core.config import AudioRAGConfig
 
 # ============================================================================
 # TestAudioRAGConfigDefaults - Test all default values

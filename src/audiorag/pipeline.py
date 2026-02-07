@@ -7,23 +7,25 @@ import tempfile
 from pathlib import Path
 
 from audiorag.chunking import chunk_transcription
-from audiorag.config import AudioRAGConfig
-from audiorag.logging_config import Timer, configure_logging, get_logger
-from audiorag.models import (
-    IndexingStatus,
-    QueryResult,
-    Source,
-)
-from audiorag.protocols import (
+from audiorag.core import (
+    AudioFile,
+    AudioRAGConfig,
     AudioSourceProvider,
     EmbeddingProvider,
     GenerationProvider,
+    IndexingStatus,
+    QueryResult,
     RerankerProvider,
+    RetryConfig,
     STTProvider,
+    Source,
+    StateManager,
+    TranscriptionSegment,
     VectorStoreProvider,
+    configure_logging,
+    get_logger,
 )
-from audiorag.retry_config import RetryConfig
-from audiorag.state import StateManager
+from audiorag.core.logging_config import Timer
 
 logger = get_logger(__name__)
 
@@ -405,7 +407,7 @@ class AudioRAGPipeline:
                     segments = await self._stt.transcribe(part_path, self._config.stt_language)
                     # Adjust timestamps for subsequent parts
                     if cumulative_offset > 0:
-                        from audiorag.models import TranscriptionSegment  # noqa: PLC0415
+                        from audiorag.core.models import TranscriptionSegment  # noqa: PLC0415
 
                         segments = [
                             TranscriptionSegment(

@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from audiorag.models import (
+from audiorag.core.models import (
     AudioFile,
     ChunkMetadata,
     IndexingStatus,

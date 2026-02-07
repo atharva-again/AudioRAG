@@ -48,7 +48,7 @@ dev = [
     "pytest-cov>=5.0",
     "pytest-mock>=3.0",
     "ruff>=0.9.0",
-    "ty>=0.1.0",
+    "ty>=0.0.15",
     "prek>=0.3.0",
 ]
 

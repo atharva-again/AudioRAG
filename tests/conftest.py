@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from audiorag.models import ChunkMetadata, TranscriptionSegment
+from audiorag.core.models import ChunkMetadata, TranscriptionSegment
 
 # ============================================================================
 # Event Loop Configuration
