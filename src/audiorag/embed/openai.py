@@ -1,4 +1,4 @@
-"""OpenAI embedding provider implementation."""
+"""OpenAI embedding provider."""
 
 from __future__ import annotations
 
@@ -6,60 +6,40 @@ from typing import Any
 
 from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError  # type: ignore
 
-from audiorag.core import (
-    RetryConfig,
-    create_retry_decorator,
-    get_logger,
-)
+from audiorag.core.logging_config import get_logger
+from audiorag.embed._base import EmbedderMixin
 
 logger = get_logger(__name__)
 
 
-class OpenAIEmbeddingProvider:
-    """Embedding provider using OpenAI's embedding models.
+class OpenAIEmbeddingProvider(EmbedderMixin):
+    """Embedding provider using OpenAI's embedding models."""
 
-    Satisfies the EmbeddingProvider Protocol by implementing the async embed method.
-    """
+    MODEL_TEXT_EMBEDDING_3_SMALL = "text-embedding-3-small"
+    MODEL_TEXT_EMBEDDING_3_LARGE = "text-embedding-3-large"
+    MODEL_TEXT_EMBEDDING_ADA_002 = "text-embedding-ada-002"
+
+    _provider_name: str = "openai_embedding"
+    _retryable_exceptions: tuple[type[Exception], ...] = (
+        RateLimitError,
+        APIError,
+        APITimeoutError,
+        ConnectionError,
+    )
 
     def __init__(
         self,
-        client: AsyncOpenAI | None = None,
+        *,
+        api_key: str | None = None,
         model: str = "text-embedding-3-small",
-        retry_config: RetryConfig | None = None,
+        retry_config: Any | None = None,
     ) -> None:
-        """Initialize the OpenAI embedding provider.
-
-        Args:
-            client: AsyncOpenAI client instance. If None, a new client will be created.
-            model: The embedding model to use. Defaults to "text-embedding-3-small".
-            retry_config: Retry configuration. Uses default if not provided.
-        """
-        self.client = client or AsyncOpenAI()
-        self.model = model
-        self._logger = logger.bind(provider="openai_embedding", model=model)
-        self._retry_config = retry_config or RetryConfig()
-
-    def _get_retry_decorator(self) -> Any:
-        """Get retry decorator configured for OpenAI API calls."""
-        return create_retry_decorator(
-            config=self._retry_config,
-            exception_types=(
-                RateLimitError,
-                APIError,
-                APITimeoutError,
-                ConnectionError,
-            ),
-        )
+        """Initialize the OpenAI embedding provider."""
+        super().__init__(api_key=api_key, model=model, retry_config=retry_config)
+        self.client = AsyncOpenAI(api_key=api_key)
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for a list of texts using OpenAI.
-
-        Args:
-            texts: List of text strings to embed.
-
-        Returns:
-            List of embedding vectors, where each vector is a list of floats.
-        """
+        """Generate embeddings using OpenAI."""
         operation_logger = self._logger.bind(
             texts_count=len(texts),
             operation="embed",
@@ -77,21 +57,12 @@ class OpenAIEmbeddingProvider:
 
         try:
             response = await _embed_with_retry()
-
-            # Extract embeddings from response and return as list[list[float]]
             embeddings = [item.embedding for item in response.data]
-
             operation_logger.info(
                 "embedding_completed",
                 embeddings_count=len(embeddings),
                 dimensions=len(embeddings[0]) if embeddings else 0,
             )
             return embeddings
-
         except Exception as e:
-            operation_logger.error(
-                "embedding_failed",
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            raise
+            raise await self._wrap_error(e, "embed")
