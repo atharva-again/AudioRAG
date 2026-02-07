@@ -3,7 +3,7 @@
 import pytest
 
 from audiorag import AudioRAGPipeline, QueryResult
-from audiorag.models import IndexingStatus
+from audiorag.core.models import IndexingStatus
 
 
 class TestPipelineInitialization:

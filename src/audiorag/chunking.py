@@ -7,7 +7,7 @@ def chunk_transcription(
     segments: list[TranscriptionSegment],
     chunk_duration_seconds: int | float,
     source_url: str,
-    video_title: str,
+    title: str,
 ) -> list[ChunkMetadata]:
     """Group transcription segments into non-overlapping time-based chunks.
 
@@ -15,7 +15,7 @@ def chunk_transcription(
         segments: List of transcription segments from STT provider.
         chunk_duration_seconds: Target duration for each chunk in seconds.
         source_url: Source URL for all chunks.
-        video_title: Video title for all chunks.
+        title: Title for all chunks.
 
     Returns:
         List of ChunkMetadata objects grouped by duration, with empty chunks filtered out.
@@ -54,7 +54,7 @@ def chunk_transcription(
                     end_time=chunk_segments[-1].end_time,
                     text=chunk_text,
                     source_url=source_url,
-                    video_title=video_title,
+                    title=title,
                 )
                 chunks.append(chunk)
 
@@ -67,7 +67,7 @@ def chunk_transcription(
                 end_time=current_chunk_segments[-1].end_time,
                 text=chunk_text,
                 source_url=source_url,
-                video_title=video_title,
+                title=title,
             )
             chunks.append(chunk)
 

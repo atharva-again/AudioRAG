@@ -364,7 +364,7 @@ class YouTubeScraper:
             result = await asyncio.to_thread(_download_with_retry)
             operation_logger.info(
                 "download_completed",
-                video_title=result.video_title,
+                video_title=result.title,
                 duration_seconds=result.duration,
                 file_path=str(result.path),
             )
@@ -433,7 +433,7 @@ class YouTubeScraper:
                 return AudioFile(
                     path=audio_path,
                     source_url=url,
-                    video_title=video_title,
+                    title=video_title,
                     duration=duration,
                 )
 

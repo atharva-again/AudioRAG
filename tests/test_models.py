@@ -23,13 +23,13 @@ class TestChunkMetadata:
             end_time=5.5,
             text="Sample text",
             source_url="https://youtube.com/watch?v=abc123",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert chunk.start_time == 0.0
         assert chunk.end_time == 5.5
         assert chunk.text == "Sample text"
         assert chunk.source_url == "https://youtube.com/watch?v=abc123"
-        assert chunk.video_title == "Test Video"
+        assert chunk.title == "Test Video"
 
     def test_field_types_validation(self):
         """Test that field types are properly validated."""
@@ -39,7 +39,7 @@ class TestChunkMetadata:
             end_time=10.75,
             text="Text",
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert isinstance(chunk.start_time, float)
         assert isinstance(chunk.end_time, float)
@@ -52,11 +52,11 @@ class TestChunkMetadata:
             end_time=5.0,
             text="",
             source_url="",
-            video_title="",
+            title="",
         )
         assert chunk.text == ""
         assert chunk.source_url == ""
-        assert chunk.video_title == ""
+        assert chunk.title == ""
 
     def test_negative_times(self):
         """Test that negative times are accepted (edge case)."""
@@ -65,7 +65,7 @@ class TestChunkMetadata:
             end_time=5.0,
             text="Text",
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunk.start_time == -1.0
 
@@ -76,7 +76,7 @@ class TestChunkMetadata:
             end_time=5.0,
             text="Instant text",
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunk.start_time == chunk.end_time
 
@@ -87,7 +87,7 @@ class TestChunkMetadata:
             end_time=3.0,
             text="Test",
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         data = chunk.model_dump()
         assert data["start_time"] == 1.0
@@ -101,7 +101,7 @@ class TestChunkMetadata:
             end_time=3.0,
             text="Test",
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         json_str = chunk.model_dump_json()
         assert isinstance(json_str, str)
@@ -115,7 +115,7 @@ class TestChunkMetadata:
             "end_time": 7.5,
             "text": "Deserialized",
             "source_url": "https://example.com",
-            "video_title": "Title",
+            "title": "Title",
         }
         chunk = ChunkMetadata(**data)  # type: ignore
         assert chunk.start_time == 2.5
@@ -128,7 +128,7 @@ class TestChunkMetadata:
             end_time=7200.0,  # 2 hours
             text="Long video chunk",
             source_url="https://example.com",
-            video_title="Long Video",
+            title="Long Video",
         )
         assert chunk.start_time == 3600.0
         assert chunk.end_time == 7200.0
@@ -144,51 +144,13 @@ class TestSource:
             start_time=10.0,
             end_time=15.0,
             source_url="https://youtube.com/watch?v=abc123",
-            video_title="Test Video",
+            title="Test Video",
             relevance_score=0.95,
         )
         assert source.text == "Source text"
         assert source.start_time == 10.0
         assert source.end_time == 15.0
         assert source.relevance_score == 0.95
-
-    def test_youtube_timestamp_url_property(self):
-        """Test computed youtube_timestamp_url property."""
-        source = Source(
-            text="Text",
-            start_time=30.5,
-            end_time=35.0,
-            source_url="https://youtube.com/watch?v=abc123",
-            video_title="Title",
-            relevance_score=0.8,
-        )
-        expected_url = "https://youtube.com/watch?v=abc123&t=30"
-        assert source.youtube_timestamp_url == expected_url
-
-    def test_youtube_timestamp_url_zero_time(self):
-        """Test youtube_timestamp_url with zero start time."""
-        source = Source(
-            text="Text",
-            start_time=0.0,
-            end_time=5.0,
-            source_url="https://youtube.com/watch?v=abc123",
-            video_title="Title",
-            relevance_score=0.8,
-        )
-        assert source.youtube_timestamp_url == "https://youtube.com/watch?v=abc123&t=0"
-
-    def test_youtube_timestamp_url_large_time(self):
-        """Test youtube_timestamp_url with large timestamp."""
-        source = Source(
-            text="Text",
-            start_time=3661.7,  # 1 hour, 1 minute, 1.7 seconds
-            end_time=3700.0,
-            source_url="https://youtube.com/watch?v=abc123",
-            video_title="Title",
-            relevance_score=0.8,
-        )
-        # Should truncate to integer
-        assert source.youtube_timestamp_url == "https://youtube.com/watch?v=abc123&t=3661"
 
     def test_relevance_score_range(self):
         """Test relevance score with various values."""
@@ -198,7 +160,7 @@ class TestSource:
             start_time=0.0,
             end_time=5.0,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
             relevance_score=0.0,
         )
         assert source1.relevance_score == 0.0
@@ -209,38 +171,36 @@ class TestSource:
             start_time=0.0,
             end_time=5.0,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
             relevance_score=1.0,
         )
         assert source2.relevance_score == 1.0
 
-    def test_serialization_includes_computed_field(self):
-        """Test that serialization includes computed field."""
+    def test_serialization(self):
         source = Source(
             text="Text",
             start_time=10.0,
             end_time=15.0,
             source_url="https://youtube.com/watch?v=abc123",
-            video_title="Title",
+            title="Title",
             relevance_score=0.8,
         )
         data = source.model_dump()
-        assert "youtube_timestamp_url" in data
-        assert data["youtube_timestamp_url"] == "https://youtube.com/watch?v=abc123&t=10"
+        assert data["title"] == "Title"
+        assert data["relevance_score"] == 0.8
 
-    def test_json_serialization_with_computed_field(self):
-        """Test JSON serialization includes computed field."""
+    def test_json_serialization(self):
         source = Source(
             text="Text",
             start_time=20.0,
             end_time=25.0,
             source_url="https://youtube.com/watch?v=xyz789",
-            video_title="Title",
+            title="Title",
             relevance_score=0.75,
         )
         json_str = source.model_dump_json()
         data = json.loads(json_str)
-        assert "youtube_timestamp_url" in data
+        assert data["title"] == "Title"
 
     def test_deserialization(self):
         """Test model deserialization from dict."""
@@ -249,7 +209,7 @@ class TestSource:
             "start_time": 5.0,
             "end_time": 10.0,
             "source_url": "https://example.com",
-            "video_title": "Title",
+            "title": "Title",
             "relevance_score": 0.85,
         }
         source = Source(**data)  # type: ignore
@@ -268,7 +228,7 @@ class TestQueryResult:
                 start_time=0.0,
                 end_time=5.0,
                 source_url="https://example.com",
-                video_title="Video 1",
+                title="Video 1",
                 relevance_score=0.9,
             ),
             Source(
@@ -276,7 +236,7 @@ class TestQueryResult:
                 start_time=10.0,
                 end_time=15.0,
                 source_url="https://example.com",
-                video_title="Video 2",
+                title="Video 2",
                 relevance_score=0.8,
             ),
         ]
@@ -298,7 +258,7 @@ class TestQueryResult:
             start_time=0.0,
             end_time=5.0,
             source_url="https://example.com",
-            video_title="Video",
+            title="Video",
             relevance_score=0.95,
         )
         result = QueryResult(answer="Answer", sources=[source])
@@ -313,7 +273,7 @@ class TestQueryResult:
                 start_time=float(i * 5),
                 end_time=float((i + 1) * 5),
                 source_url="https://example.com",
-                video_title=f"Video {i}",
+                title=f"Video {i}",
                 relevance_score=0.9 - (i * 0.1),
             )
             for i in range(5)
@@ -328,7 +288,7 @@ class TestQueryResult:
             start_time=0.0,
             end_time=5.0,
             source_url="https://example.com",
-            video_title="Video",
+            title="Video",
             relevance_score=0.8,
         )
         result = QueryResult(answer="Answer", sources=[source])
@@ -343,7 +303,7 @@ class TestQueryResult:
             start_time=0.0,
             end_time=5.0,
             source_url="https://example.com",
-            video_title="Video",
+            title="Video",
             relevance_score=0.8,
         )
         result = QueryResult(answer="Answer", sources=[source])
@@ -362,7 +322,7 @@ class TestQueryResult:
                     "start_time": 0.0,
                     "end_time": 5.0,
                     "source_url": "https://example.com",
-                    "video_title": "Video",
+                    "title": "Video",
                     "relevance_score": 0.85,
                 }
             ],
@@ -381,19 +341,19 @@ class TestAudioFile:
         audio = AudioFile(
             path=path,
             source_url="https://example.com",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert audio.path == path
         assert isinstance(audio.path, Path)
         assert audio.source_url == "https://example.com"
-        assert audio.video_title == "Test Video"
+        assert audio.title == "Test Video"
 
     def test_path_from_string(self):
         """Test creating AudioFile with string path (should convert to Path)."""
         audio = AudioFile(
             path="/tmp/audio.mp3",  # type: ignore
             source_url="https://example.com",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert isinstance(audio.path, Path)
         assert str(audio.path) == "/tmp/audio.mp3"
@@ -403,7 +363,7 @@ class TestAudioFile:
         audio = AudioFile(
             path="/tmp/audio.mp3",  # type: ignore
             source_url="https://example.com",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert audio.duration is None
 
@@ -412,7 +372,7 @@ class TestAudioFile:
         audio = AudioFile(
             path="/tmp/audio.mp3",  # type: ignore
             source_url="https://example.com",
-            video_title="Test Video",
+            title="Test Video",
             duration=120.5,
         )
         assert audio.duration == 120.5
@@ -422,7 +382,7 @@ class TestAudioFile:
         audio = AudioFile(
             path="/tmp/audio.mp3",  # type: ignore
             source_url="https://example.com",
-            video_title="Test Video",
+            title="Test Video",
             duration=0.0,
         )
         assert audio.duration == 0.0
@@ -432,7 +392,7 @@ class TestAudioFile:
         audio = AudioFile(
             path="/tmp/audio.mp3",  # type: ignore
             source_url="https://example.com",
-            video_title="Test Video",
+            title="Test Video",
             duration=86400.0,  # 24 hours
         )
         assert audio.duration == 86400.0
@@ -442,7 +402,7 @@ class TestAudioFile:
         audio = AudioFile(
             path="./audio/file.mp3",  # type: ignore
             source_url="https://example.com",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert isinstance(audio.path, Path)
         assert str(audio.path) == "audio/file.mp3"
@@ -452,7 +412,7 @@ class TestAudioFile:
         audio = AudioFile(
             path="/tmp/my audio file.mp3",  # type: ignore
             source_url="https://example.com",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert isinstance(audio.path, Path)
         assert "my audio file" in str(audio.path)
@@ -462,7 +422,7 @@ class TestAudioFile:
         audio = AudioFile(
             path="/tmp/audio.mp3",  # type: ignore
             source_url="https://example.com",
-            video_title="Test Video",
+            title="Test Video",
             duration=100.0,
         )
         data = audio.model_dump()
@@ -474,7 +434,7 @@ class TestAudioFile:
         audio = AudioFile(
             path="/tmp/audio.mp3",  # type: ignore
             source_url="https://example.com",
-            video_title="Test Video",
+            title="Test Video",
             duration=100.0,
         )
         json_str = audio.model_dump_json()
@@ -486,7 +446,7 @@ class TestAudioFile:
         data = {
             "path": "/tmp/audio.mp3",
             "source_url": "https://example.com",
-            "video_title": "Test Video",
+            "title": "Test Video",
             "duration": 150.0,
         }
         audio = AudioFile(**data)  # type: ignore

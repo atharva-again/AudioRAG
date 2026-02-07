@@ -513,7 +513,7 @@ class TestAudioSourceProviderConformance:
                 return AudioFile(
                     path=audio_path,
                     source_url=url,
-                    video_title="Fake Video",
+                    title="Fake Video",
                     duration=120.0,
                 )
 
@@ -532,7 +532,7 @@ class TestAudioSourceProviderConformance:
                 return AudioFile(
                     path=audio_path,
                     source_url=url,
-                    video_title="Test Video Title",
+                    title="Test Video Title",
                     duration=180.5,
                 )
 
@@ -547,7 +547,7 @@ class TestAudioSourceProviderConformance:
         assert isinstance(result, AudioFile)
         assert isinstance(result.path, Path)
         assert result.source_url == "https://example.com/video"
-        assert isinstance(result.video_title, str)
+        assert isinstance(result.title, str)
         assert isinstance(result.duration, float)
         assert str(result.path).endswith(".wav")
 
@@ -568,13 +568,8 @@ class TestAudioSourceProviderConformance:
 
 
 class TestChunkingStrategyConformance:
-    """Conformance tests for ChunkingStrategy protocol.
+    """Conformance tests for ChunkingStrategy protocol."""
 
-    NOTE: This protocol doesn't exist yet in the codebase, but we're testing
-    the expected contract that will be implemented during the redesign.
-    """
-
-    @pytest.mark.skip(reason="ChunkingStrategy protocol not yet implemented")
     def test_protocol_is_runtime_checkable(self):
         """Verify ChunkingStrategy is marked as runtime_checkable."""
         from audiorag.core.protocols.chunking import ChunkingStrategy
@@ -582,14 +577,12 @@ class TestChunkingStrategyConformance:
         assert hasattr(ChunkingStrategy, "_is_protocol")
         assert ChunkingStrategy._is_protocol is True
 
-    @pytest.mark.skip(reason="ChunkingStrategy protocol not yet implemented")
     def test_protocol_has_required_method(self):
         """Verify ChunkingStrategy defines chunk method."""
         from audiorag.core.protocols.chunking import ChunkingStrategy
 
         assert hasattr(ChunkingStrategy, "chunk")
 
-    @pytest.mark.skip(reason="ChunkingStrategy protocol not yet implemented")
     @pytest.mark.asyncio
     async def test_compliant_implementation_passes_isinstance(self):
         """Verify compliant implementation passes isinstance check."""
@@ -605,7 +598,7 @@ class TestChunkingStrategyConformance:
                         end_time=seg.end_time,
                         text=seg.text,
                         source_url=source_url,
-                        video_title=title,
+                        title=title,
                     )
                     for seg in segments
                 ]
@@ -613,7 +606,6 @@ class TestChunkingStrategyConformance:
         provider = FakeChunking()
         assert isinstance(provider, ChunkingStrategy)
 
-    @pytest.mark.skip(reason="ChunkingStrategy protocol not yet implemented")
     def test_return_type_shape(self):
         """Verify chunk returns list of ChunkMetadata."""
         from audiorag.core.protocols.chunking import ChunkingStrategy  # noqa: F401
@@ -636,7 +628,7 @@ class TestChunkingStrategyConformance:
                                 end_time=seg.end_time,
                                 text=" ".join(current_chunk_text),
                                 source_url=source_url,
-                                video_title=title,
+                                title=title,
                             )
                         )
                         current_chunk_text = []
@@ -659,9 +651,8 @@ class TestChunkingStrategyConformance:
         assert all(hasattr(chunk, "end_time") for chunk in result)
         assert all(hasattr(chunk, "text") for chunk in result)
         assert all(hasattr(chunk, "source_url") for chunk in result)
-        assert all(hasattr(chunk, "video_title") for chunk in result)
+        assert all(hasattr(chunk, "title") for chunk in result)
 
-    @pytest.mark.skip(reason="ChunkingStrategy protocol not yet implemented")
     def test_non_compliant_missing_method_fails_isinstance(self):
         """Verify implementation missing chunk method fails isinstance."""
         from audiorag.core.protocols.chunking import ChunkingStrategy
@@ -694,7 +685,7 @@ class TestProtocolInteroperability:
                 return AudioFile(
                     path=output_dir / "audio.mp3",
                     source_url=url,
-                    video_title="Test Video",
+                    title="Test Video",
                     duration=100.0,
                 )
 

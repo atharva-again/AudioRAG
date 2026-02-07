@@ -1,9 +1,12 @@
 """Pydantic data models for AudioRAG."""
 
+from __future__ import annotations
+
 from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel
 
 
 class ChunkMetadata(BaseModel):
@@ -13,7 +16,8 @@ class ChunkMetadata(BaseModel):
     end_time: float
     text: str
     source_url: str
-    video_title: str
+    title: str
+    metadata: dict[str, Any] = {}
 
 
 class Source(BaseModel):
@@ -23,14 +27,9 @@ class Source(BaseModel):
     start_time: float
     end_time: float
     source_url: str
-    video_title: str
+    title: str
     relevance_score: float
-
-    @computed_field
-    @property
-    def youtube_timestamp_url(self) -> str:
-        """Generate YouTube URL with timestamp."""
-        return f"{self.source_url}&t={int(self.start_time)}"
+    metadata: dict[str, Any] = {}
 
 
 class QueryResult(BaseModel):
@@ -45,7 +44,7 @@ class AudioFile(BaseModel):
 
     path: Path
     source_url: str
-    video_title: str
+    title: str
     duration: float | None = None
 
 

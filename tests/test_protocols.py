@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from audiorag.models import AudioFile, TranscriptionSegment
-from audiorag.protocols import (
+from audiorag.core.models import AudioFile, TranscriptionSegment
+from audiorag.core.protocols import (
     AudioSourceProvider,
     EmbeddingProvider,
     GenerationProvider,
@@ -48,9 +48,7 @@ class TestSTTProvider:
 
         class CompliantSTT:
             async def transcribe(
-                self,
-                audio_path: Path,
-                language: str | None = None
+                self, audio_path: Path, language: str | None = None
             ) -> list[TranscriptionSegment]:
                 return [
                     TranscriptionSegment(start_time=0.0, end_time=5.0, text="Test transcription")
@@ -85,9 +83,7 @@ class TestSTTProvider:
 
         class MockSTT:
             async def transcribe(
-                self,
-                audio_path: Path,
-                language: str | None = None
+                self, audio_path: Path, language: str | None = None
             ) -> list[TranscriptionSegment]:
                 return sample_transcription_segments
 
@@ -127,9 +123,7 @@ class TestEmbeddingProvider:
         """Test that a compliant EmbeddingProvider implementation passes isinstance check."""
 
         class CompliantEmbedding:
-            async def embed(
-                self, texts: list[str]
-            ) -> list[list[float]]:
+            async def embed(self, texts: list[str]) -> list[list[float]]:
                 return [[0.1, 0.2, 0.3] for _ in texts]
 
         embedding = CompliantEmbedding()
@@ -210,11 +204,7 @@ class TestVectorStoreProvider:
             ) -> None:
                 pass
 
-            async def query(
-                self,
-                embedding: list[float],
-                top_k: int = 10
-            ) -> list[dict]:
+            async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
             async def delete_by_source(self, source_url: str) -> None:
@@ -227,11 +217,7 @@ class TestVectorStoreProvider:
         """Test that implementation missing add method fails isinstance check."""
 
         class IncompleteVectorStore:
-            async def query(
-                self,
-                embedding: list[float],
-                top_k: int = 10
-            ) -> list[dict]:
+            async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
             async def delete_by_source(self, source_url: str) -> None:
@@ -272,11 +258,7 @@ class TestVectorStoreProvider:
             ) -> None:
                 pass
 
-            async def query(
-                self,
-                embedding: list[float],
-                top_k: int = 10
-            ) -> list[dict]:
+            async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
         store = IncompleteVectorStore()
@@ -299,11 +281,7 @@ class TestVectorStoreProvider:
                 self.stored_metadatas = metadatas
                 self.stored_documents = documents
 
-            async def query(
-                self,
-                embedding: list[float],
-                top_k: int = 10
-            ) -> list[dict]:
+            async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
             async def delete_by_source(self, source_url: str) -> None:
@@ -338,11 +316,7 @@ class TestVectorStoreProvider:
             ) -> None:
                 pass
 
-            async def query(
-                self,
-                embedding: list[float],
-                top_k: int = 10
-            ) -> list[dict]:
+            async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return [
                     {"id": "id1", "text": "result1", "distance": 0.1},
                     {"id": "id2", "text": "result2", "distance": 0.2},
@@ -377,16 +351,10 @@ class TestVectorStoreProvider:
             ) -> None:
                 pass
 
-            async def query(
-                self,
-                embedding: list[float],
-                top_k: int = 10
-            ) -> list[dict]:
+            async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
-            async def delete_by_source(
-                self, source_url: str
-            ) -> None:
+            async def delete_by_source(self, source_url: str) -> None:
                 self.deleted_sources.append(source_url)
 
         store = MockVectorStore()
@@ -455,9 +423,7 @@ class TestGenerationProvider:
         """Test GenerationProvider with mock implementation."""
 
         class MockGeneration:
-            async def generate(
-                self, query: str, context: list[str]
-            ) -> str:
+            async def generate(self, query: str, context: list[str]) -> str:
                 return f"Response to '{query}' based on {len(context)} context items."
 
         generation = MockGeneration()
@@ -496,9 +462,7 @@ class TestRerankerProvider:
 
         class CompliantReranker:
             async def rerank(
-                self,
-                query: str,
-                documents: list[str], top_n: int = 3
+                self, query: str, documents: list[str], top_n: int = 3
             ) -> list[tuple[int, float]]:
                 return [(0, 0.95), (1, 0.87)]
 
@@ -531,9 +495,7 @@ class TestRerankerProvider:
 
         class MockReranker:
             async def rerank(
-                self,
-                query: str,
-                documents: list[str], top_n: int = 3
+                self, query: str, documents: list[str], top_n: int = 3
             ) -> list[tuple[int, float]]:
                 # Return top_n results as (index, score) tuples
                 return [(i, 1.0 - (i * 0.1)) for i in range(min(top_n, len(documents)))]
@@ -571,24 +533,18 @@ class TestAudioSourceProvider:
         assert hasattr(AudioSourceProvider, "download")
 
     @pytest.mark.asyncio
-    async def test_audio_source_compliant_implementation_passes_isinstance(
-        self,
-        tmp_path
-    ):
+    async def test_audio_source_compliant_implementation_passes_isinstance(self, tmp_path):
         """Test that a compliant AudioSourceProvider implementation passes isinstance check."""
 
         class CompliantAudioSource:
             async def download(
-                self,
-                url: str,
-                output_dir: Path,
-                audio_format: str = "mp3"
+                self, url: str, output_dir: Path, audio_format: str = "mp3"
             ) -> AudioFile:
                 audio_path = output_dir / f"audio.{audio_format}"
                 return AudioFile(
                     path=audio_path,
                     source_url=url,
-                    video_title="Test Video",
+                    title="Test Video",
                     duration=100.0,
                 )
 
@@ -621,16 +577,13 @@ class TestAudioSourceProvider:
 
         class MockAudioSource:
             async def download(
-                self,
-                url: str,
-                output_dir: Path,
-                audio_format: str = "mp3"
+                self, url: str, output_dir: Path, audio_format: str = "mp3"
             ) -> AudioFile:
                 audio_path = output_dir / f"downloaded_audio.{audio_format}"
                 return AudioFile(
                     path=audio_path,
                     source_url=url,
-                    video_title="Downloaded Video",
+                    title="Downloaded Video",
                     duration=120.5,
                 )
 
@@ -643,7 +596,7 @@ class TestAudioSourceProvider:
         result = await source.download("https://example.com/video", output_dir, audio_format="wav")
         assert isinstance(result, AudioFile)
         assert result.source_url == "https://example.com/video"
-        assert result.video_title == "Downloaded Video"
+        assert result.title == "Downloaded Video"
 
     def test_audio_source_async_mock_provider(self, mock_audio_source_provider):
         """Test AudioSourceProvider with AsyncMock from conftest."""
@@ -670,9 +623,7 @@ class TestProtocolIntegration:
 
         class MockSTT:
             async def transcribe(
-                self,
-                audio_path: Path,
-                language: str | None = None
+                self, audio_path: Path, language: str | None = None
             ) -> list[TranscriptionSegment]:
                 return sample_transcription_segments
 
@@ -690,11 +641,7 @@ class TestProtocolIntegration:
             ) -> None:
                 pass
 
-            async def query(
-                self,
-                embedding: list[float],
-                top_k: int = 10
-            ) -> list[dict]:
+            async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return [{"id": "id1", "text": "result"}]
 
             async def delete_by_source(self, source_url: str) -> None:
@@ -706,23 +653,18 @@ class TestProtocolIntegration:
 
         class MockReranker:
             async def rerank(
-                self,
-                query: str,
-                documents: list[str], top_n: int = 3
+                self, query: str, documents: list[str], top_n: int = 3
             ) -> list[tuple[int, float]]:
                 return [(0, 0.95)]
 
         class MockAudioSource:
             async def download(
-                self,
-                url: str,
-                output_dir: Path,
-                audio_format: str = "mp3"
+                self, url: str, output_dir: Path, audio_format: str = "mp3"
             ) -> AudioFile:
                 return AudioFile(
                     path=output_dir / "audio.mp3",
                     source_url=url,
-                    video_title="Test",
+                    title="Test",
                     duration=100.0,
                 )
 
@@ -793,9 +735,7 @@ class TestProtocolEdgeCases:
 
         class ExtendedSTT:
             async def transcribe(
-                self,
-                audio_path: Path,
-                language: str | None = None
+                self, audio_path: Path, language: str | None = None
             ) -> list[TranscriptionSegment]:
                 return []
 
@@ -815,9 +755,7 @@ class TestProtocolEdgeCases:
 
         class WrongReturnTypeSTT:
             async def transcribe(
-                self,
-                audio_path: Path,
-                language: str | None = None
+                self, audio_path: Path, language: str | None = None
             ) -> str:  # Wrong return type
                 return "transcription"
 
@@ -831,9 +769,7 @@ class TestProtocolEdgeCases:
 
         class SyncSTT:
             def transcribe(
-                self,
-                audio_path: Path,
-                language: str | None = None
+                self, audio_path: Path, language: str | None = None
             ) -> list[TranscriptionSegment]:
                 # Sync instead of async
                 return []
@@ -856,11 +792,7 @@ class TestProtocolEdgeCases:
             ) -> None:
                 pass
 
-            async def query(
-                self,
-                embedding: list[float],
-                top_k: int = 10
-            ) -> list[dict]:
+            async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return [{"id": f"id_{i}", "score": 0.9 - (i * 0.1)} for i in range(top_k)]
 
             async def delete_by_source(self, source_url: str) -> None:
@@ -883,9 +815,7 @@ class TestProtocolEdgeCases:
 
         class MockReranker:
             async def rerank(
-                self,
-                query: str,
-                documents: list[str], top_n: int = 3
+                self, query: str, documents: list[str], top_n: int = 3
             ) -> list[tuple[int, float]]:
                 return [(i, 1.0 - (i * 0.1)) for i in range(min(top_n, len(documents)))]
 
@@ -908,15 +838,12 @@ class TestProtocolEdgeCases:
 
         class MockAudioSource:
             async def download(
-                self,
-                url: str,
-                output_dir: Path,
-                audio_format: str = "mp3"
+                self, url: str, output_dir: Path, audio_format: str = "mp3"
             ) -> AudioFile:
                 return AudioFile(
                     path=output_dir / f"audio.{audio_format}",
                     source_url=url,
-                    video_title="Test",
+                    title="Test",
                     duration=100.0,
                 )
 

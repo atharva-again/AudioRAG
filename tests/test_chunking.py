@@ -16,7 +16,7 @@ class TestChunkingBasic:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 1
         assert chunks[0].text == "Hello world"
@@ -34,7 +34,7 @@ class TestChunkingBasic:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 1
         assert chunks[0].text == "Hello world test"
@@ -53,7 +53,7 @@ class TestChunkingBasic:
             segments=segments,
             chunk_duration_seconds=6,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 2
         assert chunks[0].text == "First second"
@@ -73,7 +73,7 @@ class TestChunkingBasic:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 1
         assert chunks[0].text == "Exactly five"
@@ -90,7 +90,7 @@ class TestChunkingBasic:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 1
         assert chunks[0].text == "First second"
@@ -112,7 +112,7 @@ class TestChunkingEmptySegments:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 1
         # Empty segments create extra spaces when joined
@@ -129,7 +129,7 @@ class TestChunkingEmptySegments:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 1
         # Whitespace segments create extra spaces when joined
@@ -146,7 +146,7 @@ class TestChunkingEmptySegments:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 0
 
@@ -163,7 +163,7 @@ class TestChunkingEmptySegments:
             segments=segments,
             chunk_duration_seconds=6,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         # Chunks are created when duration boundary is hit
         # Chunk 1: 0-6 (First + empty)
@@ -190,7 +190,7 @@ class TestChunkingNoOverlap:
             segments=segments,
             chunk_duration_seconds=6,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 2
         assert chunks[0].end_time == chunks[1].start_time
@@ -208,7 +208,7 @@ class TestChunkingNoOverlap:
             segments=segments,
             chunk_duration_seconds=5,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         for i in range(len(chunks) - 1):
             assert chunks[i].end_time == chunks[i + 1].start_time
@@ -225,7 +225,7 @@ class TestChunkingNoOverlap:
             segments=segments,
             chunk_duration_seconds=2,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert chunks[0].start_time == 0.0
         assert chunks[-1].end_time == 4.0
@@ -242,7 +242,7 @@ class TestChunkingEdgeCases:
             segments=[],
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 0
 
@@ -255,7 +255,7 @@ class TestChunkingEdgeCases:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 1
         assert chunks[0].text == "Single"
@@ -271,7 +271,7 @@ class TestChunkingEdgeCases:
             segments=segments,
             chunk_duration_seconds=0.5,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 3
         assert chunks[0].text == "A"
@@ -289,7 +289,7 @@ class TestChunkingEdgeCases:
             segments=segments,
             chunk_duration_seconds=1000,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 1
         assert chunks[0].text == "A B C"
@@ -303,7 +303,7 @@ class TestChunkingEdgeCases:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 1
         assert chunks[0].text == "Exact"
@@ -320,7 +320,7 @@ class TestChunkingEdgeCases:
             segments=segments,
             chunk_duration_seconds=5,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 1
         assert chunks[0].start_time == 0.123
@@ -340,7 +340,7 @@ class TestChunkingEdgeCases:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/video",
-            video_title="Test Video",
+            title="Test Video",
         )
         assert len(chunks) == 10
         assert chunks[0].start_time == 0.0
@@ -362,27 +362,27 @@ class TestChunkingMetadata:
             segments=segments,
             chunk_duration_seconds=6,
             source_url=source_url,
-            video_title="Test Video",
+            title="Test Video",
         )
         for chunk in chunks:
             assert chunk.source_url == source_url
 
-    def test_video_title_preserved(self):
-        """Test that video_title is preserved in all chunks."""
+    def test_title_preserved(self):
+        """Test that title is preserved in all chunks."""
         segments = [
             TranscriptionSegment(start_time=0.0, end_time=3.0, text="A"),
             TranscriptionSegment(start_time=3.0, end_time=6.0, text="B"),
             TranscriptionSegment(start_time=6.0, end_time=9.0, text="C"),
         ]
-        video_title = "My Amazing Video"
+        expected_title = "My Amazing Video"
         chunks = chunk_transcription(
             segments=segments,
             chunk_duration_seconds=6,
             source_url="https://example.com/video",
-            video_title=video_title,
+            title=expected_title,
         )
         for chunk in chunks:
-            assert chunk.video_title == video_title
+            assert chunk.title == expected_title
 
     def test_metadata_with_special_characters(self):
         """Test metadata with special characters."""
@@ -390,15 +390,15 @@ class TestChunkingMetadata:
             TranscriptionSegment(start_time=0.0, end_time=5.0, text="Content"),
         ]
         source_url = "https://example.com/video?id=123&lang=en"
-        video_title = "Video: Part 1 & 2 (Special Edition)"
+        expected_title = "Video: Part 1 & 2 (Special Edition)"
         chunks = chunk_transcription(
             segments=segments,
             chunk_duration_seconds=10,
             source_url=source_url,
-            video_title=video_title,
+            title=expected_title,
         )
         assert chunks[0].source_url == source_url
-        assert chunks[0].video_title == video_title
+        assert chunks[0].title == expected_title
 
     def test_metadata_with_unicode(self):
         """Test metadata with unicode characters."""
@@ -406,14 +406,14 @@ class TestChunkingMetadata:
             TranscriptionSegment(start_time=0.0, end_time=5.0, text="Content"),
         ]
         source_url = "https://example.com/video"
-        video_title = "视频标题 🎵 Título del Video"
+        expected_title = "视频标题 🎵 Título del Video"
         chunks = chunk_transcription(
             segments=segments,
             chunk_duration_seconds=10,
             source_url=source_url,
-            video_title=video_title,
+            title=expected_title,
         )
-        assert chunks[0].video_title == video_title
+        assert chunks[0].title == expected_title
 
     def test_empty_metadata_strings(self):
         """Test with empty metadata strings."""
@@ -424,10 +424,10 @@ class TestChunkingMetadata:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="",
-            video_title="",
+            title="",
         )
         assert chunks[0].source_url == ""
-        assert chunks[0].video_title == ""
+        assert chunks[0].title == ""
 
     def test_chunk_metadata_type(self):
         """Test that returned objects are ChunkMetadata instances."""
@@ -438,7 +438,7 @@ class TestChunkingMetadata:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert len(chunks) == 1
         assert isinstance(chunks[0], ChunkMetadata)
@@ -457,7 +457,7 @@ class TestChunkingTextJoining:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunks[0].text == "Hello world"
 
@@ -473,7 +473,7 @@ class TestChunkingTextJoining:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunks[0].text == "The quick brown fox"
 
@@ -487,7 +487,7 @@ class TestChunkingTextJoining:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunks[0].text == "Hello, world!"
 
@@ -501,7 +501,7 @@ class TestChunkingTextJoining:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunks[0].text == "Hello@#$ world%^&"
 
@@ -515,7 +515,7 @@ class TestChunkingTextJoining:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunks[0].text == "你好 世界"
 
@@ -529,7 +529,7 @@ class TestChunkingTextJoining:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunks[0].text == "Hello 🎵 world 🌍"
 
@@ -547,7 +547,7 @@ class TestChunkingTimestamps:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunks[0].start_time == 5.0
 
@@ -561,7 +561,7 @@ class TestChunkingTimestamps:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunks[0].end_time == 12.0
 
@@ -577,7 +577,7 @@ class TestChunkingTimestamps:
             segments=segments,
             chunk_duration_seconds=5,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunks[0].start_time == 0.0
         assert chunks[0].end_time == 5.0
@@ -594,7 +594,7 @@ class TestChunkingTimestamps:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert chunks[0].start_time == 0.123
         assert chunks[0].end_time == 4.789
@@ -621,7 +621,7 @@ class TestChunkingComplexScenarios:
             segments=segments,
             chunk_duration_seconds=10,
             source_url="https://example.com/podcast",
-            video_title="Podcast Episode 1",
+            title="Podcast Episode 1",
         )
         # Chunk 1: 0-10.5 (10.5 seconds, hits boundary)
         # Chunk 2: 10.5-22.1 (remaining segments)
@@ -642,7 +642,7 @@ class TestChunkingComplexScenarios:
             segments=segments,
             chunk_duration_seconds=5,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         # First chunk: 0-8 (8 seconds, exceeds 5 second boundary at segment D)
         # Second chunk: 8-9 (remaining)
@@ -664,7 +664,7 @@ class TestChunkingComplexScenarios:
             segments=segments,
             chunk_duration_seconds=5,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert len(chunks) == 4
         assert chunks[0].start_time == 0.0
@@ -685,7 +685,7 @@ class TestChunkingComplexScenarios:
             segments=segments,
             chunk_duration_seconds=5,
             source_url="https://example.com",
-            video_title="Title",
+            title="Title",
         )
         assert len(chunks) == 2
         # Empty segments create extra spaces when joined

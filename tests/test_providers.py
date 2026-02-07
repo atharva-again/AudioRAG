@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from audiorag.protocols import (
+from audiorag.core.protocols import (
     EmbeddingProvider,
     GenerationProvider,
     RerankerProvider,
@@ -88,13 +88,13 @@ class TestMockProviderCompliance:
 
     def test_mock_stt_provider_protocol(self, mock_stt_provider) -> None:
         """Test that mock STT provider satisfies protocol."""
-        from audiorag.protocols import STTProvider  # noqa: PLC0415
+        from audiorag.core.protocols import STTProvider  # noqa: PLC0415
 
         assert isinstance(mock_stt_provider, STTProvider)
 
     def test_mock_embedding_provider_protocol(self, mock_embedding_provider) -> None:
         """Test that mock embedding provider satisfies protocol."""
-        from audiorag.protocols import EmbeddingProvider  # noqa: PLC0415
+        from audiorag.core.protocols import EmbeddingProvider  # noqa: PLC0415
 
         assert isinstance(mock_embedding_provider, EmbeddingProvider)
 
@@ -102,19 +102,19 @@ class TestMockProviderCompliance:
         self, mock_vector_store_provider
     ) -> None:
         """Test that mock vector store provider satisfies protocol."""
-        from audiorag.protocols import VectorStoreProvider  # noqa: PLC0415
+        from audiorag.core.protocols import VectorStoreProvider  # noqa: PLC0415
 
         assert isinstance(mock_vector_store_provider, VectorStoreProvider)
 
     def test_mock_reranker_provider_protocol(self, mock_reranker_provider) -> None:
         """Test that mock reranker provider satisfies protocol."""
-        from audiorag.protocols import RerankerProvider  # noqa: PLC0415
+        from audiorag.core.protocols import RerankerProvider  # noqa: PLC0415
 
         assert isinstance(mock_reranker_provider, RerankerProvider)
 
     def test_mock_generation_provider_protocol(self, mock_generation_provider) -> None:
         """Test that mock generation provider satisfies protocol."""
-        from audiorag.protocols import GenerationProvider  # noqa: PLC0415
+        from audiorag.core.protocols import GenerationProvider  # noqa: PLC0415
 
         assert isinstance(mock_generation_provider, GenerationProvider)
 
@@ -122,7 +122,7 @@ class TestMockProviderCompliance:
         self, mock_audio_source_provider
     ) -> None:
         """Test that mock audio source provider satisfies protocol."""
-        from audiorag.protocols import AudioSourceProvider  # noqa: PLC0415
+        from audiorag.core.protocols import AudioSourceProvider  # noqa: PLC0415
 
         assert isinstance(mock_audio_source_provider, AudioSourceProvider)
 
@@ -133,7 +133,7 @@ class TestMockProviderBehavior:
     @pytest.mark.asyncio
     async def test_mock_stt_returns_segments(self, mock_stt_provider) -> None:
         """Test that mock STT provider returns transcription segments."""
-        from audiorag.models import TranscriptionSegment  # noqa: PLC0415
+        from audiorag.core.models import TranscriptionSegment  # noqa: PLC0415
 
         segments = await mock_stt_provider.transcribe(Path("/tmp/test.mp3"))
 
@@ -200,7 +200,7 @@ class TestMockProviderBehavior:
         self, mock_audio_source_provider, tmp_audio_dir
     ) -> None:
         """Test that mock audio source returns AudioFile."""
-        from audiorag.models import AudioFile  # noqa: PLC0415
+        from audiorag.core.models import AudioFile  # noqa: PLC0415
 
         audio_file = await mock_audio_source_provider.download(
             "https://youtube.com/watch?v=test", tmp_audio_dir

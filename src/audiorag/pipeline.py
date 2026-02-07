@@ -376,12 +376,12 @@ class AudioRAGPipeline:
                     url,
                     IndexingStatus.DOWNLOADED,
                     metadata={
-                        "video_title": audio_file.video_title,
+                        "title": audio_file.title,
                         "duration": audio_file.duration,
                     },
                 )
                 timer.complete(
-                    video_title=audio_file.video_title,
+                    title=audio_file.title,
                     duration_seconds=audio_file.duration,
                     file_path=str(audio_file.path),
                 )
@@ -433,7 +433,7 @@ class AudioRAGPipeline:
                     all_segments,
                     self._config.chunk_duration_seconds,
                     url,
-                    audio_file.video_title,
+                    audio_file.title,
                 )
 
                 if not chunks:
@@ -450,7 +450,7 @@ class AudioRAGPipeline:
                         "text": c.text,
                         "metadata": {
                             "source_url": c.source_url,
-                            "video_title": c.video_title,
+                            "title": c.title,
                         },
                     }
                     for i, c in enumerate(chunks)
@@ -471,7 +471,7 @@ class AudioRAGPipeline:
                         "start_time": c.start_time,
                         "end_time": c.end_time,
                         "source_url": c.source_url,
-                        "video_title": c.video_title,
+                        "title": c.title,
                     }
                     for c in chunks
                 ]
@@ -566,7 +566,7 @@ class AudioRAGPipeline:
                         start_time=metadata.get("start_time", 0.0),
                         end_time=metadata.get("end_time", 0.0),
                         source_url=metadata.get("source_url", ""),
-                        video_title=metadata.get("video_title", ""),
+                        title=metadata.get("title", ""),
                         relevance_score=score,
                     )
                 )

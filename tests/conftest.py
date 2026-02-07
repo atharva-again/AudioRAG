@@ -139,7 +139,7 @@ def sample_chunk_metadata() -> ChunkMetadata:
         end_time=5.5,
         text="This is a sample text chunk for testing.",
         source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        video_title="Sample Video Title",
+        title="Sample Video Title",
     )
 
 
@@ -156,21 +156,21 @@ def sample_chunks_metadata() -> list[ChunkMetadata]:
             end_time=5.5,
             text="First chunk of text content.",
             source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            video_title="Sample Video Title",
+            title="Sample Video Title",
         ),
         ChunkMetadata(
             start_time=5.5,
             end_time=11.2,
             text="Second chunk with more information.",
             source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            video_title="Sample Video Title",
+            title="Sample Video Title",
         ),
         ChunkMetadata(
             start_time=11.2,
             end_time=18.8,
             text="Third chunk continuing the narrative.",
             source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            video_title="Sample Video Title",
+            title="Sample Video Title",
         ),
     ]
 
@@ -264,7 +264,7 @@ def mock_vector_store_provider() -> AsyncMock:
                     "start_time": 0.0,
                     "end_time": 5.5,
                     "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    "video_title": "Sample Video",
+                    "title": "Sample Video",
                 },
                 "distance": 0.1,
             },
@@ -275,7 +275,7 @@ def mock_vector_store_provider() -> AsyncMock:
                     "start_time": 5.5,
                     "end_time": 11.2,
                     "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-                    "video_title": "Sample Video",
+                    "title": "Sample Video",
                 },
                 "distance": 0.2,
             },
@@ -436,7 +436,7 @@ def sample_metadata_dict() -> dict:
         "start_time": 0.0,
         "end_time": 5.5,
         "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        "video_title": "Sample Video Title",
+        "title": "Sample Video Title",
     }
 
 
@@ -452,18 +452,18 @@ def sample_metadata_dicts() -> list[dict]:
             "start_time": 0.0,
             "end_time": 5.5,
             "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "video_title": "Sample Video Title",
+            "title": "Sample Video Title",
         },
         {
             "start_time": 5.5,
             "end_time": 11.2,
             "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "video_title": "Sample Video Title",
+            "title": "Sample Video Title",
         },
         {
             "start_time": 11.2,
             "end_time": 18.8,
             "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "video_title": "Sample Video Title",
+            "title": "Sample Video Title",
         },
     ]
