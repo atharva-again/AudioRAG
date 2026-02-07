@@ -7,9 +7,9 @@ from typing import Any
 
 from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError  # type: ignore
 
-from audiorag.logging_config import get_logger
-from audiorag.models import TranscriptionSegment
-from audiorag.retry_config import (
+from audiorag.core.logging_config import get_logger
+from audiorag.core.models import TranscriptionSegment
+from audiorag.core.retry_config import (
     RetryConfig,
     create_retry_decorator,
 )

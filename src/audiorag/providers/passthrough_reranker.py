@@ -1,6 +1,6 @@
 """Passthrough reranker provider implementation."""
 
-from audiorag.logging_config import get_logger
+from audiorag.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 

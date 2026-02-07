@@ -454,7 +454,7 @@ Parallel Speedup: ~45% faster than sequential
 
 ### WAVE 2: Core Foundations
 
-- [ ] 3. Make core models source-agnostic
+- [x] 3. Make core models source-agnostic
 
   **What to do**:
   - Rename `video_title` → `title` in `ChunkMetadata`, `Source`, `AudioFile`

@@ -9,8 +9,8 @@ import vecs  # type: ignore
 from vecs import Client as VecsClient  # type: ignore
 from vecs.collection import Collection  # type: ignore
 
-from audiorag.logging_config import get_logger
-from audiorag.retry_config import (
+from audiorag.core.logging_config import get_logger
+from audiorag.core.retry_config import (
     RetryConfig,
     create_retry_decorator,
 )

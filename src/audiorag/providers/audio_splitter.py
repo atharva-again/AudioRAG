@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from pydub import AudioSegment  # type: ignore
 
-from audiorag.logging_config import get_logger
+from audiorag.core.logging_config import get_logger
 
 if TYPE_CHECKING:
     import structlog

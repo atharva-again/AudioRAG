@@ -7,8 +7,8 @@ from typing import Any
 from cohere import AsyncClientV2  # type: ignore
 from cohere.errors import RateLimitError, ServiceUnavailableError  # type: ignore
 
-from audiorag.logging_config import get_logger
-from audiorag.retry_config import (
+from audiorag.core.logging_config import get_logger
+from audiorag.core.retry_config import (
     RetryConfig,
     create_retry_decorator,
 )

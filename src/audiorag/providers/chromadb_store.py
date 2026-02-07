@@ -8,8 +8,8 @@ import chromadb  # type: ignore
 from chromadb.api import ClientAPI  # type: ignore
 from chromadb.api.models.Collection import Collection  # type: ignore
 
-from audiorag.logging_config import get_logger
-from audiorag.retry_config import (
+from audiorag.core.logging_config import get_logger
+from audiorag.core.retry_config import (
     RetryConfig,
     create_retry_decorator,
 )

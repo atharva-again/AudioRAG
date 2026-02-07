@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from audiorag.logging_config import get_logger
-from audiorag.retry_config import (
+from audiorag.core.logging_config import get_logger
+from audiorag.core.retry_config import (
     RetryConfig,
     create_retry_decorator,
 )

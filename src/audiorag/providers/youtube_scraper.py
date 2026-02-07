@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Any
 
 import yt_dlp  # type: ignore
 
-from audiorag.logging_config import get_logger
-from audiorag.models import AudioFile
-from audiorag.retry_config import (
+from audiorag.core.logging_config import get_logger
+from audiorag.core.models import AudioFile
+from audiorag.core.retry_config import (
     RetryConfig,
     create_retry_decorator,
 )

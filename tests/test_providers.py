@@ -13,7 +13,7 @@ from audiorag.core.protocols import (
     VectorStoreProvider,
 )
 from audiorag.providers.passthrough_reranker import PassthroughReranker
-from audiorag.retry_config import RetryConfig
+from audiorag.core.retry_config import RetryConfig
 
 
 class TestPassthroughReranker:
