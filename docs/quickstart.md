@@ -10,8 +10,8 @@ This guide gets you up and running with AudioRAG.
 ## Installation
 
 ```bash
-# Install with uv
-uv add audiorag
+# Install with uv (recommended)
+uv pip install audiorag
 
 # Or with pip
 pip install audiorag

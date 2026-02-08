@@ -1,7 +1,8 @@
 """Unit tests for vector store providers - instantiation tests."""
 
-import pytest
 from tempfile import TemporaryDirectory
+
+import pytest
 
 
 class TestVectorStoreProvidersInstantiation:
@@ -9,6 +10,7 @@ class TestVectorStoreProvidersInstantiation:
 
     def test_chromadb_instantiation(self) -> None:
         """Test ChromaDB vector store can be instantiated."""
+        pytest.importorskip("chromadb")
         from audiorag.store.chromadb import ChromaDBVectorStore
 
         with TemporaryDirectory() as tmpdir:
@@ -18,6 +20,7 @@ class TestVectorStoreProvidersInstantiation:
 
     def test_chromadb_custom_collection(self) -> None:
         """Test ChromaDB with custom collection name."""
+        pytest.importorskip("chromadb")
         from audiorag.store.chromadb import ChromaDBVectorStore
 
         with TemporaryDirectory() as tmpdir:

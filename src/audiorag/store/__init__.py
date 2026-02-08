@@ -13,7 +13,7 @@ def __getattr__(name: str):
         except ImportError:
             raise ImportError(
                 "ChromaDBVectorStore requires 'chromadb'. "
-                "Install with: pip install audiorag[chromadb]"
+                "Install with: uv pip install audiorag[chromadb]"
             ) from None
     if name == "PineconeVectorStore":
         try:
@@ -23,7 +23,7 @@ def __getattr__(name: str):
         except ImportError:
             raise ImportError(
                 "PineconeVectorStore requires 'pinecone-client'. "
-                "Install with: pip install audiorag[pinecone]"
+                "Install with: uv pip install audiorag[pinecone]"
             ) from None
     if name == "WeaviateVectorStore":
         try:
@@ -33,7 +33,7 @@ def __getattr__(name: str):
         except ImportError:
             raise ImportError(
                 "WeaviateVectorStore requires 'weaviate-client'. "
-                "Install with: pip install audiorag[weaviate]"
+                "Install with: uv pip install audiorag[weaviate]"
             ) from None
     if name == "SupabasePgVectorStore":
         try:
@@ -43,7 +43,7 @@ def __getattr__(name: str):
         except ImportError:
             raise ImportError(
                 "SupabasePgVectorStore requires 'supabase'. "
-                "Install with: pip install audiorag[supabase]"
+                "Install with: uv pip install audiorag[supabase]"
             ) from None
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

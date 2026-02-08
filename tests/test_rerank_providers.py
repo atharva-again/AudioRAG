@@ -1,6 +1,5 @@
 """Unit tests for reranker providers - instantiation tests."""
 
-import pytest
 
 
 class TestRerankerProvidersInstantiation:

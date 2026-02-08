@@ -4,7 +4,7 @@ This document outlines strategic ideas for reducing onboarding friction and refa
 
 ## 1. Reducing Onboarding Friction
 
-To get a new developer from `pip install` to "First Query" in under 2 minutes.
+To get a new developer from `uv pip install` or `pip install` to "First Query" in under 2 minutes.
 
 ### 1.1 Interactive CLI Setup (`audiorag setup`) ✅ IMPLEMENTED
 **Problem**: Manual `.env` configuration is tedious and error-prone.
@@ -17,7 +17,7 @@ To get a new developer from `pip install` to "First Query" in under 2 minutes.
 
 **Usage**:
 ```bash
-pip install audiorag
+uv pip install audiorag  # or: pip install audiorag
 audiorag setup  # Launches interactive TUI
 ```
 

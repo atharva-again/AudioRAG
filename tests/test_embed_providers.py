@@ -8,6 +8,7 @@ class TestEmbeddingProvidersInstantiation:
 
     def test_openai_embedder_instantiation(self) -> None:
         """Test OpenAI embedder can be instantiated."""
+        pytest.importorskip("openai")
         from audiorag.embed import OpenAIEmbedder
 
         provider = OpenAIEmbedder(api_key="test-key")
@@ -15,6 +16,7 @@ class TestEmbeddingProvidersInstantiation:
 
     def test_openai_embedder_custom_model(self) -> None:
         """Test OpenAI embedder with custom model."""
+        pytest.importorskip("openai")
         from audiorag.embed import OpenAIEmbedder
 
         provider = OpenAIEmbedder(api_key="test-key", model="text-embedding-3-large")
@@ -22,6 +24,7 @@ class TestEmbeddingProvidersInstantiation:
 
     def test_cohere_embedder_instantiation(self) -> None:
         """Test Cohere embedder can be instantiated."""
+        pytest.importorskip("cohere")
         from audiorag.embed import CohereEmbedder
 
         provider = CohereEmbedder(api_key="test-key")
@@ -29,6 +32,7 @@ class TestEmbeddingProvidersInstantiation:
 
     def test_cohere_embedder_custom_model(self) -> None:
         """Test Cohere embedder with custom model."""
+        pytest.importorskip("cohere")
         from audiorag.embed import CohereEmbedder
 
         provider = CohereEmbedder(api_key="test-key", model="embed-english-v3.0")
@@ -36,6 +40,7 @@ class TestEmbeddingProvidersInstantiation:
 
     def test_voyage_embedder_instantiation(self) -> None:
         """Test Voyage embedder can be instantiated."""
+        pytest.importorskip("voyageai")
         from audiorag.embed import VoyageEmbedder
 
         provider = VoyageEmbedder(api_key="test-key")
@@ -43,6 +48,7 @@ class TestEmbeddingProvidersInstantiation:
 
     def test_voyage_embedder_custom_model(self) -> None:
         """Test Voyage embedder with custom model."""
+        pytest.importorskip("voyageai")
         from audiorag.embed import VoyageEmbedder
 
         provider = VoyageEmbedder(api_key="test-key", model="voyage-4")

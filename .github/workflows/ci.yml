@@ -89,11 +89,8 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
 
-      - name: Install build
-        run: uv pip install build
-
       - name: Build package
-        run: uv run python -m build
+        run: uv build
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

@@ -8,6 +8,7 @@ class TestTranscriptionProvidersInstantiation:
 
     def test_openai_transcriber_instantiation(self) -> None:
         """Test OpenAI transcriber can be instantiated."""
+        pytest.importorskip("openai")
         from audiorag.transcribe import OpenAITranscriber
 
         provider = OpenAITranscriber(api_key="test-key")
@@ -15,6 +16,7 @@ class TestTranscriptionProvidersInstantiation:
 
     def test_openai_transcriber_custom_model(self) -> None:
         """Test OpenAI transcriber with custom model."""
+        pytest.importorskip("openai")
         from audiorag.transcribe import OpenAITranscriber
 
         provider = OpenAITranscriber(api_key="test-key", model="whisper-1")
@@ -22,6 +24,7 @@ class TestTranscriptionProvidersInstantiation:
 
     def test_assemblyai_transcriber_instantiation(self) -> None:
         """Test AssemblyAI transcriber can be instantiated."""
+        pytest.importorskip("assemblyai")
         from audiorag.transcribe import AssemblyAITranscriber
 
         provider = AssemblyAITranscriber(api_key="test-key")
@@ -29,6 +32,7 @@ class TestTranscriptionProvidersInstantiation:
 
     def test_groq_transcriber_instantiation(self) -> None:
         """Test Groq transcriber can be instantiated."""
+        pytest.importorskip("groq")
         from audiorag.transcribe import GroqTranscriber
 
         provider = GroqTranscriber(api_key="test-key")
@@ -36,6 +40,7 @@ class TestTranscriptionProvidersInstantiation:
 
     def test_groq_transcriber_custom_model(self) -> None:
         """Test Groq transcriber with custom model."""
+        pytest.importorskip("groq")
         from audiorag.transcribe import GroqTranscriber
 
         provider = GroqTranscriber(api_key="test-key", model="whisper-large-v3")

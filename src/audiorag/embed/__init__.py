@@ -12,7 +12,7 @@ def __getattr__(name: str):
             return OpenAIEmbeddingProvider
         except ImportError:
             raise ImportError(
-                "OpenAIEmbedder requires 'openai'. Install with: pip install audiorag[openai]"
+                "OpenAIEmbedder requires 'openai'. Install with: uv pip install audiorag[openai]"
             ) from None
     if name == "VoyageEmbedder":
         try:
@@ -21,7 +21,7 @@ def __getattr__(name: str):
             return VoyageEmbeddingProvider
         except ImportError:
             raise ImportError(
-                "VoyageEmbedder requires 'voyageai'. Install with: pip install audiorag[voyage]"
+                "VoyageEmbedder requires 'voyageai'. Install with: uv pip install audiorag[voyage]"
             ) from None
     if name == "CohereEmbedder":
         try:
@@ -30,7 +30,7 @@ def __getattr__(name: str):
             return CohereEmbeddingProvider
         except ImportError:
             raise ImportError(
-                "CohereEmbedder requires 'cohere'. Install with: pip install audiorag[cohere]"
+                "CohereEmbedder requires 'cohere'. Install with: uv pip install audiorag[cohere]"
             ) from None
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

@@ -8,6 +8,7 @@ class TestGenerationProvidersInstantiation:
 
     def test_openai_generator_instantiation(self) -> None:
         """Test OpenAI generator can be instantiated."""
+        pytest.importorskip("openai")
         from audiorag.generate import OpenAIGenerator
 
         provider = OpenAIGenerator(api_key="test-key")
@@ -15,6 +16,7 @@ class TestGenerationProvidersInstantiation:
 
     def test_openai_generator_custom_model(self) -> None:
         """Test OpenAI generator with custom model."""
+        pytest.importorskip("openai")
         from audiorag.generate import OpenAIGenerator
 
         provider = OpenAIGenerator(api_key="test-key", model="gpt-4o")
@@ -22,6 +24,7 @@ class TestGenerationProvidersInstantiation:
 
     def test_anthropic_generator_instantiation(self) -> None:
         """Test Anthropic generator can be instantiated."""
+        pytest.importorskip("anthropic")
         from audiorag.generate import AnthropicGenerator
 
         provider = AnthropicGenerator(api_key="test-key")
@@ -29,6 +32,7 @@ class TestGenerationProvidersInstantiation:
 
     def test_anthropic_generator_custom_model(self) -> None:
         """Test Anthropic generator with custom model."""
+        pytest.importorskip("anthropic")
         from audiorag.generate.anthropic import AnthropicGenerator
 
         provider = AnthropicGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
@@ -36,6 +40,7 @@ class TestGenerationProvidersInstantiation:
 
     def test_gemini_generator_instantiation(self) -> None:
         """Test Gemini generator can be instantiated."""
+        pytest.importorskip("google.generativeai")
         from audiorag.generate import GeminiGenerator
 
         provider = GeminiGenerator(api_key="test-key")

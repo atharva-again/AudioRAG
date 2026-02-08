@@ -12,7 +12,7 @@ def __getattr__(name: str):
             return CohereReranker
         except ImportError:
             raise ImportError(
-                "CohereReranker requires 'cohere'. Install with: pip install audiorag[cohere]"
+                "CohereReranker requires 'cohere'. Install with: uv pip install audiorag[cohere]"
             ) from None
     if name == "PassthroughReranker":
         try:
@@ -21,7 +21,7 @@ def __getattr__(name: str):
             return PassthroughReranker
         except ImportError:
             raise ImportError(
-                "PassthroughReranker requires 'audiorag'. Install with: pip install audiorag"
+                "PassthroughReranker requires 'audiorag'. Install with: uv pip install audiorag"
             ) from None
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

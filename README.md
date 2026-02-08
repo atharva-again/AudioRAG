@@ -52,8 +52,8 @@ asyncio.run(main())
 ## Installation
 
 ```bash
-# Install with uv
-uv add audiorag
+# Install with uv (recommended)
+uv pip install audiorag
 
 # Or with pip
 pip install audiorag
@@ -63,13 +63,13 @@ pip install audiorag
 
 ```bash
 # Audio scraping utilities (yt-dlp, pydub)
-uv add audiorag[defaults]
+uv pip install audiorag[defaults]  # or: pip install audiorag[defaults]
 
 # All providers and utilities
-uv add audiorag[all]
+uv pip install audiorag[all]  # or: pip install audiorag[all]
 
 # Specific providers only
-uv add audiorag[openai,chromadb,scraping,cohere]
+uv pip install audiorag[openai,chromadb,scraping,cohere]
 ```
 
 ## Configuration

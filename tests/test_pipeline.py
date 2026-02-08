@@ -46,10 +46,8 @@ class TestPipelineInitialization:
         assert pipeline is not None
 
 
-def create_mock_pipeline(mock_config, all_mock_providers, tmp_db_path):
+async def create_mock_pipeline(mock_config, all_mock_providers):
     """Helper to create an initialized pipeline."""
-    mock_config.database_path = str(tmp_db_path)
-
     pipeline = AudioRAGPipeline(
         config=mock_config,
         audio_source=all_mock_providers["audio_source"],
@@ -60,10 +58,8 @@ def create_mock_pipeline(mock_config, all_mock_providers, tmp_db_path):
         reranker=all_mock_providers["reranker"],
     )
 
-    # Initialize the state manager synchronously
-    import asyncio
-
-    asyncio.get_event_loop().run_until_complete(pipeline._ensure_initialized())
+    # Initialize the state manager asynchronously
+    await pipeline._ensure_initialized()
     return pipeline
 
 
@@ -71,9 +67,9 @@ class TestPipelineQuery:
     """Test suite for pipeline query flow."""
 
     @pytest.fixture
-    def initialized_pipeline(self, mock_config, all_mock_providers, tmp_db_path):
+    async def initialized_pipeline(self, mock_config, all_mock_providers):
         """Create and initialize a pipeline with mocked providers."""
-        return create_mock_pipeline(mock_config, all_mock_providers, tmp_db_path)
+        return await create_mock_pipeline(mock_config, all_mock_providers)
 
     @pytest.mark.asyncio
     async def test_query_returns_queryresult(self, initialized_pipeline) -> None:
@@ -135,12 +131,11 @@ class TestPipelineIndex:
     """Test suite for pipeline indexing."""
 
     @pytest.fixture
-    def pipeline_for_index(self, mock_config, all_mock_providers, tmp_db_path, tmp_audio_dir):
+    async def pipeline_for_index(self, mock_config, all_mock_providers, tmp_audio_dir):
         """Create a pipeline configured for indexing tests."""
-        mock_config.database_path = str(tmp_db_path)
         mock_config.work_dir = tmp_audio_dir
 
-        return create_mock_pipeline(mock_config, all_mock_providers, tmp_db_path)
+        return await create_mock_pipeline(mock_config, all_mock_providers)
 
     @pytest.mark.asyncio
     async def test_index_creates_source_entry(self, pipeline_for_index) -> None:
@@ -214,9 +209,9 @@ class TestPipelineErrorHandling:
     """Test suite for pipeline error handling."""
 
     @pytest.fixture
-    def pipeline_for_error(self, mock_config, all_mock_providers, tmp_db_path):
+    async def pipeline_for_error(self, mock_config, all_mock_providers):
         """Create a pipeline for error testing."""
-        return create_mock_pipeline(mock_config, all_mock_providers, tmp_db_path)
+        return await create_mock_pipeline(mock_config, all_mock_providers)
 
     @pytest.mark.asyncio
     async def test_index_sets_failed_status_on_error(self, pipeline_for_error, mocker) -> None:

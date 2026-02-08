@@ -12,7 +12,7 @@ def __getattr__(name: str):
             return YouTubeSource
         except ImportError:
             raise ImportError(
-                "YouTubeSource requires 'yt-dlp'. Install with: pip install audiorag[youtube]"
+                "YouTubeSource requires 'yt-dlp'. Install with: uv pip install audiorag[youtube]"
             ) from None
     if name == "LocalSource":
         try:
@@ -21,7 +21,7 @@ def __getattr__(name: str):
             return LocalSource
         except ImportError:
             raise ImportError(
-                "LocalSource requires 'audiorag'. Install with: pip install audiorag"
+                "LocalSource requires 'audiorag'. Install with: uv pip install audiorag"
             ) from None
     if name == "URLSource":
         try:
@@ -30,7 +30,7 @@ def __getattr__(name: str):
             return URLSource
         except ImportError:
             raise ImportError(
-                "URLSource requires 'audiorag'. Install with: pip install audiorag"
+                "URLSource requires 'audiorag'. Install with: uv pip install audiorag"
             ) from None
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

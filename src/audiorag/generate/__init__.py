@@ -12,7 +12,7 @@ def __getattr__(name: str):
             return OpenAIGenerator
         except ImportError:
             raise ImportError(
-                "OpenAIGenerator requires 'openai'. Install with: pip install audiorag[openai]"
+                "OpenAIGenerator requires 'openai'. Install with: uv pip install audiorag[openai]"
             ) from None
     if name == "AnthropicGenerator":
         try:
@@ -22,7 +22,7 @@ def __getattr__(name: str):
         except ImportError:
             raise ImportError(
                 "AnthropicGenerator requires 'anthropic'. "
-                "Install with: pip install audiorag[anthropic]"
+                "Install with: uv pip install audiorag[anthropic]"
             ) from None
     if name == "GeminiGenerator":
         try:
@@ -32,7 +32,7 @@ def __getattr__(name: str):
         except ImportError:
             raise ImportError(
                 "GeminiGenerator requires 'google-generativeai'. "
-                "Install with: pip install audiorag[gemini]"
+                "Install with: uv pip install audiorag[gemini]"
             ) from None
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
