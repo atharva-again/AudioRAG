@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import chromadb  # type: ignore
-from chromadb.api import ClientAPI  # type: ignore
-from chromadb.api.models.Collection import Collection  # type: ignore
+import chromadb
+from chromadb.api import ClientAPI
+from chromadb.api.models.Collection import Collection
 
 from audiorag.core.logging_config import get_logger
 from audiorag.store._base import VectorStoreMixin
@@ -58,7 +58,7 @@ class ChromaDBVectorStore(VectorStoreMixin):
         self,
         ids: list[str],
         embeddings: list[list[float]],
-        metadatas: list[dict],
+        metadatas: list[dict[str, Any]],
         documents: list[str],
     ) -> None:
         """Add embeddings to the vector store."""
@@ -76,8 +76,8 @@ class ChromaDBVectorStore(VectorStoreMixin):
             collection = self._ensure_initialized()
             collection.add(
                 ids=ids,
-                embeddings=embeddings,
-                metadatas=metadatas,
+                embeddings=cast(Any, embeddings),
+                metadatas=cast(Any, metadatas),
                 documents=documents,
             )
 

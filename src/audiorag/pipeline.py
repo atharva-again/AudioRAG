@@ -345,7 +345,7 @@ class AudioRAGPipeline:
             created_temp_dir = True
 
         try:
-            # Stage 1 — Download
+            # Stage 1 - Download
             with Timer(operation_logger, "stage_download") as timer:
                 await self._state.upsert_source(url, IndexingStatus.DOWNLOADING)
                 audio_file = await self._audio_source.download(
@@ -365,13 +365,13 @@ class AudioRAGPipeline:
                     file_path=str(audio_file.path),
                 )
 
-            # Stage 2 — Split
+            # Stage 2 - Split
             with Timer(operation_logger, "stage_split") as timer:
                 await self._state.update_source_status(url, IndexingStatus.SPLITTING)
                 audio_parts = await self._splitter.split_if_needed(audio_file.path, work_dir)
                 timer.complete(parts_count=len(audio_parts))
 
-            # Stage 3 — Transcribe
+            # Stage 3 - Transcribe
             with Timer(operation_logger, "stage_transcribe", parts=len(audio_parts)) as timer:
                 await self._state.update_source_status(url, IndexingStatus.TRANSCRIBING)
                 all_segments = []
@@ -405,7 +405,7 @@ class AudioRAGPipeline:
                 await self._state.update_source_status(url, IndexingStatus.TRANSCRIBED)
                 timer.complete(segments_count=len(all_segments))
 
-            # Stage 4 — Chunk
+            # Stage 4 - Chunk
             with Timer(operation_logger, "stage_chunk") as timer:
                 await self._state.update_source_status(url, IndexingStatus.CHUNKING)
                 chunks = chunk_transcription(
@@ -438,7 +438,7 @@ class AudioRAGPipeline:
                 await self._state.update_source_status(url, IndexingStatus.CHUNKED)
                 timer.complete(chunks_count=len(chunks))
 
-            # Stage 5 — Embed
+            # Stage 5 - Embed
             with Timer(operation_logger, "stage_embed") as timer:
                 await self._state.update_source_status(url, IndexingStatus.EMBEDDING)
                 texts = [c.text for c in chunks]
@@ -464,7 +464,7 @@ class AudioRAGPipeline:
                 await self._state.update_source_status(url, IndexingStatus.EMBEDDED)
                 timer.complete(chunks_count=len(chunks))
 
-            # Stage 6 — Complete
+            # Stage 6 - Complete
             await self._state.update_source_status(url, IndexingStatus.COMPLETED)
             operation_logger.info("index_completed")
 
@@ -504,11 +504,11 @@ class AudioRAGPipeline:
         operation_logger.info("query_started")
 
         try:
-            # Step 1 — Embed query
+            # Step 1 - Embed query
             with Timer(operation_logger, "query_embed"):
                 query_embedding = (await self._embedder.embed([query]))[0]
 
-            # Step 2 — Retrieve
+            # Step 2 - Retrieve
             with Timer(operation_logger, "query_retrieve") as timer:
                 raw_results = await self._vector_store.query(
                     query_embedding, top_k=self._config.retrieval_top_k
@@ -519,7 +519,7 @@ class AudioRAGPipeline:
                 operation_logger.info("query_no_results")
                 return QueryResult(answer="No relevant information found.", sources=[])
 
-            # Step 3 — Rerank
+            # Step 3 - Rerank
             with Timer(operation_logger, "query_rerank") as timer:
                 documents = [r["document"] for r in raw_results]
                 reranked = await self._reranker.rerank(
@@ -530,12 +530,12 @@ class AudioRAGPipeline:
             # Map reranked indices back to original results
             reranked_results = [(raw_results[idx], score) for idx, score in reranked]
 
-            # Step 4 — Generate
+            # Step 4 - Generate
             with Timer(operation_logger, "query_generate"):
                 context_texts = [r["document"] for r, _ in reranked_results]
                 answer = await self._generator.generate(query, context_texts)
 
-            # Step 5 — Build response
+            # Step 5 - Build response
             sources = []
             for result, score in reranked_results:
                 metadata = result.get("metadata", {})

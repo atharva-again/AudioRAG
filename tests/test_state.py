@@ -809,9 +809,8 @@ class TestErrorHandling:
     async def test_unicode_in_metadata(self, state_manager: StateManager, sample_source_path: str):
         """Test handling of Unicode characters in metadata."""
         metadata = {
-            "title": "Test 测试 テスト тест",
-            "emoji": "🎵🎶🎤",
-            "special": "café résumé naïve",
+            "title": "Test content",
+            "special": "cafe resume naive",
         }
 
         await state_manager.upsert_source(

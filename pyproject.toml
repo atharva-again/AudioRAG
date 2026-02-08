@@ -34,6 +34,8 @@ dependencies = [
     "tenacity>=8.0",
     "structlog>=24.0",
     "textual>=0.47.0",
+    "rich>=13.0.0",
+    "questionary>=2.0.0",
 ]
 
 [project.urls]

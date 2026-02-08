@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError  # type: ignore
+from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError
 
 from audiorag.core.logging_config import get_logger
 from audiorag.embed._base import EmbedderMixin

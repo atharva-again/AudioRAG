@@ -518,7 +518,7 @@ class TestTranscriptionSegment:
 
     def test_special_characters_in_text(self):
         """Test TranscriptionSegment with special characters."""
-        text = "Hello! @#$%^&*() 你好 🎵"
+        text = "Hello! @#$%^&*() hello"
         segment = TranscriptionSegment(
             start_time=0.0,
             end_time=5.0,

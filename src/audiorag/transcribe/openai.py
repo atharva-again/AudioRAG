@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError  # type: ignore
+from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError
 
 from audiorag.core.logging_config import get_logger
 from audiorag.core.models import TranscriptionSegment
@@ -54,7 +54,9 @@ class OpenAITranscriber(TranscriberMixin):
         @retry_decorator
         async def _transcribe_with_retry() -> Any:
             with open(audio_path, "rb") as audio_file:
-                return await self.client.audio.transcriptions.create(
+                # Use Any cast to avoid strict OpenAI type issues with optional fields
+                client = cast(Any, self.client)
+                return await client.audio.transcriptions.create(
                     model=self.model,
                     file=audio_file,
                     response_format="verbose_json",

@@ -14,9 +14,10 @@ Usage:
     result = await pipeline.query("What is discussed?")
 
     # Modular imports (new)
-    from audiorag.embed import VoyageEmbedder
-    from audiorag.store import SupabasePgVectorStore
-    from audiorag.query import RAGQueryEngine
+    from audiorag.embed import OpenAIEmbeddingProvider
+    from audiorag.store import ChromaDBVectorStore
+    from audiorag.pipeline import AudioRAGPipeline
+
 """
 
 from __future__ import annotations

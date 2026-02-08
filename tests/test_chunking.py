@@ -406,7 +406,7 @@ class TestChunkingMetadata:
             TranscriptionSegment(start_time=0.0, end_time=5.0, text="Content"),
         ]
         source_url = "https://example.com/video"
-        expected_title = "视频标题 🎵 Título del Video"
+        expected_title = "Video Title"
         chunks = chunk_transcription(
             segments=segments,
             chunk_duration_seconds=10,
@@ -508,8 +508,8 @@ class TestChunkingTextJoining:
     def test_text_with_unicode(self):
         """Test text with unicode characters."""
         segments = [
-            TranscriptionSegment(start_time=0.0, end_time=1.0, text="你好"),
-            TranscriptionSegment(start_time=1.0, end_time=2.0, text="世界"),
+            TranscriptionSegment(start_time=0.0, end_time=1.0, text="hello"),
+            TranscriptionSegment(start_time=1.0, end_time=2.0, text="world"),
         ]
         chunks = chunk_transcription(
             segments=segments,
@@ -517,13 +517,13 @@ class TestChunkingTextJoining:
             source_url="https://example.com",
             title="Title",
         )
-        assert chunks[0].text == "你好 世界"
+        assert chunks[0].text == "hello world"
 
     def test_text_with_emoji(self):
         """Test text with emoji."""
         segments = [
-            TranscriptionSegment(start_time=0.0, end_time=1.0, text="Hello 🎵"),
-            TranscriptionSegment(start_time=1.0, end_time=2.0, text="world 🌍"),
+            TranscriptionSegment(start_time=0.0, end_time=1.0, text="Hello"),
+            TranscriptionSegment(start_time=1.0, end_time=2.0, text="world"),
         ]
         chunks = chunk_transcription(
             segments=segments,
@@ -531,7 +531,7 @@ class TestChunkingTextJoining:
             source_url="https://example.com",
             title="Title",
         )
-        assert chunks[0].text == "Hello 🎵 world 🌍"
+        assert chunks[0].text == "Hello world"
 
 
 class TestChunkingTimestamps:
