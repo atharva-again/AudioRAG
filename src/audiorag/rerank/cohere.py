@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from cohere import AsyncClientV2
-from cohere.errors import RateLimitError, ServiceUnavailableError
+from cohere import AsyncClientV2  # type: ignore
+from cohere.errors import RateLimitError, ServiceUnavailableError  # type: ignore
 
 from audiorag.core.logging_config import get_logger
 from audiorag.rerank._base import RerankerMixin

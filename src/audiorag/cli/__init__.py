@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -51,41 +52,81 @@ QUESTIONARY_STYLE = questionary.Style(
 console = Console(theme=AUDIORAG_THEME)
 
 
-def validate_api_key(provider: str):
+def validate_api_key(provider: str) -> Callable[[str], bool | str]:
     """Return a validation function for a specific provider."""
+    prefixes = {
+        "openai": "sk-",
+        "anthropic": "sk-ant-",
+        "groq": "gsk_",
+        "voyage": "pa-",
+    }
+    lengths = {
+        "openai": 40,
+        "deepgram": 40,
+        "assemblyai": 32,
+    }
 
     def validator(text: str) -> bool | str:
         if not text:
             return f"{provider.upper()} API key cannot be empty"
 
         p = provider.lower()
-        if p == "openai":
-            if not text.startswith("sk-"):
-                return "OpenAI keys must start with 'sk-'"
-            if len(text) < 40:
-                return "OpenAI key is too short"
-        elif p == "anthropic":
-            if not text.startswith("sk-ant-"):
-                return "Anthropic keys must start with 'sk-ant-'"
-        elif p == "groq":
-            if not text.startswith("gsk_"):
-                return "Groq keys must start with 'gsk_'"
-        elif p == "voyage":
-            if not text.startswith("pa-"):
-                return "Voyage keys must start with 'pa-'"
-        elif p == "deepgram":
-            if len(text) != 40:
-                return "Deepgram keys are usually 40 characters"
-        elif p == "assemblyai":
-            if len(text) != 32:
-                return "AssemblyAI keys are usually 32 characters"
+        prefix = prefixes.get(p)
+        if prefix and not text.startswith(prefix):
+            return f"{provider.upper()} keys must start with '{prefix}'"
 
-        if len(text) < 20:
-            return f"{provider.upper()} key seems too short"
+        min_len = lengths.get(p, 20)
+        if len(text) < min_len:
+            return f"{provider.upper()} key is too short"
 
         return True
 
     return validator
+
+
+async def _get_provider_config(category: str, choices: list[str], env_key: str) -> list[str] | None:
+    """Helper to prompt for a provider and its corresponding API key."""
+    provider = await questionary.select(
+        f"Select {category} Provider:",
+        choices=choices,
+        style=QUESTIONARY_STYLE,
+    ).ask_async()
+    if provider is None:
+        return None
+
+    lines = [f"AUDIORAG_{env_key}_PROVIDER={provider}\n"]
+
+    if env_key == "VECTOR_STORE":
+        if provider == "chromadb":
+            return lines
+        if provider == "supabase":
+            conn_str = await questionary.text(
+                "Enter Supabase Connection String:",
+                validate=lambda t: True if t.startswith("postgresql://") else "Invalid format",
+                style=QUESTIONARY_STYLE,
+            ).ask_async()
+            if conn_str is None:
+                return None
+            if conn_str:
+                lines.append(f"AUDIORAG_SUPABASE_CONNECTION_STRING={conn_str}\n")
+            return lines
+
+    key = await questionary.password(
+        f"Enter {provider.upper()} API Key:",
+        validate=validate_api_key(provider),
+        style=QUESTIONARY_STYLE,
+    ).ask_async()
+
+    if key is None:
+        return None
+
+    key_var = (
+        "AUDIORAG_GOOGLE_API_KEY"
+        if provider == "gemini"
+        else f"AUDIORAG_{provider.upper()}_API_KEY"
+    )
+    lines.append(f"{key_var}={key}\n")
+    return lines
 
 
 async def setup_cmd() -> None:
@@ -96,97 +137,18 @@ async def setup_cmd() -> None:
     try:
         env_lines = ["# AudioRAG Configuration\n"]
 
-        # 1. STT
-        stt_provider = await questionary.select(
-            "Select Speech-to-Text (STT) Provider:",
-            choices=["openai", "deepgram", "groq", "assemblyai"],
-            style=QUESTIONARY_STYLE,
-        ).ask_async()
-        if stt_provider is None:
-            return
-        env_lines.append(f"AUDIORAG_STT_PROVIDER={stt_provider}\n")
+        configs = [
+            ("Speech-to-Text (STT)", ["openai", "deepgram", "groq", "assemblyai"], "STT"),
+            ("Embedding", ["openai", "voyage", "cohere"], "EMBEDDING"),
+            ("Vector Store", ["chromadb", "pinecone", "weaviate", "supabase"], "VECTOR_STORE"),
+            ("Generation", ["openai", "anthropic", "gemini"], "GENERATION"),
+        ]
 
-        stt_key = await questionary.password(
-            f"Enter {stt_provider.upper()} API Key:",
-            validate=validate_api_key(stt_provider),
-            style=QUESTIONARY_STYLE,
-        ).ask_async()
-        if stt_key is None:
-            return
-        key_var = f"AUDIORAG_{stt_provider.upper()}_API_KEY"
-        env_lines.append(f"{key_var}={stt_key}\n")
-
-        # 2. Embedding
-        embedding_provider = await questionary.select(
-            "Select Embedding Provider:",
-            choices=["openai", "voyage", "cohere"],
-            style=QUESTIONARY_STYLE,
-        ).ask_async()
-        if embedding_provider is None:
-            return
-        env_lines.append(f"AUDIORAG_EMBEDDING_PROVIDER={embedding_provider}\n")
-
-        embed_key = await questionary.password(
-            f"Enter {embedding_provider.upper()} API Key:",
-            validate=validate_api_key(embedding_provider),
-            style=QUESTIONARY_STYLE,
-        ).ask_async()
-        if embed_key is None:
-            return
-        key_var = f"AUDIORAG_{embedding_provider.upper()}_API_KEY"
-        env_lines.append(f"{key_var}={embed_key}\n")
-
-        # 3. Vector Store
-        vector_store = await questionary.select(
-            "Select Vector Store:",
-            choices=["chromadb", "pinecone", "weaviate", "supabase"],
-            style=QUESTIONARY_STYLE,
-        ).ask_async()
-        if vector_store is None:
-            return
-        env_lines.append(f"AUDIORAG_VECTOR_STORE_PROVIDER={vector_store}\n")
-
-        if vector_store != "chromadb":
-            if vector_store == "supabase":
-                conn_str = await questionary.text(
-                    "Enter Supabase Connection String:",
-                    validate=lambda t: True if t.startswith("postgresql://") else "Invalid format",
-                    style=QUESTIONARY_STYLE,
-                ).ask_async()
-                if conn_str:
-                    env_lines.append(f"AUDIORAG_SUPABASE_CONNECTION_STRING={conn_str}\n")
-            else:
-                vs_key = await questionary.password(
-                    f"Enter {vector_store.upper()} API Key:",
-                    validate=validate_api_key(vector_store),
-                    style=QUESTIONARY_STYLE,
-                ).ask_async()
-                if vs_key:
-                    env_lines.append(f"AUDIORAG_{vector_store.upper()}_API_KEY={vs_key}\n")
-
-        # 4. Generation
-        gen_provider = await questionary.select(
-            "Select Generation Provider:",
-            choices=["openai", "anthropic", "gemini"],
-            style=QUESTIONARY_STYLE,
-        ).ask_async()
-        if gen_provider is None:
-            return
-        env_lines.append(f"AUDIORAG_GENERATION_PROVIDER={gen_provider}\n")
-
-        gen_key = await questionary.password(
-            f"Enter {gen_provider.upper()} API Key:",
-            validate=validate_api_key(gen_provider),
-            style=QUESTIONARY_STYLE,
-        ).ask_async()
-        if gen_key is None:
-            return
-        key_var = (
-            "AUDIORAG_GOOGLE_API_KEY"
-            if gen_provider == "gemini"
-            else f"AUDIORAG_{gen_provider.upper()}_API_KEY"
-        )
-        env_lines.append(f"{key_var}={gen_key}\n")
+        for category, choices, env_key in configs:
+            res = await _get_provider_config(category, choices, env_key)
+            if res is None:
+                return
+            env_lines.extend(res)
 
         new_config = {}
         for line in env_lines:
@@ -198,7 +160,7 @@ async def setup_cmd() -> None:
         final_lines = []
 
         if env_path.exists():
-            with open(env_path, "r") as f:
+            with open(env_path) as f:
                 existing_lines = f.readlines()
 
             for line in existing_lines:

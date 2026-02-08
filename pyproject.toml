@@ -259,20 +259,25 @@ exclude = [
     "**/dist",
     # Skip CLI and optional provider modules with lazy imports
     "src/audiorag/cli",
+    "src/audiorag/embed/openai.py",
     "src/audiorag/embed/cohere.py",
     "src/audiorag/embed/voyage.py",
+    "src/audiorag/generate/openai.py",
     "src/audiorag/generate/anthropic.py",
     "src/audiorag/generate/gemini.py",
     "src/audiorag/source/local.py",
     "src/audiorag/source/splitter.py",
     "src/audiorag/source/url.py",
     "src/audiorag/source/youtube.py",
+    "src/audiorag/store/chromadb.py",
     "src/audiorag/store/pinecone.py",
     "src/audiorag/store/weaviate.py",
     "src/audiorag/store/supabase.py",
+    "src/audiorag/transcribe/openai.py",
     "src/audiorag/transcribe/assemblyai.py",
     "src/audiorag/transcribe/deepgram.py",
     "src/audiorag/transcribe/groq.py",
+    "src/audiorag/rerank/cohere.py",
 ]
 
 [tool.ty.terminal]

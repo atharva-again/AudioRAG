@@ -6,9 +6,9 @@ import asyncio
 from pathlib import Path
 from typing import Any, cast
 
-import chromadb
-from chromadb.api import ClientAPI
-from chromadb.api.models.Collection import Collection
+import chromadb  # type: ignore
+from chromadb.api import ClientAPI  # type: ignore
+from chromadb.api.models.Collection import Collection  # type: ignore
 
 from audiorag.core.logging_config import get_logger
 from audiorag.store._base import VectorStoreMixin

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
-from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError
+from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError  # type: ignore
 
 from audiorag.core.logging_config import get_logger
 from audiorag.core.models import TranscriptionSegment
