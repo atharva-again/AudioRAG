@@ -44,3 +44,11 @@ Thumbs.db
 # AudioRAG
 *.db
 chroma_db/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# db
+audiorag.db
