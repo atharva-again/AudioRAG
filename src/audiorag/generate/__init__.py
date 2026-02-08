@@ -38,7 +38,7 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "OpenAIGenerator",
     "AnthropicGenerator",
     "GeminiGenerator",
+    "OpenAIGenerator",
 ]

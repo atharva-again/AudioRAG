@@ -58,10 +58,13 @@ def configure_logging(
     )
 
     # Configure stdlib logging to use structlog
+    # Safely handle non-string log_level (e.g., MagicMock in tests)
+    if not isinstance(log_level, str):
+        log_level = "INFO"
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stderr,
-        level=getattr(logging, log_level.upper()),
+        level=getattr(logging, log_level.upper(), logging.INFO),
         force=True,
     )
 

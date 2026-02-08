@@ -6,8 +6,6 @@ import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydub import AudioSegment  # type: ignore
-
 from audiorag.core.logging_config import get_logger
 
 if TYPE_CHECKING:
@@ -43,7 +41,6 @@ class AudioSplitter:
 
         Raises:
             FileNotFoundError: If audio file doesn't exist
-            RuntimeError: If splitting fails
         """
         operation_logger = self._logger.bind(
             audio_path=str(audio_path),
@@ -57,12 +54,10 @@ class AudioSplitter:
         file_size = audio_path.stat().st_size
         operation_logger.debug("checking_file_size", file_size_bytes=file_size)
 
-        # If file is under limit, return as-is
         if file_size <= self.max_size_bytes:
             operation_logger.info("no_split_needed", file_size_bytes=file_size)
             return [audio_path]
 
-        # File exceeds limit, split it
         operation_logger.info("splitting_required", file_size_bytes=file_size)
         try:
             return await asyncio.to_thread(
@@ -85,34 +80,19 @@ class AudioSplitter:
         output_dir: Path,
         operation_logger: structlog.stdlib.BoundLogger,
     ) -> list[Path]:
-        """Synchronous split implementation.
-
-        Args:
-            audio_path: Path to the audio file
-            output_dir: Directory to save split files
-            operation_logger: Logger instance with context
-
-        Returns:
-            List of split audio file paths
-
-        Raises:
-            RuntimeError: If splitting fails
-        """
+        """Synchronous split implementation."""
         try:
+            from pydub import AudioSegment
+
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Load audio file
             operation_logger.debug("loading_audio_file")
             audio = AudioSegment.from_file(str(audio_path))
 
-            # Calculate chunk duration based on file size and bitrate
             file_size = audio_path.stat().st_size
             duration_ms = len(audio)
 
-            # Estimate how many chunks we need
             num_chunks = (file_size // self.max_size_bytes) + 1
-
-            # Calculate chunk duration (with 10% overlap for safety)
             chunk_duration_ms = int((duration_ms / num_chunks) * 0.9)
 
             operation_logger.debug(
@@ -122,7 +102,6 @@ class AudioSplitter:
                 total_duration_ms=duration_ms,
             )
 
-            # Split audio into chunks
             chunks: list[Path] = []
             stem = audio_path.stem
             suffix = audio_path.suffix
@@ -135,10 +114,7 @@ class AudioSplitter:
                 chunk.export(str(chunk_path), format=suffix.lstrip("."))
                 chunks.append(chunk_path)
 
-            operation_logger.info(
-                "split_completed",
-                chunks_count=len(chunks),
-            )
+            operation_logger.info("split_completed", chunks_count=len(chunks))
             return chunks
 
         except Exception as e:

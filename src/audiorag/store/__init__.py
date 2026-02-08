@@ -51,6 +51,6 @@ def __getattr__(name: str):
 __all__ = [
     "ChromaDBVectorStore",
     "PineconeVectorStore",
-    "WeaviateVectorStore",
     "SupabasePgVectorStore",
+    "WeaviateVectorStore",
 ]

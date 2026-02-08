@@ -47,8 +47,8 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "OpenAITranscriber",
-    "DeepgramTranscriber",
     "AssemblyAITranscriber",
+    "DeepgramTranscriber",
     "GroqTranscriber",
+    "OpenAITranscriber",
 ]

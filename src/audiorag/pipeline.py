@@ -8,7 +8,6 @@ from pathlib import Path
 
 from audiorag.chunking import chunk_transcription
 from audiorag.core import (
-    AudioFile,
     AudioRAGConfig,
     AudioSourceProvider,
     EmbeddingProvider,
@@ -17,15 +16,16 @@ from audiorag.core import (
     QueryResult,
     RerankerProvider,
     RetryConfig,
-    STTProvider,
     Source,
     StateManager,
-    TranscriptionSegment,
+    STTProvider,
     VectorStoreProvider,
     configure_logging,
     get_logger,
 )
 from audiorag.core.logging_config import Timer
+
+# YouTubeSource imported lazily to avoid yt_dlp dependency at module load time
 
 logger = get_logger(__name__)
 
@@ -37,7 +37,7 @@ class AudioRAGPipeline:
     with SQLite state tracking and provider-agnostic design.
     """
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         config: AudioRAGConfig,
         *,
@@ -81,12 +81,12 @@ class AudioRAGPipeline:
         if audio_source is not None:
             self._audio_source = audio_source
         else:
-            from audiorag.providers.youtube_scraper import YouTubeScraper  # noqa: PLC0415
+            from audiorag.source.youtube import YouTubeSource
 
             archive_path = (
                 Path(config.youtube_download_archive) if config.youtube_download_archive else None
             )
-            self._audio_source = YouTubeScraper(
+            self._audio_source = YouTubeSource(
                 retry_config=retry_config,
                 download_archive=archive_path,
                 concurrent_fragments=config.youtube_concurrent_fragments,
@@ -129,7 +129,7 @@ class AudioRAGPipeline:
             self._reranker = self._create_reranker_provider(config, retry_config)
 
         # Internal utilities
-        from audiorag.providers.audio_splitter import AudioSplitter  # noqa: PLC0415
+        from audiorag.source.splitter import AudioSplitter
 
         self._splitter = AudioSplitter(max_size_mb=config.audio_split_max_size_mb)
         self._state = StateManager(config.database_path)
@@ -142,33 +142,33 @@ class AudioRAGPipeline:
         provider_name = config.stt_provider.lower()
 
         if provider_name == "groq":
-            from audiorag.providers.groq_stt import GroqSTTProvider  # noqa: PLC0415
+            from audiorag.transcribe.groq import GroqTranscriber
 
-            return GroqSTTProvider(
+            return GroqTranscriber(
                 api_key=config.groq_api_key or None,
                 model=config.get_stt_model(),
                 retry_config=retry_config,
             )
         if provider_name == "deepgram":
-            from audiorag.providers.deepgram_stt import DeepgramSTTProvider  # noqa: PLC0415
+            from audiorag.transcribe.deepgram import DeepgramTranscriber
 
-            return DeepgramSTTProvider(
+            return DeepgramTranscriber(
                 api_key=config.deepgram_api_key or None,
                 model=config.get_stt_model(),
                 retry_config=retry_config,
             )
         if provider_name == "assemblyai":
-            from audiorag.providers.assemblyai_stt import AssemblyAISTTProvider  # noqa: PLC0415
+            from audiorag.transcribe.assemblyai import AssemblyAITranscriber
 
-            return AssemblyAISTTProvider(
+            return AssemblyAITranscriber(
                 api_key=config.assemblyai_api_key or None,
                 model=config.get_stt_model(),
                 retry_config=retry_config,
             )
         # default to openai
-        from audiorag.providers.openai_stt import OpenAISTTProvider  # noqa: PLC0415
+        from audiorag.transcribe.openai import OpenAITranscriber
 
-        return OpenAISTTProvider(
+        return OpenAITranscriber(
             api_key=config.openai_api_key or None,
             model=config.stt_model,
             retry_config=retry_config,
@@ -181,9 +181,7 @@ class AudioRAGPipeline:
         provider_name = config.embedding_provider.lower()
 
         if provider_name == "voyage":
-            from audiorag.providers.voyage_embeddings import (  # noqa: PLC0415
-                VoyageEmbeddingProvider,
-            )
+            from audiorag.embed.voyage import VoyageEmbeddingProvider
 
             return VoyageEmbeddingProvider(
                 api_key=config.voyage_api_key or None,
@@ -191,9 +189,7 @@ class AudioRAGPipeline:
                 retry_config=retry_config,
             )
         if provider_name == "cohere":
-            from audiorag.providers.cohere_embeddings import (  # noqa: PLC0415
-                CohereEmbeddingProvider,
-            )
+            from audiorag.embed.cohere import CohereEmbeddingProvider
 
             return CohereEmbeddingProvider(
                 api_key=config.cohere_api_key or None,
@@ -201,15 +197,10 @@ class AudioRAGPipeline:
                 retry_config=retry_config,
             )
         # default to openai
-        from openai import AsyncOpenAI  # noqa: PLC0415 # type: ignore
+        from audiorag.embed.openai import OpenAIEmbeddingProvider
 
-        from audiorag.providers.openai_embeddings import OpenAIEmbeddingProvider  # noqa: PLC0415
-
-        openai_client = (
-            AsyncOpenAI(api_key=config.openai_api_key) if config.openai_api_key else None
-        )
         return OpenAIEmbeddingProvider(
-            client=openai_client,
+            api_key=config.openai_api_key or None,
             model=config.embedding_model,
             retry_config=retry_config,
         )
@@ -221,38 +212,38 @@ class AudioRAGPipeline:
         provider_name = config.vector_store_provider.lower()
 
         if provider_name == "supabase":
-            from audiorag.providers.supabase_pgvector import SupabasePgVectorStore  # noqa: PLC0415
+            from audiorag.store.supabase import SupabasePgVectorStore
 
             return SupabasePgVectorStore(
-                connection_string=config.supabase_connection_string,
-                collection_name=config.supabase_collection_name,
+                connection_string=config.supabase_connection_string or "",
+                collection_name=config.supabase_collection_name or "audiorag",
                 dimension=config.supabase_vector_dimension,
                 retry_config=retry_config,
             )
         if provider_name == "pinecone":
-            from audiorag.providers.pinecone_store import PineconeVectorStore  # noqa: PLC0415
+            from audiorag.store.pinecone import PineconeVectorStore
 
             return PineconeVectorStore(
-                api_key=config.pinecone_api_key or None,
-                index_name=config.pinecone_index_name,
-                namespace=config.pinecone_namespace,
+                api_key=config.pinecone_api_key or "",
+                index_name=config.pinecone_index_name or "audiorag",
+                namespace=config.pinecone_namespace or "default",
                 retry_config=retry_config,
             )
         if provider_name == "weaviate":
-            from audiorag.providers.weaviate_store import WeaviateVectorStore  # noqa: PLC0415
+            from audiorag.store.weaviate import WeaviateVectorStore
 
             return WeaviateVectorStore(
                 url=config.weaviate_url or None,
                 api_key=config.weaviate_api_key or None,
-                collection_name=config.weaviate_collection_name,
+                collection_name=config.weaviate_collection_name or "AudioRAG",
                 retry_config=retry_config,
             )
         # default to chromadb
-        from audiorag.providers.chromadb_store import ChromaDBVectorStore  # noqa: PLC0415
+        from audiorag.store.chromadb import ChromaDBVectorStore
 
         return ChromaDBVectorStore(
-            persist_directory=config.chromadb_persist_directory,
-            collection_name=config.chromadb_collection_name,
+            persist_directory=config.chromadb_persist_directory or "./chroma_db",
+            collection_name=config.chromadb_collection_name or "audiorag",
             retry_config=retry_config,
         )
 
@@ -263,36 +254,27 @@ class AudioRAGPipeline:
         provider_name = config.generation_provider.lower()
 
         if provider_name == "anthropic":
-            from audiorag.providers.anthropic_generation import (  # noqa: PLC0415
-                AnthropicGenerationProvider,
-            )
+            from audiorag.generate.anthropic import AnthropicGenerator
 
-            return AnthropicGenerationProvider(
+            return AnthropicGenerator(
                 api_key=config.anthropic_api_key or None,
-                model=config.get_generation_model(),
+                model=config.generation_model or "claude-3-7-sonnet-20250219",
                 retry_config=retry_config,
             )
         if provider_name == "gemini":
-            from audiorag.providers.gemini_generation import (  # noqa: PLC0415
-                GeminiGenerationProvider,
-            )
+            from audiorag.generate.gemini import GeminiGenerator
 
-            return GeminiGenerationProvider(
+            return GeminiGenerator(
                 api_key=config.google_api_key or None,
-                model=config.get_generation_model(),
+                model=config.generation_model or "gemini-2.0-flash-001",
                 retry_config=retry_config,
             )
         # default to openai
-        from openai import AsyncOpenAI  # noqa: PLC0415 # type: ignore
+        from audiorag.generate.openai import OpenAIGenerator
 
-        from audiorag.providers.openai_generation import OpenAIGenerationProvider  # noqa: PLC0415
-
-        openai_client = (
-            AsyncOpenAI(api_key=config.openai_api_key) if config.openai_api_key else None
-        )
-        return OpenAIGenerationProvider(
-            client=openai_client,
-            model=config.generation_model,
+        return OpenAIGenerator(
+            api_key=config.openai_api_key or None,
+            model=config.generation_model or "gpt-4o-mini",
             retry_config=retry_config,
         )
 
@@ -303,18 +285,15 @@ class AudioRAGPipeline:
         provider_name = config.reranker_provider.lower()
 
         if provider_name == "passthrough" or not config.cohere_api_key:
-            from audiorag.providers.passthrough_reranker import PassthroughReranker  # noqa: PLC0415
+            from audiorag.rerank.passthrough import PassthroughReranker
 
             return PassthroughReranker()
         # default to cohere
-        from cohere import AsyncClientV2  # noqa: PLC0415 # type: ignore
+        from audiorag.rerank.cohere import CohereReranker
 
-        from audiorag.providers.cohere_reranker import CohereReranker  # noqa: PLC0415
-
-        cohere_client = AsyncClientV2(api_key=config.cohere_api_key)
         return CohereReranker(
-            client=cohere_client,
-            model=config.reranker_model,
+            api_key=config.cohere_api_key or None,
+            model=config.reranker_model or "rerank-v3.5",
             retry_config=retry_config,
         )
 
@@ -407,7 +386,7 @@ class AudioRAGPipeline:
                     segments = await self._stt.transcribe(part_path, self._config.stt_language)
                     # Adjust timestamps for subsequent parts
                     if cumulative_offset > 0:
-                        from audiorag.core.models import TranscriptionSegment  # noqa: PLC0415
+                        from audiorag.core.models import TranscriptionSegment
 
                         segments = [
                             TranscriptionSegment(

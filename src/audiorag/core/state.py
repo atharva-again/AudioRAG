@@ -29,6 +29,9 @@ class StateManager:
         # Open connection
         self._db = await aiosqlite.connect(str(self.db_path))
 
+        # Enable foreign keys for CASCADE DELETE support
+        await self._db.execute("PRAGMA foreign_keys = ON")
+
         # Enable WAL mode for better concurrency
         await self._db.execute("PRAGMA journal_mode=WAL")
 
@@ -157,7 +160,7 @@ class StateManager:
 
         source_id = self._generate_source_id(source_path)
         now = self._now_iso8601()
-        metadata_json = json.dumps(metadata) if metadata else None
+        metadata_json = json.dumps(metadata) if metadata is not None else None
 
         # Check if source exists
         existing = await self.get_source_status(source_path)

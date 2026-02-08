@@ -1,8 +1,23 @@
 # AudioRAG — Standalone Python Package for RAG over Audio
 
+## ⚠️ SUPERSEDED BY v2 REDESIGN
+
+> This plan describes the original v1 architecture and is now **OBSOLETE**.
+> 
+> The **v2 Redesign** (`.sisyphus/plans/audiorag-v2-redesign.md`) has been completed and supersedes this plan.
+> 
+> **Key Changes in v2:**
+> - Providers reorganized from `providers/` → domain modules (`transcribe/`, `embed/`, `store/`, `generate/`, `rerank/`, `source/`)
+> - All providers extend shared mixin base classes
+> - Lazy imports with clear error messages
+> - Source-agnostic core models (`title` not `video_title`)
+> - Protocol conformance tests for all providers
+
 ## TL;DR
 
 > **Quick Summary**: Build a pure-Python async library (`audiorag`) that provides a complete RAG pipeline over YouTube audio: scrape → transcribe → chunk → embed → store → retrieve. Every pipeline stage is provider-agnostic via Protocol interfaces, with default implementations shipped (OpenAI, ChromaDB, Cohere).
+
+## STATUS: COMPLETED (via v2 Redesign)
 > 
 > **Deliverables**:
 > - Installable Python package with `src/audiorag/` layout
@@ -193,7 +208,11 @@ Wave 4 (After Wave 3):
 
 ## TODOs
 
-- [ ] 1. Project Scaffolding — `pyproject.toml`, `src/` layout, directory structure
+- [x] 1. Project Scaffolding — `pyproject.toml`, `src/` layout, directory structure
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - All package structure completed in v2
+  - `src/audiorag/` layout with domain modules instead of `providers/`
 
   **What to do**:
   - Replace the existing `pyproject.toml` with full configuration:
@@ -291,7 +310,11 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 2. Pydantic Models and Configuration — `models.py`, `config.py`
+- [x] 2. Pydantic Models and Configuration — `models.py`, `config.py`
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - Core models in `src/audiorag/core/models.py`
+  - Config in `src/audiorag/core/config.py`
 
   **What to do**:
   - Create `src/audiorag/models.py` with the following Pydantic models:
@@ -424,7 +447,11 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 3. Protocol Definitions — All 6 provider interfaces
+- [x] 3. Protocol Definitions — All 6 provider interfaces
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - 7 protocols in `src/audiorag/core/protocols/`
+  - STTProvider, EmbeddingProvider, VectorStoreProvider, GenerationProvider, RerankerProvider, AudioSourceProvider, ChunkingStrategy
 
   **What to do**:
   - Create `src/audiorag/protocols/stt.py`:
@@ -551,7 +578,11 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 4. SQLite State Management — `state.py`
+- [x] 4. SQLite State Management — `state.py`
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - StateManager in `src/audiorag/core/state.py`
+  - Full pipeline progress tracking implemented
 
   **What to do**:
   - Create `src/audiorag/state.py` with class `StateManager`:
@@ -710,7 +741,11 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 5. Time-Based Text Chunking — `chunking.py`
+- [x] 5. Time-Based Text Chunking — `chunking.py`
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - Chunking in `src/audiorag/chunking.py`
+  - TimeBasedChunker in `src/audiorag/chunk/time_based.py`
 
   **What to do**:
   - Create `src/audiorag/chunking.py` with a single function:
@@ -831,7 +866,12 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 6. YouTube Scraper + Audio Splitter — `providers/youtube_scraper.py`, `providers/audio_splitter.py`
+- [x] 6. YouTube Scraper + Audio Splitter — `providers/youtube_scraper.py`, `providers/audio_splitter.py`
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - YouTubeSource in `src/audiorag/source/youtube.py`
+  - AudioSplitter in `src/audiorag/source/splitter.py`
+  - Added LocalSource and URLSource for full source coverage
 
   **What to do**:
   - Create `src/audiorag/providers/youtube_scraper.py`:
@@ -941,7 +981,10 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 7. OpenAI STT Provider — `providers/openai_stt.py`
+- [x] 7. OpenAI STT Provider — `providers/openai_stt.py`
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - OpenAITranscriber, DeepgramTranscriber, AssemblyAITranscriber, GroqTranscriber in `src/audiorag/transcribe/`
 
   **What to do**:
   - Create `src/audiorag/providers/openai_stt.py`:
@@ -1023,7 +1066,10 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 8. OpenAI Embedding Provider — `providers/openai_embeddings.py`
+- [x] 8. OpenAI Embedding Provider — `providers/openai_embeddings.py`
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - OpenAIEmbedder, VoyageEmbedder, CohereEmbedder in `src/audiorag/embed/`
 
   **What to do**:
   - Create `src/audiorag/providers/openai_embeddings.py`:
@@ -1095,7 +1141,10 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 9. ChromaDB Vector Store Provider — `providers/chromadb_store.py`
+- [x] 9. ChromaDB Vector Store Provider — `providers/chromadb_store.py`
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - ChromaDBVectorStore, PineconeVectorStore, WeaviateVectorStore, SupabasePgVectorStore in `src/audiorag/store/`
 
   **What to do**:
   - Create `src/audiorag/providers/chromadb_store.py`:
@@ -1210,7 +1259,11 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 10. OpenAI Generation + Cohere Reranker Providers — `providers/openai_generation.py`, `providers/cohere_reranker.py`
+- [x] 10. OpenAI Generation + Cohere Reranker Providers — `providers/openai_generation.py`, `providers/cohere_reranker.py`
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - OpenAIGenerator, AnthropicGenerator, GeminiGenerator in `src/audiorag/generate/`
+  - CohereReranker, PassthroughReranker in `src/audiorag/rerank/`
 
   **What to do**:
   - Create `src/audiorag/providers/openai_generation.py`:
@@ -1329,7 +1382,11 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 11. Pipeline Orchestrator — `pipeline.py`
+- [x] 11. Pipeline Orchestrator — `pipeline.py`
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - AudioRAGPipeline in `src/audiorag/pipeline.py`
+  - Full provider composition with state tracking
 
   **What to do**:
   - Create `src/audiorag/pipeline.py` with `class AudioRAGPipeline`:
@@ -1478,7 +1535,12 @@ Wave 4 (After Wave 3):
 
 ---
 
-- [ ] 12. Public API Surface + Final Verification — `__init__.py` and providers `__init__.py`
+- [x] 12. Public API Surface + Final Verification — `__init__.py` and providers `__init__.py`
+
+  **Status**: ✅ COMPLETED (via v2 Redesign)
+  - Public API in `src/audiorag/__init__.py`
+  - Lazy imports with clear error messages in all domain modules
+  - 227 tests passing (41 protocol conformance + 186 core tests)
 
   **What to do**:
   - Update `src/audiorag/__init__.py`:

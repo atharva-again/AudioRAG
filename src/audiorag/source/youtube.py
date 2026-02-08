@@ -6,9 +6,7 @@ import asyncio
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-import yt_dlp  # type: ignore
+from typing import TYPE_CHECKING, Any, cast
 
 from audiorag.core.logging_config import get_logger
 from audiorag.core.models import AudioFile
@@ -34,12 +32,12 @@ class VideoInfo:
     uploader: str | None = None
 
 
-class YouTubeScraper:
+class YouTubeSource:
     """Downloads audio from YouTube videos using yt-dlp.
 
     Supports large-scale channel scraping with optimizations:
     - Fast channel listing via extract_flat (no full metadata fetch)
-    - Download archive to track already processed videos
+    - Download Archive to track already processed videos
     - Batch processing for 20k+ video channels
     - Resume capability for interrupted downloads
     - Lazy playlist processing
@@ -60,7 +58,7 @@ class YouTubeScraper:
         player_clients: list[str] | None = None,
         js_runtime: str | None = "node",
     ) -> None:
-        """Initialize YouTubeScraper and validate FFmpeg availability.
+        """Initialize YouTubeSource and validate FFmpeg availability.
 
         Args:
             retry_config: Retry configuration. Uses default if not provided.
@@ -82,7 +80,7 @@ class YouTubeScraper:
             player_clients: List of YouTube player clients to use.
             js_runtime: JavaScript runtime to use for EJS scripts (e.g. "node", "deno").
         """
-        self._logger = logger.bind(provider="youtube_scraper")
+        self._logger = logger.bind(provider="youtube_source")
         self._retry_config = retry_config or RetryConfig()
         self._download_archive = Path(download_archive) if download_archive else None
         self._concurrent_fragments = concurrent_fragments
@@ -99,7 +97,7 @@ class YouTubeScraper:
             self._logger.error("ffmpeg_not_found")
             raise RuntimeError(
                 "FFmpeg is not installed or not in PATH. "
-                "Please install FFmpeg to use YouTubeScraper."
+                "Please install FFmpeg to use YouTubeSource."
             )
         self._logger.debug("ffmpeg_validated")
 
@@ -116,7 +114,7 @@ class YouTubeScraper:
             "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
             "quiet": True,
             "no_warnings": True,
-            "ignoreerrors": True,  # Continue on individual video errors
+            "ignoreerrors": True,
             "skip_playlist_after_errors": self._skip_playlist_after_errors,
             "extractor_args": {
                 "youtube": {
@@ -128,7 +126,6 @@ class YouTubeScraper:
         if self._po_token:
             token = self._po_token
             if "+" not in token:
-                # Default to mweb.gvs context if not provided
                 token = f"mweb.gvs+{token}"
             opts["extractor_args"]["youtube"]["po_token"] = [token]
 
@@ -152,17 +149,14 @@ class YouTubeScraper:
                 opts["js_runtimes"] = {self._js_runtime: {}}
             opts["remote_components"] = {"ejs:github"}
 
-        # Archive file to track downloaded videos (essential for large channels)
         if self._download_archive:
             self._download_archive.parent.mkdir(parents=True, exist_ok=True)
             opts["download_archive"] = str(self._download_archive)
 
-        # Fast extraction mode (for channel listings)
         if self._extract_flat:
             opts["extract_flat"] = "in_playlist"
-            opts["lazy_playlist"] = True  # Process as received, don't buffer all
+            opts["lazy_playlist"] = True
 
-        # Specific playlist items (for batch processing)
         if self._playlist_items:
             opts["playlist_items"] = self._playlist_items
 
@@ -176,18 +170,7 @@ class YouTubeScraper:
         channel_url: str,
         max_videos: int | None = None,
     ) -> list[VideoInfo]:
-        """List all videos in a channel/playlist efficiently.
-
-        Uses extract_flat for fast listing without fetching full metadata.
-        Essential for channels with 20k+ videos.
-
-        Args:
-            channel_url: Channel or playlist URL
-            max_videos: Maximum number of videos to list (None for all)
-
-        Returns:
-            List of VideoInfo with basic metadata
-        """
+        """List all videos in a channel/playlist efficiently."""
         operation_logger = self._logger.bind(
             url=channel_url,
             max_videos=max_videos,
@@ -199,36 +182,34 @@ class YouTubeScraper:
 
         @retry_decorator
         def _list_sync() -> list[VideoInfo]:
-            opts: dict[str, Any] = {
-                "format": "bestaudio/best",
-                "quiet": True,
-                "no_warnings": True,
-                "extract_flat": "in_playlist",  # Fast extraction, no full metadata
-                "lazy_playlist": True,  # Process as received
-                "skip_download": True,  # Don't download, just list
-            }
+            import yt_dlp
+
+            opts = self._get_base_ydl_opts()
+            opts.update(
+                {
+                    "extract_flat": "in_playlist",
+                    "lazy_playlist": True,
+                    "skip_download": True,
+                }
+            )
 
             if max_videos:
                 opts["playlistend"] = max_videos
 
             videos = []
-            with yt_dlp.YoutubeDL(opts) as ydl:  # type: ignore[arg-type]
+            with yt_dlp.YoutubeDL(cast(Any, opts)) as ydl:
                 try:
                     info = ydl.extract_info(channel_url, download=False)
                     if info is None:
                         return videos
 
-                    # Handle both single videos and playlists
                     entries = info.get("entries", [info])
-
                     for entry in entries:
                         if entry is None:
                             continue
-
                         video_id = entry.get("id")
                         if not video_id:
                             continue
-
                         title = entry.get("title") or "Unknown"
                         videos.append(
                             VideoInfo(
@@ -239,7 +220,6 @@ class YouTubeScraper:
                                 uploader=entry.get("uploader"),
                             )
                         )
-
                 except Exception as e:
                     operation_logger.error(
                         "channel_listing_error",
@@ -252,12 +232,8 @@ class YouTubeScraper:
 
         try:
             videos = await asyncio.to_thread(_list_sync)
-            operation_logger.info(
-                "channel_listing_completed",
-                video_count=len(videos),
-            )
+            operation_logger.info("channel_listing_completed", video_count=len(videos))
             return videos
-
         except Exception as e:
             operation_logger.error(
                 "channel_listing_failed",
@@ -273,17 +249,7 @@ class YouTubeScraper:
         audio_format: str = "mp3",
         max_concurrent: int = 3,
     ) -> list[AudioFile]:
-        """Download audio from multiple videos with concurrency control.
-
-        Args:
-            video_urls: List of YouTube video URLs
-            output_dir: Directory to save audio files
-            audio_format: Audio format (default: mp3)
-            max_concurrent: Maximum concurrent downloads
-
-        Returns:
-            List of successfully downloaded AudioFile objects
-        """
+        """Download audio from multiple videos with concurrency control."""
         operation_logger = self._logger.bind(
             video_count=len(video_urls),
             output_dir=str(output_dir),
@@ -313,37 +279,22 @@ class YouTubeScraper:
                     )
                     return None
 
-        # Download all videos with controlled concurrency
         tasks = [download_one(url) for url in video_urls]
         download_results = await asyncio.gather(*tasks, return_exceptions=True)
 
         for result in download_results:
             if isinstance(result, AudioFile):
                 results.append(result)
-            # Exceptions are already logged
 
         operation_logger.info(
             "batch_download_completed",
             success_count=len(results),
             failed_count=failed_count,
         )
-
         return results
 
     async def download(self, url: str, output_dir: Path, audio_format: str = "mp3") -> AudioFile:
-        """Download audio from YouTube video.
-
-        Args:
-            url: YouTube video URL
-            output_dir: Directory to save the audio file
-            audio_format: Audio format (default: mp3)
-
-        Returns:
-            AudioFile with metadata
-
-        Raises:
-            RuntimeError: If download fails
-        """
+        """Download audio from YouTube video."""
         operation_logger = self._logger.bind(
             url=url,
             output_dir=str(output_dir),
@@ -384,22 +335,10 @@ class YouTubeScraper:
         audio_format: str,
         operation_logger: structlog.stdlib.BoundLogger,
     ) -> AudioFile:
-        """Synchronous download implementation.
+        """Synchronous download implementation."""
+        import yt_dlp
 
-        Args:
-            url: YouTube video URL
-            output_dir: Directory to save the audio file
-            audio_format: Audio format
-            operation_logger: Logger instance with context
-
-        Returns:
-            AudioFile with metadata
-
-        Raises:
-            RuntimeError: If download fails
-        """
         output_template = str(output_dir / "%(id)s.%(ext)s")
-
         ydl_opts = self._get_base_ydl_opts()
         ydl_opts.update(
             {
@@ -414,7 +353,7 @@ class YouTubeScraper:
         )
 
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:  # type: ignore[arg-type]
+            with yt_dlp.YoutubeDL(cast(Any, ydl_opts)) as ydl:
                 operation_logger.debug("extracting_video_info")
                 info = ydl.extract_info(url, download=True)
                 if info is None:
@@ -457,35 +396,18 @@ class YouTubeScraper:
         download_archive: Path | str | None = None,
         max_videos: int | None = None,
     ) -> list[AudioFile]:
-        """High-level helper to scrape an entire channel with batch processing.
-
-        This is the recommended method for large channels (20k+ videos).
-
-        Args:
-            channel_url: Channel URL
-            output_dir: Directory to save audio files
-            audio_format: Audio format
-            batch_size: Number of videos to download per batch
-            max_concurrent: Maximum concurrent downloads within a batch
-            download_archive: Path to download archive file
-            max_videos: Maximum total videos to download (None for all)
-
-        Returns:
-            List of successfully downloaded AudioFile objects
-        """
+        """High-level helper to scrape an entire channel with batch processing."""
         scraper = cls(
             download_archive=download_archive,
             concurrent_fragments=3,
         )
 
-        # Step 1: Fast channel listing
         videos = await scraper.list_channel_videos(channel_url, max_videos)
 
         if not videos:
             logger.warning("no_videos_found", channel_url=channel_url)
             return []
 
-        # Step 2: Batch download
         all_results: list[AudioFile] = []
         total_batches = (len(videos) + batch_size - 1) // batch_size
 
@@ -511,7 +433,6 @@ class YouTubeScraper:
 
             all_results.extend(results)
 
-            # Small delay between batches to be nice to YouTube
             if batch_idx < total_batches - 1:
                 await asyncio.sleep(1)
 

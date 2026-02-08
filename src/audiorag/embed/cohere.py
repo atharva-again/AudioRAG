@@ -40,7 +40,7 @@ class CohereEmbeddingProvider(EmbedderMixin):
     ) -> None:
         """Initialize Cohere embedding provider."""
         super().__init__(api_key=api_key, model=model, retry_config=retry_config)
-        from cohere import AsyncClientV2  # noqa: PLC0415
+        from cohere import AsyncClientV2  # type: ignore[import]  # type: ignore[import]
 
         self.client = AsyncClientV2(api_key=api_key)
         self.input_type = input_type

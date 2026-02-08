@@ -36,7 +36,7 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "YouTubeSource",
     "LocalSource",
     "URLSource",
+    "YouTubeSource",
 ]

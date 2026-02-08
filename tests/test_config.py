@@ -33,9 +33,9 @@ class TestAudioRAGConfigDefaults:
         assert config.work_dir is None
 
     def test_default_chunk_duration_seconds(self):
-        """Test default chunk_duration_seconds is 300."""
+        """Test default chunk_duration_seconds is 30."""
         config = AudioRAGConfig()
-        assert config.chunk_duration_seconds == 300
+        assert config.chunk_duration_seconds == 30
 
     def test_default_audio_format(self):
         """Test default audio_format is 'mp3'."""
@@ -94,7 +94,7 @@ class TestAudioRAGConfigDefaults:
         assert config.cohere_api_key == ""
         assert config.database_path == "audiorag.db"
         assert config.work_dir is None
-        assert config.chunk_duration_seconds == 300
+        assert config.chunk_duration_seconds == 30
         assert config.audio_format == "mp3"
         assert config.audio_split_max_size_mb == 24
         assert config.embedding_model == "text-embedding-3-small"
@@ -548,7 +548,7 @@ class TestAudioRAGConfigOptionalFields:
         assert config.stt_language is None
         # These should have defaults
         assert config.database_path == "audiorag.db"
-        assert config.chunk_duration_seconds == 300
+        assert config.chunk_duration_seconds == 30
 
 
 # ============================================================================

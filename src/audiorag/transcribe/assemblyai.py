@@ -37,7 +37,7 @@ class AssemblyAITranscriber(TranscriberMixin):
     ) -> None:
         """Initialize AssemblyAI STT provider."""
         super().__init__(api_key=api_key, model=model, retry_config=retry_config)
-        import assemblyai as aai  # noqa: PLC0415
+        import assemblyai as aai  # type: ignore[import]
 
         aai.settings.api_key = api_key
         self._aai = aai

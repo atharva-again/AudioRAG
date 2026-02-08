@@ -614,7 +614,7 @@ class TestIndexingStatus:
     def test_enum_in_model(self):
         """Test using enum in a Pydantic model context."""
         # Create a simple model with enum field
-        from pydantic import BaseModel  # noqa: PLC0415
+        from pydantic import BaseModel
 
         class StatusModel(BaseModel):
             status: IndexingStatus
@@ -624,7 +624,7 @@ class TestIndexingStatus:
 
     def test_enum_serialization(self):
         """Test enum serialization."""
-        from pydantic import BaseModel  # noqa: PLC0415
+        from pydantic import BaseModel
 
         class StatusModel(BaseModel):
             status: IndexingStatus
@@ -635,7 +635,7 @@ class TestIndexingStatus:
 
     def test_enum_json_serialization(self):
         """Test enum JSON serialization."""
-        from pydantic import BaseModel  # noqa: PLC0415
+        from pydantic import BaseModel
 
         class StatusModel(BaseModel):
             status: IndexingStatus
@@ -647,7 +647,7 @@ class TestIndexingStatus:
 
     def test_enum_deserialization(self):
         """Test enum deserialization from string."""
-        from pydantic import BaseModel  # noqa: PLC0415
+        from pydantic import BaseModel
 
         class StatusModel(BaseModel):
             status: IndexingStatus

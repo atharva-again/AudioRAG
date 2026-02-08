@@ -1,4 +1,3 @@
-# ruff: noqa: ARG002, PLC0415
 """Protocol conformance tests for AudioRAG.
 
 These tests verify that ANY implementation of each protocol works correctly.

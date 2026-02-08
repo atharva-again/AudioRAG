@@ -92,3 +92,23 @@ class AudioRAGConfig(BaseSettings):
     retry_min_wait_seconds: float = 4.0
     retry_max_wait_seconds: float = 60.0
     retry_exponential_multiplier: float = 1.0
+
+    # -- Model Getter Methods (for backward compatibility) --
+    def get_stt_model(self) -> str:
+        """Get STT model based on provider."""
+        provider = self.stt_provider.lower()
+        if provider == "groq":
+            return "whisper"
+        if provider == "deepgram":
+            return "nova-2"
+        if provider == "assemblyai":
+            return "best"
+        return self.stt_model
+
+    def get_embedding_model(self) -> str:
+        """Get embedding model based on provider."""
+        return self.embedding_model
+
+    def get_generation_model(self) -> str:
+        """Get generation model based on provider."""
+        return self.generation_model

@@ -36,7 +36,7 @@ class VoyageEmbeddingProvider(EmbedderMixin):
     ) -> None:
         """Initialize Voyage AI embedding provider."""
         super().__init__(api_key=api_key, model=model, retry_config=retry_config)
-        import voyageai  # noqa: PLC0415
+        import voyageai  # type: ignore[import]
 
         self.client = voyageai.AsyncClient(api_key=api_key)
 

@@ -46,7 +46,7 @@ class DeepgramTranscriber(TranscriberMixin):
     ) -> None:
         """Initialize Deepgram STT provider."""
         super().__init__(api_key=api_key, model=model, retry_config=retry_config)
-        from deepgram import DeepgramClient  # noqa: PLC0415
+        from deepgram import DeepgramClient  # type: ignore[import]
 
         self.client = DeepgramClient(api_key)
 
@@ -65,7 +65,7 @@ class DeepgramTranscriber(TranscriberMixin):
 
         @retry_decorator
         async def _transcribe_with_retry() -> Any:
-            from deepgram import PrerecordedOptions  # noqa: PLC0415
+            from deepgram import PrerecordedOptions  # type: ignore[import]
 
             with open(audio_path, "rb") as audio_file:
                 buffer_data = audio_file.read()

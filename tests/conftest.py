@@ -7,24 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from audiorag.core.models import ChunkMetadata, TranscriptionSegment
-
-# ============================================================================
-# Event Loop Configuration
-# ============================================================================
-
-
-@pytest.fixture
-def event_loop():
-    """Create an event loop for async tests.
-
-    Scope: function - creates a new loop for each test to ensure isolation.
-    """
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    yield loop
-    loop.close()
-
+from audiorag.core.models import AudioFile, ChunkMetadata, TranscriptionSegment
 
 # ============================================================================
 # Temporary Directory Fixtures
@@ -240,7 +223,6 @@ def mock_embedding_provider() -> AsyncMock:
     mock.embed = AsyncMock(
         return_value=[
             [0.1, 0.2, 0.3, 0.4, 0.5] * 77,
-            [0.2, 0.3, 0.4, 0.5, 0.6] * 77,
         ]
     )
     return mock
@@ -259,7 +241,7 @@ def mock_vector_store_provider() -> AsyncMock:
         return_value=[
             {
                 "id": "chunk_1",
-                "text": "First matching chunk",
+                "document": "First matching chunk",
                 "metadata": {
                     "start_time": 0.0,
                     "end_time": 5.5,
@@ -270,7 +252,7 @@ def mock_vector_store_provider() -> AsyncMock:
             },
             {
                 "id": "chunk_2",
-                "text": "Second matching chunk",
+                "document": "Second matching chunk",
                 "metadata": {
                     "start_time": 5.5,
                     "end_time": 11.2,
@@ -295,9 +277,8 @@ def mock_reranker_provider() -> AsyncMock:
     mock = AsyncMock()
     mock.rerank = AsyncMock(
         return_value=[
-            (0, 0.95),  # (index, score)
+            (0, 0.95),  # (index, score) - only 2 results in vector store
             (1, 0.87),
-            (2, 0.72),
         ]
     )
     return mock
@@ -318,14 +299,25 @@ def mock_generation_provider() -> AsyncMock:
 
 
 @pytest.fixture
-def mock_audio_source_provider() -> AsyncMock:
+def mock_audio_source_provider(tmp_path) -> AsyncMock:
     """Create a mock Audio Source provider.
 
     Returns:
-        AsyncMock: Mock provider with download method.
+        AsyncMock: Mock provider with download method that creates a real audio file.
     """
     mock = AsyncMock()
-    mock.download = AsyncMock(return_value=Path("/tmp/mock_audio.mp3"))
+    audio_path = tmp_path / "mock_audio.mp3"
+    # Create a small dummy file so the splitter doesn't fail
+    audio_path.write_bytes(b"dummy audio content")
+
+    mock.download = AsyncMock(
+        return_value=AudioFile(
+            path=audio_path,
+            source_url="https://youtube.com/watch?v=test123",
+            title="Test Video Title",
+            duration=120.0,
+        )
+    )
     return mock
 
 
@@ -335,7 +327,7 @@ def mock_audio_source_provider() -> AsyncMock:
 
 
 @pytest.fixture
-def all_mock_providers(  # noqa: PLR0913
+def all_mock_providers(
     mock_stt_provider: AsyncMock,
     mock_embedding_provider: AsyncMock,
     mock_vector_store_provider: AsyncMock,
@@ -364,25 +356,55 @@ def all_mock_providers(  # noqa: PLR0913
 
 
 @pytest.fixture
-def mock_config(tmp_db_path: Path, tmp_vector_store_dir: Path) -> MagicMock:
-    """Create a mock configuration object.
+def mock_config(tmp_db_path: Path, tmp_vector_store_dir: Path):
+    """Create a mock configuration object that behaves like AudioRAGConfig.
 
     Args:
         tmp_db_path: Temporary database path.
         tmp_vector_store_dir: Temporary vector store directory.
 
     Returns:
-        MagicMock: Mock configuration with typical settings.
+        MagicMock: Mock configuration with typical settings matching AudioRAGConfig.
     """
     config = MagicMock()
-    config.db_path = tmp_db_path
-    config.vector_store_path = tmp_vector_store_dir
-    config.chunk_size = 512
-    config.chunk_overlap = 50
-    config.embedding_model = "all-MiniLM-L6-v2"
-    config.top_k = 5
+    config.database_path = str(tmp_db_path)
+    config.stt_provider = "openai"
+    config.embedding_provider = "openai"
+    config.vector_store_provider = "chromadb"
+    config.generation_provider = "openai"
+    config.reranker_provider = "cohere"
+    config.openai_api_key = ""
+    config.chunk_duration_seconds = 30
+    config.stt_language = None
+    config.retrieval_top_k = 10
     config.rerank_top_n = 3
-    config.language = "en"
+    config.audio_format = "mp3"
+    config.audio_split_max_size_mb = 24
+    config.cleanup_audio = True
+    config.work_dir = None
+    config.log_level = "INFO"
+    config.log_format = "colored"
+    config.log_timestamps = True
+    config.chromadb_persist_directory = str(tmp_vector_store_dir)
+    config.chromadb_collection_name = "audiorag"
+    config.youtube_download_archive = None
+    config.youtube_concurrent_fragments = 3
+    config.youtube_skip_after_errors = 3
+    config.youtube_cookie_file = None
+    config.youtube_po_token = None
+    config.youtube_impersonate = None
+    config.youtube_player_clients = ["tv", "web", "mweb"]
+    config.js_runtime = None
+    config.retry_max_attempts = 3
+    config.retry_min_wait_seconds = 4.0
+    config.retry_max_wait_seconds = 60.0
+    config.retry_exponential_multiplier = 1.0
+
+    # Model getter methods
+    config.get_stt_model = MagicMock(return_value="whisper-1")
+    config.get_embedding_model = MagicMock(return_value="text-embedding-3-small")
+    config.get_generation_model = MagicMock(return_value="gpt-4o-mini")
+
     return config
 
 

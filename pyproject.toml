@@ -14,7 +14,11 @@ dependencies = [
     "aiosqlite>=0.19",
     "tenacity>=8.0",
     "structlog>=24.0",
+    "textual>=0.47.0",
 ]
+
+[project.scripts]
+audiorag = "audiorag.cli:main"
 
 [project.optional-dependencies]
 defaults = [
@@ -135,6 +139,18 @@ ignore = [
     "S603",
     # Allow possible SQL injection in tests
     "S608",
+    # Allow lazy imports
+    "PLC0415",
+    # Allow raising without 'from' (we wrap errors in providers)
+    "B904",
+    # Allow too many arguments
+    "PLR0913",
+    # Allow magic numbers
+    "PLR2004",
+    # Allow unused arguments (often needed for protocol compliance)
+    "ARG002",
+    # Allow nested with statements
+    "SIM117",
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -149,6 +165,7 @@ convention = "google"
 ]
 "**/__init__.py" = [
     "F401",     # Allow unused imports in __init__.py
+    "ANN202",   # Allow missing return type for __getattr__
 ]
 
 [tool.ruff.format]
@@ -171,6 +188,22 @@ exclude = [
     "**/node_modules",
     "**/.venv",
     "**/dist",
+    # Skip CLI and optional provider modules with lazy imports
+    "src/audiorag/cli",
+    "src/audiorag/embed/cohere.py",
+    "src/audiorag/embed/voyage.py",
+    "src/audiorag/generate/anthropic.py",
+    "src/audiorag/generate/gemini.py",
+    "src/audiorag/source/local.py",
+    "src/audiorag/source/splitter.py",
+    "src/audiorag/source/url.py",
+    "src/audiorag/source/youtube.py",
+    "src/audiorag/store/pinecone.py",
+    "src/audiorag/store/weaviate.py",
+    "src/audiorag/store/supabase.py",
+    "src/audiorag/transcribe/assemblyai.py",
+    "src/audiorag/transcribe/deepgram.py",
+    "src/audiorag/transcribe/groq.py",
 ]
 
 [tool.ty.terminal]
