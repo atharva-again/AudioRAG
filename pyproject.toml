@@ -114,13 +114,17 @@ omit = [
     "src/audiorag/rerank/cohere.py",
     # Provider infrastructure (lazy imports, base classes for optional providers)
     "src/audiorag/embed/__init__.py",
+    "src/audiorag/embed/_base.py",
     "src/audiorag/generate/__init__.py",
+    "src/audiorag/generate/_base.py",
     "src/audiorag/transcribe/__init__.py",
+    "src/audiorag/transcribe/_base.py",
     "src/audiorag/store/__init__.py",
+    "src/audiorag/store/_base.py",
     "src/audiorag/source/__init__.py",
+    "src/audiorag/source/_base.py",
     "src/audiorag/rerank/__init__.py",
     "src/audiorag/rerank/_base.py",
-    "src/audiorag/source/_base.py",
     # Unused/empty modules
     "src/audiorag/chunk/__init__.py",
     "src/audiorag/chunk/_protocol.py",
