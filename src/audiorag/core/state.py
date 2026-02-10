@@ -8,6 +8,11 @@ from typing import Any
 
 import aiosqlite
 
+from audiorag.core.exceptions import StateError
+from audiorag.core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class StateManager:
     """Manages persistent state for audio sources and chunks using SQLite."""
@@ -109,6 +114,24 @@ class StateManager:
         """
         return datetime.now(UTC).isoformat()
 
+    def _ensure_initialized(self) -> None:
+        """Ensure the database connection is initialized."""
+        if not self._db:
+            logger.error("state_manager_not_initialized")
+            raise StateError("Database not initialized. Call initialize() first.")
+
+    def _get_db(self) -> aiosqlite.Connection:
+        """Return the active database connection.
+
+        Raises:
+            StateError: If the database is not initialized.
+        """
+        self._ensure_initialized()
+        if not self._db:
+            logger.error("state_manager_not_initialized")
+            raise StateError("Database not initialized. Call initialize() first.")
+        return self._db
+
     async def get_source_status(self, source_path: str) -> dict[str, Any] | None:
         """Get status information for a source.
 
@@ -118,12 +141,11 @@ class StateManager:
         Returns:
             Dictionary with source information or None if not found
         """
-        if not self._db:
-            raise RuntimeError("Database not initialized. Call initialize() first.")
+        db = self._get_db()
 
         source_id = self._generate_source_id(source_path)
 
-        async with self._db.execute(
+        async with db.execute(
             "SELECT source_id, source_path, status, metadata, created_at, updated_at "
             "FROM sources WHERE source_id = ?",
             (source_id,),
@@ -155,8 +177,7 @@ class StateManager:
         Returns:
             Source ID
         """
-        if not self._db:
-            raise RuntimeError("Database not initialized. Call initialize() first.")
+        db = self._get_db()
 
         source_id = self._generate_source_id(source_path)
         now = self._now_iso8601()
@@ -167,20 +188,20 @@ class StateManager:
 
         if existing:
             # Update existing source
-            await self._db.execute(
+            await db.execute(
                 "UPDATE sources SET status = ?, metadata = ?, updated_at = ? WHERE source_id = ?",
                 (status, metadata_json, now, source_id),
             )
         else:
             # Insert new source
-            await self._db.execute(
+            await db.execute(
                 "INSERT INTO sources (source_id, source_path, status, "
                 "metadata, created_at, updated_at) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (source_id, source_path, status, metadata_json, now, now),
             )
 
-        await self._db.commit()
+        await db.commit()
         return source_id
 
     async def update_source_status(
@@ -193,8 +214,7 @@ class StateManager:
             status: New processing status
             metadata: Optional metadata to merge with existing
         """
-        if not self._db:
-            raise RuntimeError("Database not initialized. Call initialize() first.")
+        db = self._get_db()
 
         source_id = self._generate_source_id(source_path)
         now = self._now_iso8601()
@@ -208,17 +228,17 @@ class StateManager:
                 merged_metadata = metadata
             metadata_json = json.dumps(merged_metadata)
 
-            await self._db.execute(
+            await db.execute(
                 "UPDATE sources SET status = ?, metadata = ?, updated_at = ? WHERE source_id = ?",
                 (status, metadata_json, now, source_id),
             )
         else:
-            await self._db.execute(
+            await db.execute(
                 "UPDATE sources SET status = ?, updated_at = ? WHERE source_id = ?",
                 (status, now, source_id),
             )
 
-        await self._db.commit()
+        await db.commit()
 
     async def store_chunks(self, source_path: str, chunks: list[dict[str, Any]]) -> list[str]:
         """Store chunks for a source.
@@ -236,8 +256,7 @@ class StateManager:
         Returns:
             List of chunk IDs
         """
-        if not self._db:
-            raise RuntimeError("Database not initialized. Call initialize() first.")
+        db = self._get_db()
 
         source_id = self._generate_source_id(source_path)
         now = self._now_iso8601()
@@ -249,7 +268,7 @@ class StateManager:
 
             metadata_json = json.dumps(chunk.get("metadata")) if chunk.get("metadata") else None
 
-            await self._db.execute(
+            await db.execute(
                 "INSERT OR REPLACE INTO chunks "
                 "(chunk_id, source_id, chunk_index, start_time, end_time, "
                 "text, embedding, metadata, created_at) "
@@ -267,7 +286,7 @@ class StateManager:
                 ),
             )
 
-        await self._db.commit()
+        await db.commit()
         return chunk_ids
 
     async def get_chunks_for_source(self, source_path: str) -> list[dict[str, Any]]:
@@ -279,12 +298,11 @@ class StateManager:
         Returns:
             List of chunk dictionaries
         """
-        if not self._db:
-            raise RuntimeError("Database not initialized. Call initialize() first.")
+        db = self._get_db()
 
         source_id = self._generate_source_id(source_path)
 
-        async with self._db.execute(
+        async with db.execute(
             "SELECT chunk_id, chunk_index, start_time, end_time, "
             "text, embedding, metadata, created_at "
             "FROM chunks WHERE source_id = ? ORDER BY chunk_index",
@@ -318,8 +336,7 @@ class StateManager:
         Returns:
             True if source was deleted, False if not found
         """
-        if not self._db:
-            raise RuntimeError("Database not initialized. Call initialize() first.")
+        db = self._get_db()
 
         source_id = self._generate_source_id(source_path)
 
@@ -329,12 +346,12 @@ class StateManager:
             return False
 
         # Delete chunks (CASCADE should handle this, but explicit is better)
-        await self._db.execute("DELETE FROM chunks WHERE source_id = ?", (source_id,))
+        await db.execute("DELETE FROM chunks WHERE source_id = ?", (source_id,))
 
         # Delete source
-        await self._db.execute("DELETE FROM sources WHERE source_id = ?", (source_id,))
+        await db.execute("DELETE FROM sources WHERE source_id = ?", (source_id,))
 
-        await self._db.commit()
+        await db.commit()
         return True
 
     async def close(self) -> None:

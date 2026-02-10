@@ -1,10 +1,20 @@
-"""Main AudioRAG pipeline orchestrator."""
+"""Main AudioRAG pipeline orchestrator.
+
+The index method is decomposed into discrete Stage classes executed by a
+stage-runner loop.  A per-URL ``asyncio.Lock`` prevents the same URL from
+being indexed concurrently within a single process, and an in-progress DB
+status guard protects against multi-process races.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import shutil
 import tempfile
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from audiorag.chunking import chunk_transcription
 from audiorag.core import (
@@ -13,6 +23,7 @@ from audiorag.core import (
     EmbeddingProvider,
     GenerationProvider,
     IndexingStatus,
+    PipelineError,
     QueryResult,
     RerankerProvider,
     RetryConfig,
@@ -23,13 +34,277 @@ from audiorag.core import (
     configure_logging,
     get_logger,
 )
+from audiorag.core.exceptions import StateError
 from audiorag.core.logging_config import Timer
+
+if TYPE_CHECKING:
+    import structlog
+
+    from audiorag.core.models import AudioFile, ChunkMetadata, TranscriptionSegment
 
 # YouTubeSource imported lazily to avoid yt_dlp dependency at module load time
 
 logger = get_logger(__name__)
 
+# ---------------------------------------------------------------------------
+# Statuses that indicate an indexing run is currently in-flight.
+# Used by the DB-level guard to prevent multi-process collisions.
+# ---------------------------------------------------------------------------
+_IN_PROGRESS_STATUSES: frozenset[str] = frozenset(
+    {
+        IndexingStatus.DOWNLOADING,
+        IndexingStatus.DOWNLOADED,
+        IndexingStatus.SPLITTING,
+        IndexingStatus.TRANSCRIBING,
+        IndexingStatus.TRANSCRIBED,
+        IndexingStatus.CHUNKING,
+        IndexingStatus.CHUNKED,
+        IndexingStatus.EMBEDDING,
+    }
+)
 
+
+# ---------------------------------------------------------------------------
+# Stage context - mutable bag of data passed through the stage pipeline
+# ---------------------------------------------------------------------------
+@dataclass
+class StageContext:
+    """Mutable context shared across all stages of a single indexing run."""
+
+    url: str
+    config: AudioRAGConfig
+    logger: structlog.stdlib.BoundLogger
+
+    # Populated during execution
+    work_dir: Path = field(default_factory=lambda: Path("."))
+    created_temp_dir: bool = False
+    audio_file: AudioFile | None = None
+    audio_parts: list[Path] = field(default_factory=list)
+    all_segments: list[TranscriptionSegment] = field(default_factory=list)
+    chunks: list[ChunkMetadata] = field(default_factory=list)
+    chunk_ids: list[str] = field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Stage base class
+# ---------------------------------------------------------------------------
+class Stage(ABC):
+    """Abstract pipeline stage."""
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Short, logging-friendly stage name (e.g. ``'download'``)."""
+
+    @abstractmethod
+    async def execute(self, ctx: StageContext, pipeline: AudioRAGPipeline) -> None:
+        """Run the stage, mutating *ctx* in place.
+
+        Args:
+            ctx: Shared mutable context for this indexing run.
+            pipeline: The pipeline instance (provides providers & state).
+        """
+
+
+# ---------------------------------------------------------------------------
+# Concrete stages
+# ---------------------------------------------------------------------------
+class DownloadStage(Stage):
+    """Stage 1 - Download audio from the source URL."""
+
+    @property
+    def name(self) -> str:
+        return "download"
+
+    async def execute(self, ctx: StageContext, pipeline: AudioRAGPipeline) -> None:
+        with Timer(ctx.logger, "stage_download") as timer:
+            await pipeline._state.upsert_source(ctx.url, IndexingStatus.DOWNLOADING)
+            audio_file = await pipeline._audio_source.download(
+                ctx.url, ctx.work_dir, ctx.config.audio_format
+            )
+            await pipeline._state.upsert_source(
+                ctx.url,
+                IndexingStatus.DOWNLOADED,
+                metadata={
+                    "title": audio_file.title,
+                    "duration": audio_file.duration,
+                },
+            )
+            ctx.audio_file = audio_file
+            timer.complete(
+                title=audio_file.title,
+                duration_seconds=audio_file.duration,
+                file_path=str(audio_file.path),
+            )
+
+
+class SplitStage(Stage):
+    """Stage 2 - Split large audio files into manageable parts."""
+
+    @property
+    def name(self) -> str:
+        return "split"
+
+    async def execute(self, ctx: StageContext, pipeline: AudioRAGPipeline) -> None:
+        assert ctx.audio_file is not None
+        with Timer(ctx.logger, "stage_split") as timer:
+            await pipeline._state.update_source_status(ctx.url, IndexingStatus.SPLITTING)
+            ctx.audio_parts = await pipeline._splitter.split_if_needed(
+                ctx.audio_file.path, ctx.work_dir
+            )
+            timer.complete(parts_count=len(ctx.audio_parts))
+
+
+class TranscribeStage(Stage):
+    """Stage 3 - Transcribe audio parts into text segments."""
+
+    @property
+    def name(self) -> str:
+        return "transcribe"
+
+    async def execute(self, ctx: StageContext, pipeline: AudioRAGPipeline) -> None:
+        with Timer(ctx.logger, "stage_transcribe", parts=len(ctx.audio_parts)) as timer:
+            await pipeline._state.update_source_status(ctx.url, IndexingStatus.TRANSCRIBING)
+            all_segments: list[Any] = []
+            cumulative_offset = 0.0
+
+            for part_idx, part_path in enumerate(ctx.audio_parts):
+                part_logger = ctx.logger.bind(part_index=part_idx, part_path=str(part_path))
+                part_logger.debug("transcribing_part")
+
+                segments = await pipeline._stt.transcribe(part_path, ctx.config.stt_language)
+                # Adjust timestamps for subsequent parts
+                if cumulative_offset > 0:
+                    from audiorag.core.models import TranscriptionSegment
+
+                    segments = [
+                        TranscriptionSegment(
+                            start_time=s.start_time + cumulative_offset,
+                            end_time=s.end_time + cumulative_offset,
+                            text=s.text,
+                        )
+                        for s in segments
+                    ]
+                all_segments.extend(segments)
+
+                # Update offset: use the last segment's end time from this part
+                if segments:
+                    cumulative_offset = segments[-1].end_time
+
+            await pipeline._state.update_source_status(ctx.url, IndexingStatus.TRANSCRIBED)
+            ctx.all_segments = all_segments
+            timer.complete(segments_count=len(all_segments))
+
+
+class ChunkStage(Stage):
+    """Stage 4 - Chunk transcription segments into time-based groups."""
+
+    @property
+    def name(self) -> str:
+        return "chunk"
+
+    async def execute(self, ctx: StageContext, pipeline: AudioRAGPipeline) -> None:
+        assert ctx.audio_file is not None
+        with Timer(ctx.logger, "stage_chunk") as timer:
+            await pipeline._state.update_source_status(ctx.url, IndexingStatus.CHUNKING)
+            chunks = chunk_transcription(
+                ctx.all_segments,
+                ctx.config.chunk_duration_seconds,
+                ctx.url,
+                ctx.audio_file.title,
+            )
+
+            if not chunks:
+                ctx.logger.warning("no_chunks_produced")
+                await pipeline._state.update_source_status(ctx.url, IndexingStatus.COMPLETED)
+                return
+
+            # Store chunks in SQLite
+            chunk_dicts = [
+                {
+                    "chunk_index": i,
+                    "start_time": c.start_time,
+                    "end_time": c.end_time,
+                    "text": c.text,
+                    "metadata": {
+                        "source_url": c.source_url,
+                        "title": c.title,
+                    },
+                }
+                for i, c in enumerate(chunks)
+            ]
+            ctx.chunk_ids = await pipeline._state.store_chunks(ctx.url, chunk_dicts)
+            ctx.chunks = chunks
+            await pipeline._state.update_source_status(ctx.url, IndexingStatus.CHUNKED)
+            timer.complete(chunks_count=len(chunks))
+
+
+class EmbedStage(Stage):
+    """Stage 5 - Embed chunk texts and store in vector store."""
+
+    @property
+    def name(self) -> str:
+        return "embed"
+
+    async def execute(self, ctx: StageContext, pipeline: AudioRAGPipeline) -> None:
+        if not ctx.chunks:
+            # Nothing to embed (e.g. ChunkStage short-circuited)
+            return
+
+        with Timer(ctx.logger, "stage_embed") as timer:
+            await pipeline._state.update_source_status(ctx.url, IndexingStatus.EMBEDDING)
+            texts = [c.text for c in ctx.chunks]
+            embeddings = await pipeline._embedder.embed(texts)
+
+            # Store in vector store
+            metadatas = [
+                {
+                    "start_time": c.start_time,
+                    "end_time": c.end_time,
+                    "source_url": c.source_url,
+                    "title": c.title,
+                }
+                for c in ctx.chunks
+            ]
+            documents = [c.text for c in ctx.chunks]
+            await pipeline._vector_store.add(
+                ids=ctx.chunk_ids,
+                embeddings=embeddings,
+                metadatas=metadatas,
+                documents=documents,
+            )
+            await pipeline._state.update_source_status(ctx.url, IndexingStatus.EMBEDDED)
+            timer.complete(chunks_count=len(ctx.chunks))
+
+
+class CompleteStage(Stage):
+    """Stage 6 - Mark indexing as completed."""
+
+    @property
+    def name(self) -> str:
+        return "complete"
+
+    async def execute(self, ctx: StageContext, pipeline: AudioRAGPipeline) -> None:
+        await pipeline._state.update_source_status(ctx.url, IndexingStatus.COMPLETED)
+        ctx.logger.info("index_completed")
+
+
+# ---------------------------------------------------------------------------
+# Default stage ordering
+# ---------------------------------------------------------------------------
+_DEFAULT_STAGES: tuple[Stage, ...] = (
+    DownloadStage(),
+    SplitStage(),
+    TranscribeStage(),
+    ChunkStage(),
+    EmbedStage(),
+    CompleteStage(),
+)
+
+
+# ---------------------------------------------------------------------------
+# Pipeline
+# ---------------------------------------------------------------------------
 class AudioRAGPipeline:
     """Orchestrates the full RAG pipeline over audio.
 
@@ -134,6 +409,13 @@ class AudioRAGPipeline:
         self._splitter = AudioSplitter(max_size_mb=config.audio_split_max_size_mb)
         self._state = StateManager(config.database_path)
         self._initialized = False
+
+        # Per-URL asyncio locks for single-process concurrency guard
+        self._url_locks: dict[str, asyncio.Lock] = {}
+
+    # ------------------------------------------------------------------
+    # Provider factories (unchanged)
+    # ------------------------------------------------------------------
 
     def _create_stt_provider(
         self, config: AudioRAGConfig, retry_config: RetryConfig
@@ -297,13 +579,54 @@ class AudioRAGPipeline:
             retry_config=retry_config,
         )
 
+    # ------------------------------------------------------------------
+    # Initialization helpers
+    # ------------------------------------------------------------------
+
     async def _ensure_initialized(self) -> None:
         """Initialize state manager if not already done."""
         if not self._initialized:
             await self._state.initialize()
             self._initialized = True
 
-    async def index(self, url: str, *, force: bool = False) -> None:  # noqa: PLR0912, PLR0915
+    def _get_url_lock(self, url: str) -> asyncio.Lock:
+        """Return (or create) the per-URL asyncio lock."""
+        if url not in self._url_locks:
+            self._url_locks[url] = asyncio.Lock()
+        return self._url_locks[url]
+
+    # ------------------------------------------------------------------
+    # Stage runner
+    # ------------------------------------------------------------------
+
+    async def _run_stages(
+        self,
+        stages: tuple[Stage, ...],
+        ctx: StageContext,
+    ) -> None:
+        """Execute *stages* in order, recording failures via PipelineError.
+
+        Args:
+            stages: Ordered tuple of Stage instances.
+            ctx: Shared mutable context for this indexing run.
+        """
+        for stage in stages:
+            try:
+                await stage.execute(ctx, self)
+            except PipelineError:
+                raise
+            except Exception as exc:
+                raise PipelineError(
+                    f"Stage '{stage.name}' failed for {ctx.url}: {exc}",
+                    stage=stage.name,
+                    source_url=ctx.url,
+                ) from exc
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def index(self, url: str, *, force: bool = False) -> None:
         """Index audio from a URL through the full pipeline.
 
         Stages: download -> split -> transcribe -> chunk -> embed -> complete.
@@ -314,7 +637,7 @@ class AudioRAGPipeline:
             force: If True, re-index even if already completed.
 
         Raises:
-            RuntimeError: If any pipeline stage fails.
+            PipelineError: If any pipeline stage fails.
         """
         await self._ensure_initialized()
 
@@ -322,20 +645,7 @@ class AudioRAGPipeline:
         operation_logger = logger.bind(url=url, operation="index")
         operation_logger.info("index_started", force=force)
 
-        # Check idempotency
-        source_info = await self._state.get_source_status(url)
-        if source_info is not None:
-            status = source_info["status"]
-            if status == IndexingStatus.COMPLETED and not force:
-                operation_logger.info("index_skipped", reason="already_indexed")
-                return
-            if force:
-                operation_logger.info("index_force_reindex")
-                await self._state.delete_source(url)
-                await self._vector_store.delete_by_source(url)
-
-        # Resolve work directory
-        work_dir: Path
+        # ---- Resolve work directory ----
         created_temp_dir = False
         if self._config.work_dir is not None:
             work_dir = self._config.work_dir
@@ -344,146 +654,63 @@ class AudioRAGPipeline:
             work_dir = Path(tempfile.mkdtemp(prefix="audiorag_"))
             created_temp_dir = True
 
-        try:
-            # Stage 1 - Download
-            with Timer(operation_logger, "stage_download") as timer:
-                await self._state.upsert_source(url, IndexingStatus.DOWNLOADING)
-                audio_file = await self._audio_source.download(
-                    url, work_dir, self._config.audio_format
-                )
-                await self._state.upsert_source(
-                    url,
-                    IndexingStatus.DOWNLOADED,
-                    metadata={
-                        "title": audio_file.title,
-                        "duration": audio_file.duration,
-                    },
-                )
-                timer.complete(
-                    title=audio_file.title,
-                    duration_seconds=audio_file.duration,
-                    file_path=str(audio_file.path),
-                )
+        # ---- Per-URL asyncio lock (single-process concurrency guard) ----
+        url_lock = self._get_url_lock(url)
+        async with url_lock:
+            try:
+                # Re-check status inside the lock to avoid race conditions
+                source_info = await self._state.get_source_status(url)
+                if source_info is not None:
+                    status = source_info["status"]
+                    if status == IndexingStatus.COMPLETED and not force:
+                        operation_logger.info("index_skipped", reason="already_indexed")
+                        return
+                    if status in _IN_PROGRESS_STATUSES and not force:
+                        operation_logger.info(
+                            "index_skipped",
+                            reason="in_progress",
+                            current_status=status,
+                        )
+                        return
+                    if force:
+                        operation_logger.info("index_force_reindex")
+                        await self._state.delete_source(url)
+                        await self._vector_store.delete_by_source(url)
 
-            # Stage 2 - Split
-            with Timer(operation_logger, "stage_split") as timer:
-                await self._state.update_source_status(url, IndexingStatus.SPLITTING)
-                audio_parts = await self._splitter.split_if_needed(audio_file.path, work_dir)
-                timer.complete(parts_count=len(audio_parts))
-
-            # Stage 3 - Transcribe
-            with Timer(operation_logger, "stage_transcribe", parts=len(audio_parts)) as timer:
-                await self._state.update_source_status(url, IndexingStatus.TRANSCRIBING)
-                all_segments = []
-                cumulative_offset = 0.0
-
-                for part_idx, part_path in enumerate(audio_parts):
-                    part_logger = operation_logger.bind(
-                        part_index=part_idx, part_path=str(part_path)
-                    )
-                    part_logger.debug("transcribing_part")
-
-                    segments = await self._stt.transcribe(part_path, self._config.stt_language)
-                    # Adjust timestamps for subsequent parts
-                    if cumulative_offset > 0:
-                        from audiorag.core.models import TranscriptionSegment
-
-                        segments = [
-                            TranscriptionSegment(
-                                start_time=s.start_time + cumulative_offset,
-                                end_time=s.end_time + cumulative_offset,
-                                text=s.text,
-                            )
-                            for s in segments
-                        ]
-                    all_segments.extend(segments)
-
-                    # Update offset: use the last segment's end time from this part
-                    if segments:
-                        cumulative_offset = segments[-1].end_time
-
-                await self._state.update_source_status(url, IndexingStatus.TRANSCRIBED)
-                timer.complete(segments_count=len(all_segments))
-
-            # Stage 4 - Chunk
-            with Timer(operation_logger, "stage_chunk") as timer:
-                await self._state.update_source_status(url, IndexingStatus.CHUNKING)
-                chunks = chunk_transcription(
-                    all_segments,
-                    self._config.chunk_duration_seconds,
-                    url,
-                    audio_file.title,
+                ctx = StageContext(
+                    url=url,
+                    config=self._config,
+                    logger=operation_logger,
+                    work_dir=work_dir,
+                    created_temp_dir=created_temp_dir,
                 )
 
-                if not chunks:
-                    operation_logger.warning("no_chunks_produced")
-                    await self._state.update_source_status(url, IndexingStatus.COMPLETED)
-                    return
-
-                # Store chunks in SQLite
-                chunk_dicts = [
-                    {
-                        "chunk_index": i,
-                        "start_time": c.start_time,
-                        "end_time": c.end_time,
-                        "text": c.text,
-                        "metadata": {
-                            "source_url": c.source_url,
-                            "title": c.title,
-                        },
-                    }
-                    for i, c in enumerate(chunks)
-                ]
-                chunk_ids = await self._state.store_chunks(url, chunk_dicts)
-                await self._state.update_source_status(url, IndexingStatus.CHUNKED)
-                timer.complete(chunks_count=len(chunks))
-
-            # Stage 5 - Embed
-            with Timer(operation_logger, "stage_embed") as timer:
-                await self._state.update_source_status(url, IndexingStatus.EMBEDDING)
-                texts = [c.text for c in chunks]
-                embeddings = await self._embedder.embed(texts)
-
-                # Store in vector store
-                metadatas = [
-                    {
-                        "start_time": c.start_time,
-                        "end_time": c.end_time,
-                        "source_url": c.source_url,
-                        "title": c.title,
-                    }
-                    for c in chunks
-                ]
-                documents = [c.text for c in chunks]
-                await self._vector_store.add(
-                    ids=chunk_ids,
-                    embeddings=embeddings,
-                    metadatas=metadatas,
-                    documents=documents,
-                )
-                await self._state.update_source_status(url, IndexingStatus.EMBEDDED)
-                timer.complete(chunks_count=len(chunks))
-
-            # Stage 6 - Complete
-            await self._state.update_source_status(url, IndexingStatus.COMPLETED)
-            operation_logger.info("index_completed")
-
-        except Exception as e:
-            operation_logger.error("index_failed", error=str(e), error_type=type(e).__name__)
-            await self._state.update_source_status(
-                url,
-                IndexingStatus.FAILED,
-                metadata={"error_message": str(e)},
-            )
-            raise
-        finally:
-            # Cleanup
-            if self._config.cleanup_audio and created_temp_dir:
+                await self._run_stages(_DEFAULT_STAGES, ctx)
+            except Exception as e:
+                operation_logger.error("index_failed", error=str(e), error_type=type(e).__name__)
                 try:
-                    shutil.rmtree(work_dir, ignore_errors=True)
-                    operation_logger.debug("work_directory_cleaned", work_dir=str(work_dir))
-                except Exception as e:
-                    operation_logger.warning("cleanup_failed", work_dir=str(work_dir), error=str(e))
+                    await self._state.update_source_status(
+                        url,
+                        IndexingStatus.FAILED,
+                        metadata={"error_message": str(e)},
+                    )
+                except StateError as state_error:
+                    operation_logger.error(
+                        "state_update_failed",
+                        error=str(state_error),
+                        error_type=type(state_error).__name__,
+                    )
+                raise
+            finally:
+                # Cleanup
+                if self._config.cleanup_audio and created_temp_dir:
+                    try:
+                        shutil.rmtree(work_dir, ignore_errors=True)
+                        operation_logger.debug("work_directory_cleaned", work_dir=str(work_dir))
+                    except Exception as e:
+                        operation_logger.warning(
+                            "cleanup_failed", work_dir=str(work_dir), error=str(e)
+                        )
 
     async def query(self, query: str) -> QueryResult:
         """Query the indexed audio content.

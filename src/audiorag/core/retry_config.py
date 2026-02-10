@@ -120,19 +120,22 @@ RETRY_CONFIG_CONSERVATIVE = RetryConfig(
 )
 
 
-# Exception type groupings for different providers
-OPENAI_EXCEPTIONS = (
-    Exception,  # OpenAI can raise various exceptions
+OPENAI_EXCEPTIONS: tuple[type[Exception], ...] = (
+    ConnectionError,
+    TimeoutError,
 )
 
-COHERE_EXCEPTIONS = (
-    Exception,  # Cohere can raise various exceptions
+COHERE_EXCEPTIONS: tuple[type[Exception], ...] = (
+    ConnectionError,
+    TimeoutError,
 )
 
-CHROMADB_EXCEPTIONS = (
-    Exception,  # ChromaDB can raise various exceptions
+CHROMADB_EXCEPTIONS: tuple[type[Exception], ...] = (
+    ConnectionError,
+    TimeoutError,
 )
 
-YOUTUBE_EXCEPTIONS = (
-    Exception,  # yt-dlp can raise various exceptions
+YOUTUBE_EXCEPTIONS: tuple[type[Exception], ...] = (
+    ConnectionError,
+    TimeoutError,
 )
