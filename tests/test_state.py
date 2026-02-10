@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from audiorag.core.exceptions import StateError
 from audiorag.core.state import StateManager
 
 # ============================================================================
@@ -745,22 +746,22 @@ class TestErrorHandling:
         manager = StateManager(tmp_db_path)
         # Don't call initialize()
 
-        with pytest.raises(RuntimeError, match="Database not initialized"):
+        with pytest.raises(StateError, match="Database not initialized"):
             await manager.get_source_status("https://example.com")
 
-        with pytest.raises(RuntimeError, match="Database not initialized"):
+        with pytest.raises(StateError, match="Database not initialized"):
             await manager.upsert_source("https://example.com", "pending")
 
-        with pytest.raises(RuntimeError, match="Database not initialized"):
+        with pytest.raises(StateError, match="Database not initialized"):
             await manager.update_source_status("https://example.com", "completed")
 
-        with pytest.raises(RuntimeError, match="Database not initialized"):
+        with pytest.raises(StateError, match="Database not initialized"):
             await manager.store_chunks("https://example.com", [])
 
-        with pytest.raises(RuntimeError, match="Database not initialized"):
+        with pytest.raises(StateError, match="Database not initialized"):
             await manager.get_chunks_for_source("https://example.com")
 
-        with pytest.raises(RuntimeError, match="Database not initialized"):
+        with pytest.raises(StateError, match="Database not initialized"):
             await manager.delete_source("https://example.com")
 
     @pytest.mark.asyncio

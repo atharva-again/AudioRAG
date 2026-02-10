@@ -3,6 +3,7 @@
 import pytest
 
 from audiorag import AudioRAGPipeline, QueryResult
+from audiorag.core.exceptions import PipelineError
 from audiorag.core.models import IndexingStatus
 
 
@@ -204,6 +205,29 @@ class TestPipelineIndex:
         assert len(status_updates) > 0
         assert IndexingStatus.COMPLETED in status_updates
 
+    @pytest.mark.asyncio
+    async def test_index_skips_when_in_progress(self, pipeline_for_index) -> None:
+        """Test that index skips if status is in-progress."""
+        url = "https://youtube.com/watch?v=test123"
+        await pipeline_for_index._state.upsert_source(url, IndexingStatus.DOWNLOADING)
+
+        await pipeline_for_index.index(url)
+
+        status = await pipeline_for_index._state.get_source_status(url)
+        assert status["status"] == IndexingStatus.DOWNLOADING
+
+    @pytest.mark.asyncio
+    async def test_index_force_overrides_in_progress(self, pipeline_for_index, mocker) -> None:
+        """Test that force reindexes even if status is in-progress."""
+        url = "https://youtube.com/watch?v=test123"
+        await pipeline_for_index._state.upsert_source(url, IndexingStatus.DOWNLOADING)
+
+        spy = mocker.spy(pipeline_for_index._audio_source, "download")
+
+        await pipeline_for_index.index(url, force=True)
+
+        spy.assert_called_once()
+
 
 class TestPipelineErrorHandling:
     """Test suite for pipeline error handling."""
@@ -223,7 +247,7 @@ class TestPipelineErrorHandling:
             pipeline_for_error._audio_source, "download", side_effect=Exception("Download failed")
         )
 
-        with pytest.raises(Exception):  # noqa: PT011, B017
+        with pytest.raises(PipelineError):
             await pipeline_for_error.index(url)
 
         status = await pipeline_for_error._state.get_source_status(url)

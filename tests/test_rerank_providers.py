@@ -1,7 +1,6 @@
 """Unit tests for reranker providers - instantiation tests."""
 
 
-
 class TestRerankerProvidersInstantiation:
     """Test reranker provider instantiation through lazy imports."""
 
