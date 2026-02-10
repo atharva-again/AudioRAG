@@ -6,7 +6,7 @@ AudioRAG uses a provider-agnostic architecture. Each stage of the pipeline can u
 
 | Stage | Protocol | Available Providers |
 |-------|----------|---------------------|
-| Audio Source | `AudioSourceProvider` | YouTubeScraper |
+| Audio Source | `AudioSourceProvider` | YouTubeSource, LocalSource, URLSource |
 | STT | `STTProvider` | OpenAI, Deepgram, AssemblyAI, Groq |
 | Embeddings | `EmbeddingProvider` | OpenAI, Voyage, Cohere |
 | Vector Store | `VectorStoreProvider` | ChromaDB, Pinecone, Weaviate, Supabase |
@@ -15,7 +15,7 @@ AudioRAG uses a provider-agnostic architecture. Each stage of the pipeline can u
 
 ## Audio Source Providers
 
-### YouTubeScraper
+### YouTubeSource
 
 Downloads audio from YouTube videos using yt-dlp.
 

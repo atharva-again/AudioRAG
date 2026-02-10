@@ -53,7 +53,7 @@ asyncio.run(main())
 
 ```bash
 # Install with uv (recommended)
-uv pip install audiorag
+uv add audiorag
 
 # Or with pip
 pip install audiorag
@@ -63,13 +63,46 @@ pip install audiorag
 
 ```bash
 # Audio scraping utilities (yt-dlp, pydub)
-uv pip install audiorag[defaults]  # or: pip install audiorag[defaults]
+uv add audiorag[defaults]  # or: pip install audiorag[defaults]
 
 # All providers and utilities
-uv pip install audiorag[all]  # or: pip install audiorag[all]
+uv add audiorag[all]  # or: pip install audiorag[all]
 
 # Specific providers only
-uv pip install audiorag[openai,chromadb,scraping,cohere]
+uv add audiorag[openai,chromadb,scraping,cohere]
+```
+
+## Command Line Interface
+
+AudioRAG includes a premium CLI for easy setup, indexing, and querying.
+
+### Setup
+
+Configure your providers and API keys interactively:
+
+```bash
+audiorag setup
+```
+
+This will guide you through selecting providers for STT, embeddings, vector stores, and generation, saving them to a `.env` file.
+
+### Indexing
+
+Index audio from YouTube or any supported URL:
+
+```bash
+audiorag index "https://youtube.com/watch?v=..."
+```
+
+**Options:**
+- `--force`: Re-process and re-index even if the URL has been processed before.
+
+### Querying
+
+Ask questions about your indexed audio content with a sophisticated results layout:
+
+```bash
+audiorag query "What are the main points discussed in the audio?"
 ```
 
 ## Configuration

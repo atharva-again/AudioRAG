@@ -159,7 +159,8 @@ config = AudioRAGConfig(
 
 ## Reindexing Content
 
-By default, AudioRAG skips already-indexed URLs. To force reindexing:
+By default, AudioRAG skips already-indexed URLs and any URL already in progress.
+To force reindexing:
 
 ```python
 # Force reindex a specific URL

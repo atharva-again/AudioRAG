@@ -49,6 +49,7 @@ Index audio from a URL through the full pipeline.
 4. Chunk transcription by duration
 5. Generate embeddings
 6. Store in vector database
+7. Mark completed
 
 **Parameters:**
 - `url`: URL of the audio/video to index

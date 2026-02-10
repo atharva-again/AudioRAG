@@ -63,7 +63,7 @@ The main orchestrator that coordinates all pipeline stages. Located in `src/audi
 
 Provider implementations abstract external services. Each provider implements a protocol interface.
 
-**Location:** `src/audiorag/providers/`
+**Location:** `src/audiorag/` (grouped by capability: `embed/`, `generate/`, `transcribe/`, `store/`, `source/`, `rerank/`)
 
 **Design Pattern:**
 - Protocol-based interfaces
@@ -166,9 +166,22 @@ Pydantic-settings based configuration with environment variable support.
    - Update source status
 
 7. **Complete**
-   - Mark source as completed
-   - Cleanup temporary files (optional)
-   - Log completion metrics
+    - Mark source as completed
+    - Cleanup temporary files (optional)
+    - Log completion metrics
+
+### Stage Execution Model
+
+`AudioRAGPipeline.index()` executes an ordered list of stage objects. Each stage
+receives a shared mutable context (`StageContext`) containing intermediate
+artifacts (audio file, parts, segments, chunks) and is run by a stage runner
+that wraps failures as `PipelineError` with stage context.
+
+### Concurrency Guard
+
+Indexing uses a per-URL `asyncio.Lock` to prevent concurrent indexing of the
+same URL within a process. A DB-level guard also skips URLs with in-progress
+statuses to reduce multi-process collisions unless `force=True` is used.
 
 ### Query Pipeline
 
