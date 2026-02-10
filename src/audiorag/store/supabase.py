@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
-
-import vecs  # type: ignore
-from vecs import Client as VecsClient  # type: ignore
-from vecs.collection import Collection  # type: ignore
+from typing import TYPE_CHECKING, Any
 
 from audiorag.core.logging_config import get_logger
 from audiorag.store._base import VectorStoreMixin
+
+if TYPE_CHECKING:
+    from vecs import Client as VecsClient  # type: ignore
+    from vecs.collection import Collection  # type: ignore
 
 logger = get_logger(__name__)
 
@@ -22,7 +22,6 @@ class SupabasePgVectorStore(VectorStoreMixin):
     _retryable_exceptions: tuple[type[Exception], ...] = (
         ConnectionError,
         TimeoutError,
-        RuntimeError,
     )
 
     def __init__(
@@ -48,6 +47,8 @@ class SupabasePgVectorStore(VectorStoreMixin):
     def _ensure_initialized(self) -> Collection:
         """Lazy initialization of vecs client and collection."""
         if self._collection is None:
+            import vecs  # type: ignore
+
             self._logger.debug("initializing_supabase_pgvector")
             self._client = vecs.create_client(self._connection_string)
             self._collection = self._client.get_or_create_collection(

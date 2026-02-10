@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Any, cast
-
-import chromadb  # type: ignore
-from chromadb.api import ClientAPI  # type: ignore
-from chromadb.api.models.Collection import Collection  # type: ignore
+from typing import TYPE_CHECKING, Any, cast
 
 from audiorag.core.logging_config import get_logger
 from audiorag.store._base import VectorStoreMixin
+
+if TYPE_CHECKING:
+    from chromadb.api import ClientAPI  # type: ignore
+    from chromadb.api.models.Collection import Collection  # type: ignore
 
 logger = get_logger(__name__)
 
@@ -23,7 +23,6 @@ class ChromaDBVectorStore(VectorStoreMixin):
     _retryable_exceptions: tuple[type[Exception], ...] = (
         ConnectionError,
         TimeoutError,
-        RuntimeError,
     )
 
     def __init__(
@@ -47,6 +46,8 @@ class ChromaDBVectorStore(VectorStoreMixin):
     def _ensure_initialized(self) -> Collection:
         """Lazy initialization of ChromaDB client and collection."""
         if self._collection is None:
+            import chromadb  # type: ignore
+
             self._logger.debug("initializing_chromadb")
             client: ClientAPI = chromadb.PersistentClient(path=str(self._persist_directory))
             self._client = client

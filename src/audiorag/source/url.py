@@ -7,8 +7,7 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import aiohttp  # type: ignore
-
+from audiorag.core.exceptions import ProviderError
 from audiorag.core.logging_config import get_logger
 from audiorag.core.models import AudioFile
 
@@ -89,6 +88,8 @@ class URLSource:
     ) -> str | None:
         """Extract filename from URL or Content-Disposition header."""
         try:
+            import aiohttp  # type: ignore[import]
+
             async with aiohttp.ClientSession() as session:
                 async with session.head(url, allow_redirects=True) as response:
                     # Try Content-Disposition header first
@@ -115,13 +116,25 @@ class URLSource:
     ) -> bytes:
         """Download file content."""
         try:
+            import aiohttp  # type: ignore[import]
+
             async with aiohttp.ClientSession() as session, session.get(url) as response:
                 if response.status >= 400:
-                    raise RuntimeError(f"HTTP {response.status}: {url}")
+                    raise ProviderError(
+                        message=f"url_source download failed: HTTP {response.status}: {url}",
+                        provider="url_source",
+                        retryable=500 <= response.status < 600,
+                    )
                 return await response.read()
         except Exception as e:
             operation_logger.error("download_failed", error=str(e))
-            raise
+            if isinstance(e, ProviderError):
+                raise
+            raise ProviderError(
+                message=f"url_source download failed: {e}",
+                provider="url_source",
+                retryable=isinstance(e, (ConnectionError, TimeoutError)),
+            ) from e
 
     async def _get_duration(
         self, audio_path: Path, operation_logger: structlog.stdlib.BoundLogger

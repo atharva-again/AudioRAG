@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError  # type: ignore
-
 from audiorag.core.logging_config import get_logger
 from audiorag.embed._base import EmbedderMixin
 
@@ -20,12 +18,6 @@ class OpenAIEmbeddingProvider(EmbedderMixin):
     MODEL_TEXT_EMBEDDING_ADA_002 = "text-embedding-ada-002"
 
     _provider_name: str = "openai_embedding"
-    _retryable_exceptions: tuple[type[Exception], ...] = (
-        RateLimitError,
-        APIError,
-        APITimeoutError,
-        ConnectionError,
-    )
 
     def __init__(
         self,
@@ -35,6 +27,20 @@ class OpenAIEmbeddingProvider(EmbedderMixin):
         retry_config: Any | None = None,
     ) -> None:
         """Initialize the OpenAI embedding provider."""
+        from openai import (  # type: ignore[import]
+            APIConnectionError,
+            APITimeoutError,
+            AsyncOpenAI,
+            InternalServerError,
+            RateLimitError,
+        )
+
+        self._retryable_exceptions: tuple[type[Exception], ...] = (
+            RateLimitError,
+            APITimeoutError,
+            APIConnectionError,
+            InternalServerError,
+        )
         super().__init__(api_key=api_key, model=model, retry_config=retry_config)
         self.client = AsyncOpenAI(api_key=api_key)
 

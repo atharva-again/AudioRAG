@@ -6,6 +6,7 @@ import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from audiorag.core.exceptions import ProviderError
 from audiorag.core.logging_config import get_logger
 from audiorag.core.models import AudioFile
 
@@ -51,11 +52,19 @@ class LocalSource:
 
         if not path.exists():
             operation_logger.error("path_not_found")
-            raise FileNotFoundError(f"Path not found: {source_path}")
+            raise ProviderError(
+                message=f"local_source download failed: path not found: {source_path}",
+                provider="local_source",
+                retryable=False,
+            )
 
         if path.is_dir():
             operation_logger.error("is_directory", error="Use AudioSplitter for directories")
-            raise IsADirectoryError(f"Path is a directory: {source_path}")
+            raise ProviderError(
+                message=f"local_source download failed: path is a directory: {source_path}",
+                provider="local_source",
+                retryable=False,
+            )
 
         # Derive title from filename
         title = path.stem.replace("_", " ").replace("-", " ").strip()

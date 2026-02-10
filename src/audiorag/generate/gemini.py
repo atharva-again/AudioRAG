@@ -14,11 +14,6 @@ class GeminiGenerator(GeneratorMixin):
     """Google Gemini LLM generation provider."""
 
     _provider_name: str = "gemini_generation"
-    _retryable_exceptions: tuple[type[Exception], ...] = (
-        ConnectionError,
-        TimeoutError,
-        RuntimeError,
-    )
 
     def __init__(
         self,
@@ -28,9 +23,20 @@ class GeminiGenerator(GeneratorMixin):
         retry_config: Any | None = None,
     ) -> None:
         """Initialize Gemini generator."""
-        super().__init__(api_key=api_key, model=model, retry_config=retry_config)
         import google.generativeai as genai  # type: ignore[import]
+        from google.api_core.exceptions import (  # type: ignore[import]
+            DeadlineExceeded,
+            ResourceExhausted,
+            ServiceUnavailable,
+        )
 
+        self._retryable_exceptions: tuple[type[Exception], ...] = (
+            ResourceExhausted,
+            ServiceUnavailable,
+            DeadlineExceeded,
+            ConnectionError,
+        )
+        super().__init__(api_key=api_key, model=model, retry_config=retry_config)
         if api_key:
             genai.configure(api_key=api_key)
         self._genai = genai

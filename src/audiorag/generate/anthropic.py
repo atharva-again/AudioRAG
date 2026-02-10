@@ -14,11 +14,6 @@ class AnthropicGenerator(GeneratorMixin):
     """Anthropic Claude LLM generation provider."""
 
     _provider_name: str = "anthropic_generation"
-    _retryable_exceptions: tuple[type[Exception], ...] = (
-        ConnectionError,
-        TimeoutError,
-        RuntimeError,
-    )
 
     def __init__(
         self,
@@ -29,9 +24,21 @@ class AnthropicGenerator(GeneratorMixin):
         retry_config: Any | None = None,
     ) -> None:
         """Initialize Anthropic generator."""
-        super().__init__(api_key=api_key, model=model, retry_config=retry_config)
-        from anthropic import AsyncAnthropic  # type: ignore[import]
+        from anthropic import (  # type: ignore[import]
+            APIConnectionError,
+            APITimeoutError,
+            AsyncAnthropic,
+            InternalServerError,
+            RateLimitError,
+        )
 
+        self._retryable_exceptions: tuple[type[Exception], ...] = (
+            RateLimitError,
+            APITimeoutError,
+            APIConnectionError,
+            InternalServerError,
+        )
+        super().__init__(api_key=api_key, model=model, retry_config=retry_config)
         self.client = AsyncAnthropic(api_key=api_key)
         self.max_tokens = max_tokens
 

@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from groq import APIError, AsyncGroq, RateLimitError  # type: ignore
-
 from audiorag.core.logging_config import get_logger
 from audiorag.core.models import TranscriptionSegment
 from audiorag.transcribe._base import TranscriberMixin
@@ -20,11 +18,6 @@ class GroqTranscriber(TranscriberMixin):
     MODEL_WHISPER_LARGE_V3 = "whisper-large-v3"
 
     _provider_name: str = "groq_stt"
-    _retryable_exceptions: tuple[type[Exception], ...] = (
-        RateLimitError,
-        APIError,
-        ConnectionError,
-    )
 
     def __init__(
         self,
@@ -34,6 +27,20 @@ class GroqTranscriber(TranscriberMixin):
         retry_config: Any | None = None,
     ) -> None:
         """Initialize Groq STT provider."""
+        from groq import (  # type: ignore[import]
+            APIConnectionError,
+            APITimeoutError,
+            AsyncGroq,
+            InternalServerError,
+            RateLimitError,
+        )
+
+        self._retryable_exceptions: tuple[type[Exception], ...] = (
+            RateLimitError,
+            APITimeoutError,
+            APIConnectionError,
+            InternalServerError,
+        )
         super().__init__(api_key=api_key, model=model, retry_config=retry_config)
         self.client = AsyncGroq(api_key=api_key)
 

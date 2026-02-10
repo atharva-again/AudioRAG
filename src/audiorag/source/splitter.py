@@ -6,6 +6,7 @@ import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from audiorag.core.exceptions import ProviderError
 from audiorag.core.logging_config import get_logger
 
 if TYPE_CHECKING:
@@ -40,7 +41,7 @@ class AudioSplitter:
             List of audio file paths (original if no split needed, or split chunks)
 
         Raises:
-            FileNotFoundError: If audio file doesn't exist
+            ProviderError: If audio file doesn't exist or splitting fails
         """
         operation_logger = self._logger.bind(
             audio_path=str(audio_path),
@@ -49,7 +50,11 @@ class AudioSplitter:
 
         if not audio_path.exists():
             operation_logger.error("audio_file_not_found")
-            raise FileNotFoundError(f"Audio file not found: {audio_path}")
+            raise ProviderError(
+                message=f"audio_splitter split_if_needed failed: file not found: {audio_path}",
+                provider="audio_splitter",
+                retryable=False,
+            )
 
         file_size = audio_path.stat().st_size
         operation_logger.debug("checking_file_size", file_size_bytes=file_size)
@@ -123,4 +128,10 @@ class AudioSplitter:
                 error=str(e),
                 error_type=type(e).__name__,
             )
-            raise RuntimeError(f"Failed to split audio file {audio_path}: {e}") from e
+            if isinstance(e, ProviderError):
+                raise
+            raise ProviderError(
+                message=f"audio_splitter split_if_needed failed: {e}",
+                provider="audio_splitter",
+                retryable=isinstance(e, (ConnectionError, TimeoutError)),
+            ) from e

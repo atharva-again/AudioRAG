@@ -25,7 +25,6 @@ class AssemblyAITranscriber(TranscriberMixin):
     _retryable_exceptions: tuple[type[Exception], ...] = (
         ConnectionError,
         TimeoutError,
-        RuntimeError,
     )
 
     def __init__(

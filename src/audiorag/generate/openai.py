@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError  # type: ignore
-
 from audiorag.core.logging_config import get_logger
 from audiorag.generate._base import GeneratorMixin
 
@@ -16,12 +14,6 @@ class OpenAIGenerator(GeneratorMixin):
     """OpenAI LLM generation provider."""
 
     _provider_name: str = "openai_generation"
-    _retryable_exceptions: tuple[type[Exception], ...] = (
-        RateLimitError,
-        APIError,
-        APITimeoutError,
-        ConnectionError,
-    )
 
     def __init__(
         self,
@@ -31,6 +23,20 @@ class OpenAIGenerator(GeneratorMixin):
         retry_config: Any | None = None,
     ) -> None:
         """Initialize OpenAI generator."""
+        from openai import (  # type: ignore[import]
+            APIConnectionError,
+            APITimeoutError,
+            AsyncOpenAI,
+            InternalServerError,
+            RateLimitError,
+        )
+
+        self._retryable_exceptions: tuple[type[Exception], ...] = (
+            RateLimitError,
+            APITimeoutError,
+            APIConnectionError,
+            InternalServerError,
+        )
         super().__init__(api_key=api_key, model=model, retry_config=retry_config)
         self.client = AsyncOpenAI(api_key=api_key)
 

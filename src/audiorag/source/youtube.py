@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+from audiorag.core.exceptions import ProviderError
 from audiorag.core.logging_config import get_logger
 from audiorag.core.models import AudioFile
 from audiorag.core.retry_config import (
@@ -95,9 +96,13 @@ class YouTubeSource:
 
         if not shutil.which("ffmpeg"):
             self._logger.error("ffmpeg_not_found")
-            raise RuntimeError(
-                "FFmpeg is not installed or not in PATH. "
-                "Please install FFmpeg to use YouTubeSource."
+            raise ProviderError(
+                message=(
+                    "youtube_source init failed: FFmpeg is not installed or not in PATH. "
+                    "Please install FFmpeg to use YouTubeSource."
+                ),
+                provider="youtube_source",
+                retryable=False,
             )
         self._logger.debug("ffmpeg_validated")
 
@@ -105,7 +110,7 @@ class YouTubeSource:
         """Get retry decorator configured for YouTube download operations."""
         return create_retry_decorator(
             config=self._retry_config,
-            exception_types=(ConnectionError, TimeoutError, RuntimeError),
+            exception_types=(ConnectionError, TimeoutError),
         )
 
     def _get_base_ydl_opts(self) -> dict[str, Any]:
@@ -226,7 +231,13 @@ class YouTubeSource:
                         error=str(e),
                         error_type=type(e).__name__,
                     )
-                    raise
+                    if isinstance(e, ProviderError):
+                        raise
+                    raise ProviderError(
+                        message=f"youtube_source list_channel_videos failed: {e}",
+                        provider="youtube_source",
+                        retryable=isinstance(e, (ConnectionError, TimeoutError)),
+                    ) from e
 
             return videos
 
@@ -240,7 +251,13 @@ class YouTubeSource:
                 error=str(e),
                 error_type=type(e).__name__,
             )
-            raise
+            if isinstance(e, ProviderError):
+                raise
+            raise ProviderError(
+                message=f"youtube_source list_channel_videos failed: {e}",
+                provider="youtube_source",
+                retryable=isinstance(e, (ConnectionError, TimeoutError)),
+            ) from e
 
     async def download_batch(
         self,
@@ -326,7 +343,13 @@ class YouTubeSource:
                 error=str(e),
                 error_type=type(e).__name__,
             )
-            raise
+            if isinstance(e, ProviderError):
+                raise
+            raise ProviderError(
+                message=f"youtube_source download failed: {e}",
+                provider="youtube_source",
+                retryable=isinstance(e, (ConnectionError, TimeoutError)),
+            ) from e
 
     def _download_sync(
         self,
@@ -357,7 +380,14 @@ class YouTubeSource:
                 operation_logger.debug("extracting_video_info")
                 info = ydl.extract_info(url, download=True)
                 if info is None:
-                    raise RuntimeError(f"Failed to extract video info from {url}")
+                    raise ProviderError(
+                        message=(
+                            "youtube_source download failed: failed to extract "
+                            f"video info from {url}"
+                        ),
+                        provider="youtube_source",
+                        retryable=False,
+                    )
 
                 video_id = info["id"]
                 raw_title = info.get("title")
@@ -367,7 +397,11 @@ class YouTubeSource:
                 audio_path = output_dir / f"{video_id}.{audio_format}"
 
                 if not audio_path.exists():
-                    raise RuntimeError(f"Downloaded file not found at {audio_path}")
+                    raise ProviderError(
+                        message=f"youtube_source download failed: file not found at {audio_path}",
+                        provider="youtube_source",
+                        retryable=False,
+                    )
 
                 return AudioFile(
                     path=audio_path,
@@ -382,7 +416,13 @@ class YouTubeSource:
                 error=str(e),
                 error_type=type(e).__name__,
             )
-            raise RuntimeError(f"Failed to download audio from {url}: {e}") from e
+            if isinstance(e, ProviderError):
+                raise
+            raise ProviderError(
+                message=f"youtube_source download failed: {e}",
+                provider="youtube_source",
+                retryable=isinstance(e, (ConnectionError, TimeoutError)),
+            ) from e
 
     @classmethod
     async def scrape_channel(

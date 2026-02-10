@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from cohere import AsyncClientV2  # type: ignore
-from cohere.errors import RateLimitError, ServiceUnavailableError  # type: ignore
-
 from audiorag.core.logging_config import get_logger
 from audiorag.rerank._base import RerankerMixin
 
@@ -17,11 +14,6 @@ class CohereReranker(RerankerMixin):
     """Cohere reranking provider."""
 
     _provider_name: str = "cohere_reranker"
-    _retryable_exceptions: tuple[type[Exception], ...] = (
-        RateLimitError,
-        ServiceUnavailableError,
-        ConnectionError,
-    )
 
     def __init__(
         self,
@@ -31,6 +23,19 @@ class CohereReranker(RerankerMixin):
         retry_config: Any | None = None,
     ) -> None:
         """Initialize Cohere reranker."""
+        from cohere import AsyncClientV2  # type: ignore[import]
+        from cohere.errors import (  # type: ignore[import]
+            InternalServerError,
+            ServiceUnavailableError,
+            TooManyRequestsError,
+        )
+
+        self._retryable_exceptions: tuple[type[Exception], ...] = (
+            TooManyRequestsError,
+            ServiceUnavailableError,
+            InternalServerError,
+            ConnectionError,
+        )
         super().__init__(api_key=api_key, retry_config=retry_config)
         self.client = AsyncClientV2(api_key=api_key)
         self.model = model

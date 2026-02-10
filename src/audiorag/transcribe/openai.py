@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
-from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError  # type: ignore
-
 from audiorag.core.logging_config import get_logger
 from audiorag.core.models import TranscriptionSegment
 from audiorag.transcribe._base import TranscriberMixin
@@ -20,12 +18,6 @@ class OpenAITranscriber(TranscriberMixin):
     MODEL_WHISPER_1 = "whisper-1"
 
     _provider_name: str = "openai_stt"
-    _retryable_exceptions: tuple[type[Exception], ...] = (
-        RateLimitError,
-        APIError,
-        APITimeoutError,
-        ConnectionError,
-    )
 
     def __init__(
         self,
@@ -35,6 +27,20 @@ class OpenAITranscriber(TranscriberMixin):
         retry_config: Any | None = None,
     ) -> None:
         """Initialize OpenAI STT provider."""
+        from openai import (  # type: ignore[import]
+            APIConnectionError,
+            APITimeoutError,
+            AsyncOpenAI,
+            InternalServerError,
+            RateLimitError,
+        )
+
+        self._retryable_exceptions: tuple[type[Exception], ...] = (
+            RateLimitError,
+            APITimeoutError,
+            APIConnectionError,
+            InternalServerError,
+        )
         super().__init__(api_key=api_key, model=model, retry_config=retry_config)
         self.client = AsyncOpenAI(api_key=api_key)
 

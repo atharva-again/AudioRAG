@@ -24,11 +24,6 @@ class CohereEmbeddingProvider(EmbedderMixin):
     INPUT_TYPE_SEARCH_QUERY = "search_query"
 
     _provider_name: str = "cohere_embedding"
-    _retryable_exceptions: tuple[type[Exception], ...] = (
-        ConnectionError,
-        TimeoutError,
-        RuntimeError,
-    )
 
     def __init__(
         self,
@@ -39,9 +34,20 @@ class CohereEmbeddingProvider(EmbedderMixin):
         retry_config: Any | None = None,
     ) -> None:
         """Initialize Cohere embedding provider."""
-        super().__init__(api_key=api_key, model=model, retry_config=retry_config)
-        from cohere import AsyncClientV2  # type: ignore[import]  # type: ignore[import]
+        from cohere import AsyncClientV2  # type: ignore[import]
+        from cohere.errors import (  # type: ignore[import]
+            InternalServerError,
+            ServiceUnavailableError,
+            TooManyRequestsError,
+        )
 
+        self._retryable_exceptions: tuple[type[Exception], ...] = (
+            TooManyRequestsError,
+            ServiceUnavailableError,
+            InternalServerError,
+            ConnectionError,
+        )
+        super().__init__(api_key=api_key, model=model, retry_config=retry_config)
         self.client = AsyncClientV2(api_key=api_key)
         self.input_type = input_type
 
