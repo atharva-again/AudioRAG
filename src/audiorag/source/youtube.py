@@ -114,7 +114,6 @@ class YouTubeSource:
         )
 
     def _get_base_ydl_opts(self) -> dict[str, Any]:
-        """Get base yt-dlp options with large-scale optimizations."""
         opts: dict[str, Any] = {
             "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
             "quiet": True,
@@ -128,36 +127,58 @@ class YouTubeSource:
             },
         }
 
-        if self._po_token:
-            token = self._po_token
-            if "+" not in token:
-                token = f"mweb.gvs+{token}"
-            opts["extractor_args"]["youtube"]["po_token"] = [token]
+        self._apply_po_token(opts)
+        self._apply_impersonation(opts)
+        self._apply_js_runtime(opts)
+        self._apply_download_archive(opts)
+        self._apply_playlist_scope(opts)
+        self._apply_cookie_file(opts)
 
-        if self._impersonate_client:
-            try:
-                from yt_dlp.networking.impersonate import ImpersonateTarget
+        return opts
 
-                opts["impersonate"] = ImpersonateTarget.from_str(self._impersonate_client)
-            except (ImportError, ValueError):
-                opts["impersonate"] = self._impersonate_client
+    def _apply_po_token(self, opts: dict[str, Any]) -> None:
+        if not self._po_token:
+            return
 
-        if self._js_runtime:
-            if ":" in self._js_runtime:
-                name, path = self._js_runtime.split(":", 1)
-                expanded_path = str(Path(path).expanduser())
-                opts["js_runtimes"] = {name: {"path": expanded_path}}
-            elif self._js_runtime.startswith("/") or self._js_runtime.startswith("~"):
-                expanded_path = str(Path(self._js_runtime).expanduser())
-                opts["js_runtimes"] = {"deno": {"path": expanded_path}}
-            else:
-                opts["js_runtimes"] = {self._js_runtime: {}}
-            opts["remote_components"] = {"ejs:github"}
+        token = self._po_token
+        if "+" not in token:
+            token = f"mweb.gvs+{token}"
+        opts["extractor_args"]["youtube"]["po_token"] = [token]
 
-        if self._download_archive:
-            self._download_archive.parent.mkdir(parents=True, exist_ok=True)
-            opts["download_archive"] = str(self._download_archive)
+    def _apply_impersonation(self, opts: dict[str, Any]) -> None:
+        if not self._impersonate_client:
+            return
 
+        try:
+            from yt_dlp.networking.impersonate import ImpersonateTarget
+
+            opts["impersonate"] = ImpersonateTarget.from_str(self._impersonate_client)
+        except (ImportError, ValueError):
+            opts["impersonate"] = self._impersonate_client
+
+    def _apply_js_runtime(self, opts: dict[str, Any]) -> None:
+        if not self._js_runtime:
+            return
+
+        if ":" in self._js_runtime:
+            name, path = self._js_runtime.split(":", 1)
+            expanded_path = str(Path(path).expanduser())
+            opts["js_runtimes"] = {name: {"path": expanded_path}}
+        elif self._js_runtime.startswith("/") or self._js_runtime.startswith("~"):
+            expanded_path = str(Path(self._js_runtime).expanduser())
+            opts["js_runtimes"] = {"deno": {"path": expanded_path}}
+        else:
+            opts["js_runtimes"] = {self._js_runtime: {}}
+        opts["remote_components"] = {"ejs:github"}
+
+    def _apply_download_archive(self, opts: dict[str, Any]) -> None:
+        if not self._download_archive:
+            return
+
+        self._download_archive.parent.mkdir(parents=True, exist_ok=True)
+        opts["download_archive"] = str(self._download_archive)
+
+    def _apply_playlist_scope(self, opts: dict[str, Any]) -> None:
         if self._extract_flat:
             opts["extract_flat"] = "in_playlist"
             opts["lazy_playlist"] = True
@@ -165,8 +186,39 @@ class YouTubeSource:
         if self._playlist_items:
             opts["playlist_items"] = self._playlist_items
 
+    def _apply_cookie_file(self, opts: dict[str, Any]) -> None:
         if self._cookie_file and self._cookie_file.exists():
             opts["cookiefile"] = str(self._cookie_file)
+
+    def _get_listing_ydl_opts(self, max_videos: int | None) -> dict[str, Any]:
+        opts = self._get_base_ydl_opts()
+        opts.update(
+            {
+                "extract_flat": "in_playlist",
+                "lazy_playlist": True,
+                "skip_download": True,
+            }
+        )
+
+        if max_videos:
+            opts["playlistend"] = max_videos
+
+        return opts
+
+    def _get_download_ydl_opts(self, output_dir: Path, audio_format: str) -> dict[str, Any]:
+        output_template = str(output_dir / "%(id)s.%(ext)s")
+        opts = self._get_base_ydl_opts()
+        opts.update(
+            {
+                "postprocessors": [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": audio_format,
+                    }
+                ],
+                "outtmpl": output_template,
+            }
+        )
 
         return opts
 
@@ -189,17 +241,7 @@ class YouTubeSource:
         def _list_sync() -> list[VideoInfo]:
             import yt_dlp
 
-            opts = self._get_base_ydl_opts()
-            opts.update(
-                {
-                    "extract_flat": "in_playlist",
-                    "lazy_playlist": True,
-                    "skip_download": True,
-                }
-            )
-
-            if max_videos:
-                opts["playlistend"] = max_videos
+            opts = self._get_listing_ydl_opts(max_videos)
 
             videos = []
             with yt_dlp.YoutubeDL(cast(Any, opts)) as ydl:
@@ -361,19 +403,7 @@ class YouTubeSource:
         """Synchronous download implementation."""
         import yt_dlp
 
-        output_template = str(output_dir / "%(id)s.%(ext)s")
-        ydl_opts = self._get_base_ydl_opts()
-        ydl_opts.update(
-            {
-                "postprocessors": [
-                    {
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": audio_format,
-                    }
-                ],
-                "outtmpl": output_template,
-            }
-        )
+        ydl_opts = self._get_download_ydl_opts(output_dir, audio_format)
 
         try:
             with yt_dlp.YoutubeDL(cast(Any, ydl_opts)) as ydl:
