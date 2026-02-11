@@ -174,6 +174,17 @@ All config uses `AUDIORAG_` prefix:
 6. **Retry Decorators**: Use `create_retry_decorator()` from `retry_config.py`
 7. **Logger Binding**: Always bind provider name and operation to loggers
 
+## Commit Message Guidelines
+
+- Use conventional commit format: `type(scope): description`
+- Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+- Keep subject line under 72 characters
+- **DO NOT include AI agent signatures** such as:
+  - "Ultraworked with [Sisyphus]"
+  - "Co-authored-by: Sisyphus"
+  - Any similar attribution to AI assistants
+- Focus on describing the change, not who made it
+
 ## Common Gotchas
 
 - Never import optional dependencies at module level
