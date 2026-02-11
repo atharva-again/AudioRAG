@@ -175,7 +175,7 @@ wheels = [
 
 [[package]]
 name = "assemblyai"
-version = "0.50.0"
+version = "0.51.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -184,9 +184,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d2/22/c3791c47829e8c6a896b60cdcb55105ffd383f53112014633812e0c4a326/assemblyai-0.50.0.tar.gz", hash = "sha256:f728e94be9f10df0384a77867b9b0d2b7c9e850f3570ca3c29976ae28f6d8ae6", size = 57524, upload-time = "2026-02-03T14:45:13.109Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/62/d4/b23d3875b111dc199d2ffb019ad99d44006d057dce403af0ddd69c2804c9/assemblyai-0.51.0.tar.gz", hash = "sha256:a183670a58b2eaed448ad5d0eaed64e1ecf03b24208b7f0ac84d39a6d7f90aff", size = 57523, upload-time = "2026-02-11T00:13:25.27Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b5/3f/b18aefece3e6deee506248bf32fce73b8ed3944a27a221055d478b4eb7f6/assemblyai-0.50.0-py3-none-any.whl", hash = "sha256:1d63079955964a08cac3b2905af9c49244aeb5adef65665f1e32fb51c9e1f62d", size = 53455, upload-time = "2026-02-03T14:45:11.44Z" },
+    { url = "https://files.pythonhosted.org/packages/77/84/08f6e64d78e708bcb521ffb53503f53ca79e41ff194e27bec8e0aeb61090/assemblyai-0.51.0-py3-none-any.whl", hash = "sha256:6e49f891f7f544f6ba1d474094e2f5dc15cf2c9a127f78ada2b3d8f5fc8de3f8", size = 53487, upload-time = "2026-02-11T00:13:23.715Z" },
 ]
 
 [[package]]
@@ -200,7 +200,7 @@ wheels = [
 
 [[package]]
 name = "audiorag"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
@@ -263,7 +263,7 @@ dev = [
 requires-dist = [
     { name = "aiosqlite", specifier = ">=0.19" },
     { name = "anthropic", marker = "extra == 'all'", specifier = ">=0.18" },
-    { name = "assemblyai", marker = "extra == 'all'", specifier = ">=0.20" },
+    { name = "assemblyai", marker = "extra == 'all'", specifier = ">=0.51" },
     { name = "chromadb", marker = "extra == 'all'", specifier = ">=0.4" },
     { name = "chromadb", marker = "extra == 'chromadb'", specifier = ">=0.4" },
     { name = "cohere", marker = "extra == 'all'", specifier = ">=5.0" },

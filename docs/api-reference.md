@@ -593,6 +593,60 @@ Exception raised when database or state management fails.
 
 **Location:** `audiorag.exceptions.StateError`
 
+## Source Discovery
+
+### discover_sources
+
+Expand input URLs and paths into individual indexable sources.
+
+**Location:** `audiorag.source.discovery.discover_sources`
+
+```python
+async def discover_sources(
+    inputs: list[str],
+    config: AudioRAGConfig | None = None
+) -> list[str]
+```
+
+Automatically handles:
+- **YouTube playlists/channels**: Expanded to individual video URLs
+- **Local directories**: Recursively scanned for audio files
+- **Local files**: Added directly
+- **Direct URLs**: Passed through
+- **Deduplication**: Removes duplicate sources
+
+**Parameters:**
+- `inputs`: List of URLs or file paths to expand
+- `config`: Optional AudioRAGConfig for YouTubeSource configuration
+
+**Returns:**
+- List of expanded, unique source URLs/paths ready for indexing
+
+**Supported Audio Formats:**
+`.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`, `.aac`, `.wma`
+
+**Example:**
+```python
+from audiorag.source import discover_sources
+from audiorag import AudioRAGConfig
+
+config = AudioRAGConfig()
+
+inputs = [
+    "https://youtube.com/playlist?list=...",  # Playlist
+    "./podcasts/",                             # Directory
+    "./single.mp3",                           # Single file
+]
+
+sources = await discover_sources(inputs, config)
+# Returns: ["https://youtube.com/watch?v=video1", "https://youtube.com/watch?v=video2", "/abs/path/to/podcasts/ep1.mp3", ...]
+```
+
+**Error Handling:**
+- Invalid paths are skipped
+- YouTube expansion failures return the original URL
+- Missing optional dependencies (yt-dlp) log warnings but don't fail
+
 ## Chunking
 
 ### chunk_transcription

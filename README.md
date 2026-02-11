@@ -5,6 +5,8 @@ Provider-agnostic RAG pipeline for audio content. Download, transcribe, chunk, e
 ## Features
 
 - **Multi-provider support**: OpenAI, Deepgram, AssemblyAI, Groq (STT); OpenAI, Voyage, Cohere (embeddings); OpenAI, Anthropic, Gemini (generation); ChromaDB, Pinecone, Weaviate, Supabase (vector stores)
+- **Batch indexing**: Index multiple URLs, playlists, and local directories in one command
+- **Source discovery**: Automatically expand playlists and recursively scan directories
 - **Resumable processing**: SQLite state tracking with hash-based IDs
 - **Automatic chunking**: Time-based segmentation with configurable duration
 - **Audio splitting**: Handles large files by splitting before transcription
@@ -88,14 +90,35 @@ This will guide you through selecting providers for STT, embeddings, vector stor
 
 ### Indexing
 
-Index audio from YouTube or any supported URL:
+Index audio from multiple sources in a single command:
 
 ```bash
+# Single YouTube video
 audiorag index "https://youtube.com/watch?v=..."
+
+# YouTube playlist (auto-expanded to individual videos)
+audiorag index "https://youtube.com/playlist?list=..."
+
+# Local audio files and folders
+audiorag index "./podcast.mp3" "./audio_folder/"
+
+# Multiple URLs at once
+audiorag index "https://youtube.com/watch?v=video1" "https://youtube.com/watch?v=video2"
+
+# Mixed inputs
+audiorag index "./local_audio/" "https://youtube.com/watch?v=..." "./interview.wav"
 ```
+
+**Note:** Always wrap URLs and paths containing spaces in quotes.
 
 **Options:**
 - `--force`: Re-process and re-index even if the URL has been processed before.
+
+The CLI automatically:
+- Expands YouTube playlists/channels into individual video URLs
+- Recursively discovers audio files in directories
+- Shows progress tracking for batch operations
+- Handles errors per source without stopping the entire batch
 
 ### Querying
 

@@ -60,6 +60,46 @@ async def index_content():
 asyncio.run(index_content())
 ```
 
+### Batch Indexing Multiple Sources
+
+Index multiple sources efficiently using the source discovery utility:
+
+```python
+import asyncio
+from audiorag import AudioRAGPipeline, AudioRAGConfig
+from audiorag.source import discover_sources
+
+async def batch_index():
+    config = AudioRAGConfig()
+    pipeline = AudioRAGPipeline(config)
+    
+    # Define your inputs - mix of URLs, playlists, and local paths
+    inputs = [
+        "https://www.youtube.com/playlist?list=...",  # Entire playlist
+        "./podcasts/",                                 # Local directory
+        "https://youtube.com/watch?v=video1",         # Single video
+        "./interviews/special.mp3",                   # Local file
+    ]
+    
+    # Discover all individual sources
+    sources = await discover_sources(inputs, config)
+    print(f"Found {len(sources)} sources to index")
+    
+    # Index each source
+    for url in sources:
+        print(f"Indexing: {url}")
+        await pipeline.index(url)
+    
+    print("Batch indexing complete!")
+
+asyncio.run(batch_index())
+```
+
+**What `discover_sources` handles:**
+- **YouTube playlists/channels**: Expands to individual video URLs
+- **Local directories**: Recursively finds audio files (`.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`)
+- **Mixed inputs**: Combines all sources into a unique, deduplicated list
+
 ### 3. Query the Indexed Content
 
 ```python
@@ -85,22 +125,30 @@ asyncio.run(query_content())
 ```python
 import asyncio
 from audiorag import AudioRAGPipeline, AudioRAGConfig
+from audiorag.source import discover_sources
 
 async def main():
     # Initialize
     config = AudioRAGConfig()
     pipeline = AudioRAGPipeline(config)
     
-    # Index multiple videos
-    urls = [
-        "https://www.youtube.com/watch?v=video1",
-        "https://www.youtube.com/watch?v=video2",
-        "https://www.youtube.com/watch?v=video3",
+    # Index multiple sources (mix of playlists, directories, and URLs)
+    inputs = [
+        "https://www.youtube.com/playlist?list=PL...",  # Playlist
+        "./my_podcasts/",                                 # Local directory
+        "https://youtube.com/watch?v=singleVideo",      # Single video
     ]
     
-    for url in urls:
-        print(f"Indexing: {url}")
+    # Discover all individual sources
+    sources = await discover_sources(inputs, config)
+    print(f"Discovered {len(sources)} sources\n")
+    
+    # Index each source with progress tracking
+    for i, url in enumerate(sources, 1):
+        print(f"[{i}/{len(sources)}] Indexing: {url}")
         await pipeline.index(url)
+    
+    print("\nIndexing complete! Now querying...\n")
     
     # Query across all indexed content
     questions = [
