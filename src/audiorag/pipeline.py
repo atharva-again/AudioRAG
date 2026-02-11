@@ -356,7 +356,7 @@ class AudioRAGPipeline:
 
         Args:
             config: AudioRAG configuration.
-            audio_source: Custom audio source provider. Defaults to YouTubeScraper.
+            audio_source: Custom audio source provider. Defaults to YouTubeSource.
             stt: Custom STT provider. Defaults based on config.stt_provider.
             embedder: Custom embedding provider. Defaults based on config.embedding_provider.
             vector_store: Custom vector store provider. Defaults based on

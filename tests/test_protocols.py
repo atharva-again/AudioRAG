@@ -1,4 +1,4 @@
-"""Comprehensive tests for all Protocol interfaces in audiorag.protocols.
+"""Comprehensive tests for all Protocol interfaces in audiorag.core.protocols.
 
 Tests cover:
 1. Protocol structure and runtime_checkable decorator

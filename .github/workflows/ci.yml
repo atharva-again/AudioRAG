@@ -114,11 +114,18 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist
+
       - name: Create release from tag
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           make_latest: true
+          files: dist/*
 
   publish-pypi-tag:
     name: Publish to PyPI (tag push)
