@@ -93,7 +93,7 @@ Log before raising: `logger.error("Pipeline failed for %s: %s", url, e)`
 - **Line length**: 100 characters (Ruff config)
 
 ### Protocols
-- Define in `src/audiorag/protocols/`
+- Define in `src/audiorag/core/protocols/`
 - Use `runtime_checkable` decorator
 - Structural subtyping via Protocol
 
