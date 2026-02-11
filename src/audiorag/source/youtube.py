@@ -94,17 +94,17 @@ class YouTubeSource:
         self._player_clients = player_clients or ["tv", "web", "mweb"]
         self._js_runtime = js_runtime
 
+    def _ensure_ffmpeg(self) -> None:
         if not shutil.which("ffmpeg"):
             self._logger.error("ffmpeg_not_found")
             raise ProviderError(
                 message=(
-                    "youtube_source init failed: FFmpeg is not installed or not in PATH. "
+                    "youtube_source operation failed: FFmpeg is not installed or not in PATH. "
                     "Please install FFmpeg to use YouTubeSource."
                 ),
                 provider="youtube_source",
                 retryable=False,
             )
-        self._logger.debug("ffmpeg_validated")
 
     def _get_retry_decorator(self) -> Any:
         """Get retry decorator configured for YouTube download operations."""
@@ -175,7 +175,7 @@ class YouTubeSource:
         channel_url: str,
         max_videos: int | None = None,
     ) -> list[VideoInfo]:
-        """List all videos in a channel/playlist efficiently."""
+        self._ensure_ffmpeg()
         operation_logger = self._logger.bind(
             url=channel_url,
             max_videos=max_videos,
@@ -311,7 +311,7 @@ class YouTubeSource:
         return results
 
     async def download(self, url: str, output_dir: Path, audio_format: str = "mp3") -> AudioFile:
-        """Download audio from YouTube video."""
+        self._ensure_ffmpeg()
         operation_logger = self._logger.bind(
             url=url,
             output_dir=str(output_dir),

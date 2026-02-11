@@ -23,6 +23,7 @@ from rich.table import Table
 from rich.theme import Theme
 
 from audiorag import AudioRAGConfig, AudioRAGPipeline
+from audiorag.source.discovery import discover_sources
 
 # Top-tier design theme: Minimalist, sophisticated colors, no emojis
 AUDIORAG_THEME = Theme(
@@ -189,12 +190,18 @@ async def setup_cmd() -> None:
         return
 
 
-async def index_cmd(url: str, force: bool) -> None:
-    """Index audio from a URL with premium progress tracking."""
+async def index_cmd(inputs: list[str], force: bool) -> None:
     config = AudioRAGConfig()
     pipeline = AudioRAGPipeline(config)
 
-    console.print(f"[highlight]Starting pipeline for:[/] {url}\n")
+    with console.status("[info]Discovering sources...", spinner="dots"):
+        sources = await discover_sources(inputs, config)
+
+    if not sources:
+        console.print("[warning]No sources found to index.[/]")
+        return
+
+    console.print(f"[highlight]Starting pipeline for {len(sources)} sources[/]\n")
 
     with Progress(
         SpinnerColumn(spinner_name="dots"),
@@ -205,15 +212,22 @@ async def index_cmd(url: str, force: bool) -> None:
         console=console,
         transient=True,
     ) as progress:
-        task = progress.add_task(description="Processing", total=100)
+        overall_task = progress.add_task(description="Total Progress", total=len(sources))
 
-        try:
-            await pipeline.index(url, force=force)
-            progress.update(task, completed=100, description="Done")
-            console.print(f"[success]Indexing complete:[/] {url}")
-        except Exception as e:
-            console.print(f"[error]Indexing failed:[/] {e}")
-            sys.exit(1)
+        for idx, url in enumerate(sources, 1):
+            source_task = progress.add_task(
+                description=f"Source {idx}/{len(sources)}",
+                total=100,
+            )
+            try:
+                progress.update(source_task, description=f"Indexing: {url[:50]}...")
+                await pipeline.index(url, force=force)
+                progress.update(source_task, completed=100, description="Done")
+                progress.update(overall_task, advance=1)
+                console.print(f"[success]Indexed ({idx}/{len(sources)}):[/] {url}")
+            except Exception as e:
+                console.print(f"[error]Failed ({idx}/{len(sources)}):[/] {url} - {e}")
+                progress.update(overall_task, advance=1)
 
 
 async def query_cmd(query_text: str) -> None:
@@ -273,8 +287,11 @@ def main() -> None:
         epilog="""
 Examples:
   audiorag setup
-  audiorag index "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-  audiorag query "What is the key takeaway?"
+  audiorag index "https://youtube.com/watch?v=..."
+  audiorag index "./local_folder/"
+  audiorag query "What are the main points?"
+
+Note: Use "audiorag [command] --help" for more details on a specific command.
         """,
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
@@ -283,8 +300,21 @@ Examples:
     subparsers.add_parser("setup", help="Initialize provider configuration")
 
     # Index
-    index_parser = subparsers.add_parser("index", help="Process and index audio from a URL")
-    index_parser.add_argument("url", help="URL of the audio/video to index")
+    index_parser = subparsers.add_parser(
+        "index",
+        help="Process and index audio from URLs or paths",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Note: Always wrap URLs and paths with spaces in quotes to prevent shell errors.
+
+Examples:
+  audiorag index "https://youtube.com/watch?v=..."
+  audiorag index "https://youtube.com/playlist?list=..."
+  audiorag index "./audio_folder/" "local_file.mp3"
+  audiorag index "My Music/Song.wav"
+        """,
+    )
+    index_parser.add_argument("inputs", nargs="+", help="URLs or paths of the audio/video to index")
     index_parser.add_argument(
         "--force", action="store_true", help="Re-process even if already indexed"
     )
@@ -299,7 +329,7 @@ Examples:
         if args.command == "setup":
             asyncio.run(setup_cmd())
         elif args.command == "index":
-            asyncio.run(index_cmd(args.url, args.force))
+            asyncio.run(index_cmd(args.inputs, args.force))
         elif args.command == "query":
             asyncio.run(query_cmd(args.text))
         else:
