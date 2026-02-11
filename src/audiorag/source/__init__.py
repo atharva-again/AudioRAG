@@ -32,6 +32,10 @@ def __getattr__(name: str):
             raise ImportError(
                 "URLSource requires 'audiorag'. Install with: uv pip install audiorag"
             ) from None
+    if name == "discover_sources":
+        from audiorag.source.discovery import discover_sources
+
+        return discover_sources
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -39,4 +43,5 @@ __all__ = [
     "LocalSource",
     "URLSource",
     "YouTubeSource",
+    "discover_sources",
 ]
