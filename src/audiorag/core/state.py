@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,69 @@ from audiorag.core.exceptions import StateError
 from audiorag.core.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+SOURCES_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS sources (
+        source_id TEXT PRIMARY KEY,
+        source_path TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL,
+        metadata TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+"""
+
+CHUNKS_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS chunks (
+        chunk_id TEXT PRIMARY KEY,
+        source_id TEXT NOT NULL,
+        chunk_index INTEGER NOT NULL,
+        start_time REAL NOT NULL,
+        end_time REAL NOT NULL,
+        text TEXT NOT NULL,
+        embedding BLOB,
+        metadata TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (source_id) REFERENCES sources(source_id) ON DELETE CASCADE,
+        UNIQUE(source_id, chunk_index)
+    )
+"""
+
+CREATE_INDEX_SQL: tuple[str, ...] = (
+    """
+    CREATE INDEX IF NOT EXISTS idx_chunks_source_id
+    ON chunks(source_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_sources_status
+    ON sources(status)
+    """,
+)
+
+GET_SOURCE_SQL = (
+    "SELECT source_id, source_path, status, metadata, created_at, updated_at "
+    "FROM sources WHERE source_id = ?"
+)
+UPDATE_SOURCE_WITH_METADATA_SQL = (
+    "UPDATE sources SET status = ?, metadata = ?, updated_at = ? WHERE source_id = ?"
+)
+UPDATE_SOURCE_STATUS_SQL = "UPDATE sources SET status = ?, updated_at = ? WHERE source_id = ?"
+INSERT_SOURCE_SQL = (
+    "INSERT INTO sources (source_id, source_path, status, metadata, created_at, updated_at) "
+    "VALUES (?, ?, ?, ?, ?, ?)"
+)
+INSERT_OR_REPLACE_CHUNK_SQL = (
+    "INSERT OR REPLACE INTO chunks "
+    "(chunk_id, source_id, chunk_index, start_time, end_time, "
+    "text, embedding, metadata, created_at) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+)
+GET_CHUNKS_FOR_SOURCE_SQL = (
+    "SELECT chunk_id, chunk_index, start_time, end_time, text, embedding, metadata, created_at "
+    "FROM chunks WHERE source_id = ? ORDER BY chunk_index"
+)
+DELETE_CHUNKS_FOR_SOURCE_SQL = "DELETE FROM chunks WHERE source_id = ?"
+DELETE_SOURCE_SQL = "DELETE FROM sources WHERE source_id = ?"
 
 
 class StateManager:
@@ -40,45 +104,10 @@ class StateManager:
         # Enable WAL mode for better concurrency
         await self._db.execute("PRAGMA journal_mode=WAL")
 
-        # Create sources table
-        await self._db.execute("""
-            CREATE TABLE IF NOT EXISTS sources (
-                source_id TEXT PRIMARY KEY,
-                source_path TEXT NOT NULL UNIQUE,
-                status TEXT NOT NULL,
-                metadata TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-        """)
-
-        # Create chunks table
-        await self._db.execute("""
-            CREATE TABLE IF NOT EXISTS chunks (
-                chunk_id TEXT PRIMARY KEY,
-                source_id TEXT NOT NULL,
-                chunk_index INTEGER NOT NULL,
-                start_time REAL NOT NULL,
-                end_time REAL NOT NULL,
-                text TEXT NOT NULL,
-                embedding BLOB,
-                metadata TEXT,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY (source_id) REFERENCES sources(source_id) ON DELETE CASCADE,
-                UNIQUE(source_id, chunk_index)
-            )
-        """)
-
-        # Create indices for efficient queries
-        await self._db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_chunks_source_id
-            ON chunks(source_id)
-        """)
-
-        await self._db.execute("""
-            CREATE INDEX IF NOT EXISTS idx_sources_status
-            ON sources(status)
-        """)
+        await self._db.execute(SOURCES_TABLE_SQL)
+        await self._db.execute(CHUNKS_TABLE_SQL)
+        for statement in CREATE_INDEX_SQL:
+            await self._db.execute(statement)
 
         await self._db.commit()
 
@@ -132,6 +161,39 @@ class StateManager:
             raise StateError("Database not initialized. Call initialize() first.")
         return self._db
 
+    def _json_dumps(self, data: dict[str, Any] | None) -> str | None:
+        if data is None:
+            return None
+        return json.dumps(data)
+
+    def _json_loads(self, data: str | None) -> dict[str, Any] | None:
+        if data is None:
+            return None
+        parsed = json.loads(data)
+        return parsed if isinstance(parsed, dict) else None
+
+    def _source_from_row(self, row: Sequence[Any]) -> dict[str, Any]:
+        return {
+            "source_id": row[0],
+            "source_path": row[1],
+            "status": row[2],
+            "metadata": self._json_loads(row[3]),
+            "created_at": row[4],
+            "updated_at": row[5],
+        }
+
+    def _chunk_from_row(self, row: Sequence[Any]) -> dict[str, Any]:
+        return {
+            "chunk_id": row[0],
+            "chunk_index": row[1],
+            "start_time": row[2],
+            "end_time": row[3],
+            "text": row[4],
+            "embedding": row[5],
+            "metadata": self._json_loads(row[6]),
+            "created_at": row[7],
+        }
+
     async def get_source_status(self, source_path: str) -> dict[str, Any] | None:
         """Get status information for a source.
 
@@ -146,8 +208,7 @@ class StateManager:
         source_id = self._generate_source_id(source_path)
 
         async with db.execute(
-            "SELECT source_id, source_path, status, metadata, created_at, updated_at "
-            "FROM sources WHERE source_id = ?",
+            GET_SOURCE_SQL,
             (source_id,),
         ) as cursor:
             row = await cursor.fetchone()
@@ -155,14 +216,7 @@ class StateManager:
         if not row:
             return None
 
-        return {
-            "source_id": row[0],
-            "source_path": row[1],
-            "status": row[2],
-            "metadata": json.loads(row[3]) if row[3] else None,
-            "created_at": row[4],
-            "updated_at": row[5],
-        }
+        return self._source_from_row(row)
 
     async def upsert_source(
         self, source_path: str, status: str, metadata: dict[str, Any] | None = None
@@ -181,7 +235,7 @@ class StateManager:
 
         source_id = self._generate_source_id(source_path)
         now = self._now_iso8601()
-        metadata_json = json.dumps(metadata) if metadata is not None else None
+        metadata_json = self._json_dumps(metadata)
 
         # Check if source exists
         existing = await self.get_source_status(source_path)
@@ -189,15 +243,13 @@ class StateManager:
         if existing:
             # Update existing source
             await db.execute(
-                "UPDATE sources SET status = ?, metadata = ?, updated_at = ? WHERE source_id = ?",
+                UPDATE_SOURCE_WITH_METADATA_SQL,
                 (status, metadata_json, now, source_id),
             )
         else:
             # Insert new source
             await db.execute(
-                "INSERT INTO sources (source_id, source_path, status, "
-                "metadata, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                INSERT_SOURCE_SQL,
                 (source_id, source_path, status, metadata_json, now, now),
             )
 
@@ -226,15 +278,15 @@ class StateManager:
                 merged_metadata = {**existing["metadata"], **metadata}
             else:
                 merged_metadata = metadata
-            metadata_json = json.dumps(merged_metadata)
+            metadata_json = self._json_dumps(merged_metadata)
 
             await db.execute(
-                "UPDATE sources SET status = ?, metadata = ?, updated_at = ? WHERE source_id = ?",
+                UPDATE_SOURCE_WITH_METADATA_SQL,
                 (status, metadata_json, now, source_id),
             )
         else:
             await db.execute(
-                "UPDATE sources SET status = ?, updated_at = ? WHERE source_id = ?",
+                UPDATE_SOURCE_STATUS_SQL,
                 (status, now, source_id),
             )
 
@@ -266,13 +318,10 @@ class StateManager:
             chunk_id = self._generate_chunk_id(source_id, chunk["chunk_index"])
             chunk_ids.append(chunk_id)
 
-            metadata_json = json.dumps(chunk.get("metadata")) if chunk.get("metadata") else None
+            metadata_json = self._json_dumps(chunk.get("metadata"))
 
             await db.execute(
-                "INSERT OR REPLACE INTO chunks "
-                "(chunk_id, source_id, chunk_index, start_time, end_time, "
-                "text, embedding, metadata, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                INSERT_OR_REPLACE_CHUNK_SQL,
                 (
                     chunk_id,
                     source_id,
@@ -303,29 +352,12 @@ class StateManager:
         source_id = self._generate_source_id(source_path)
 
         async with db.execute(
-            "SELECT chunk_id, chunk_index, start_time, end_time, "
-            "text, embedding, metadata, created_at "
-            "FROM chunks WHERE source_id = ? ORDER BY chunk_index",
+            GET_CHUNKS_FOR_SOURCE_SQL,
             (source_id,),
         ) as cursor:
             rows = await cursor.fetchall()
 
-        chunks = []
-        for row in rows:
-            chunks.append(
-                {
-                    "chunk_id": row[0],
-                    "chunk_index": row[1],
-                    "start_time": row[2],
-                    "end_time": row[3],
-                    "text": row[4],
-                    "embedding": row[5],
-                    "metadata": json.loads(row[6]) if row[6] else None,
-                    "created_at": row[7],
-                }
-            )
-
-        return chunks
+        return [self._chunk_from_row(row) for row in rows]
 
     async def delete_source(self, source_path: str) -> bool:
         """Delete a source and all its chunks.
@@ -346,10 +378,10 @@ class StateManager:
             return False
 
         # Delete chunks (CASCADE should handle this, but explicit is better)
-        await db.execute("DELETE FROM chunks WHERE source_id = ?", (source_id,))
+        await db.execute(DELETE_CHUNKS_FOR_SOURCE_SQL, (source_id,))
 
         # Delete source
-        await db.execute("DELETE FROM sources WHERE source_id = ?", (source_id,))
+        await db.execute(DELETE_SOURCE_SQL, (source_id,))
 
         await db.commit()
         return True
