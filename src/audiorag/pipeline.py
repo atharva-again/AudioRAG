@@ -38,6 +38,13 @@ from audiorag.core import (
 )
 from audiorag.core.exceptions import BudgetExceededError, StateError
 from audiorag.core.logging_config import Timer
+from audiorag.core.provider_factory import (
+    create_embedding_provider,
+    create_generation_provider,
+    create_reranker_provider,
+    create_stt_provider,
+    create_vector_store_provider,
+)
 
 if TYPE_CHECKING:
     import structlog
@@ -406,31 +413,31 @@ class AudioRAGPipeline:
         if stt is not None:
             self._stt = stt
         else:
-            self._stt = self._create_stt_provider(config, retry_config)
+            self._stt = create_stt_provider(config, retry_config)
 
         # Initialize embedder based on config
         if embedder is not None:
             self._embedder = embedder
         else:
-            self._embedder = self._create_embedding_provider(config, retry_config)
+            self._embedder = create_embedding_provider(config, retry_config)
 
         # Initialize vector store based on config
         if vector_store is not None:
             self._vector_store = vector_store
         else:
-            self._vector_store = self._create_vector_store_provider(config, retry_config)
+            self._vector_store = create_vector_store_provider(config, retry_config)
 
         # Initialize generator based on config
         if generator is not None:
             self._generator = generator
         else:
-            self._generator = self._create_generation_provider(config, retry_config)
+            self._generator = create_generation_provider(config, retry_config)
 
         # Initialize reranker based on config
         if reranker is not None:
             self._reranker = reranker
         else:
-            self._reranker = self._create_reranker_provider(config, retry_config)
+            self._reranker = create_reranker_provider(config, retry_config)
 
         # Internal utilities
         from audiorag.source.splitter import AudioSplitter
@@ -442,172 +449,6 @@ class AudioRAGPipeline:
 
         # Per-URL asyncio locks for single-process concurrency guard
         self._url_locks: dict[str, asyncio.Lock] = {}
-
-    # ------------------------------------------------------------------
-    # Provider factories (unchanged)
-    # ------------------------------------------------------------------
-
-    def _create_stt_provider(
-        self, config: AudioRAGConfig, retry_config: RetryConfig
-    ) -> STTProvider:
-        """Create STT provider based on config."""
-        provider_name = config.stt_provider.lower()
-
-        if provider_name == "groq":
-            from audiorag.transcribe.groq import GroqTranscriber
-
-            return GroqTranscriber(
-                api_key=config.groq_api_key or None,
-                model=config.get_stt_model(),
-                retry_config=retry_config,
-            )
-        if provider_name == "deepgram":
-            from audiorag.transcribe.deepgram import DeepgramTranscriber
-
-            return DeepgramTranscriber(
-                api_key=config.deepgram_api_key or None,
-                model=config.get_stt_model(),
-                retry_config=retry_config,
-            )
-        if provider_name == "assemblyai":
-            from audiorag.transcribe.assemblyai import AssemblyAITranscriber
-
-            return AssemblyAITranscriber(
-                api_key=config.assemblyai_api_key or None,
-                model=config.get_stt_model(),
-                retry_config=retry_config,
-            )
-        # default to openai
-        from audiorag.transcribe.openai import OpenAITranscriber
-
-        return OpenAITranscriber(
-            api_key=config.openai_api_key or None,
-            model=config.stt_model,
-            retry_config=retry_config,
-        )
-
-    def _create_embedding_provider(
-        self, config: AudioRAGConfig, retry_config: RetryConfig
-    ) -> EmbeddingProvider:
-        """Create embedding provider based on config."""
-        provider_name = config.embedding_provider.lower()
-
-        if provider_name == "voyage":
-            from audiorag.embed.voyage import VoyageEmbeddingProvider
-
-            return VoyageEmbeddingProvider(
-                api_key=config.voyage_api_key or None,
-                model=config.get_embedding_model(),
-                retry_config=retry_config,
-            )
-        if provider_name == "cohere":
-            from audiorag.embed.cohere import CohereEmbeddingProvider
-
-            return CohereEmbeddingProvider(
-                api_key=config.cohere_api_key or None,
-                model=config.get_embedding_model(),
-                retry_config=retry_config,
-            )
-        # default to openai
-        from audiorag.embed.openai import OpenAIEmbeddingProvider
-
-        return OpenAIEmbeddingProvider(
-            api_key=config.openai_api_key or None,
-            model=config.embedding_model,
-            retry_config=retry_config,
-        )
-
-    def _create_vector_store_provider(
-        self, config: AudioRAGConfig, retry_config: RetryConfig
-    ) -> VectorStoreProvider:
-        """Create vector store provider based on config."""
-        provider_name = config.vector_store_provider.lower()
-
-        if provider_name == "supabase":
-            from audiorag.store.supabase import SupabasePgVectorStore
-
-            return SupabasePgVectorStore(
-                connection_string=config.supabase_connection_string or "",
-                collection_name=config.supabase_collection_name or "audiorag",
-                dimension=config.supabase_vector_dimension,
-                retry_config=retry_config,
-            )
-        if provider_name == "pinecone":
-            from audiorag.store.pinecone import PineconeVectorStore
-
-            return PineconeVectorStore(
-                api_key=config.pinecone_api_key or "",
-                index_name=config.pinecone_index_name or "audiorag",
-                namespace=config.pinecone_namespace or "default",
-                retry_config=retry_config,
-            )
-        if provider_name == "weaviate":
-            from audiorag.store.weaviate import WeaviateVectorStore
-
-            return WeaviateVectorStore(
-                url=config.weaviate_url or None,
-                api_key=config.weaviate_api_key or None,
-                collection_name=config.weaviate_collection_name or "AudioRAG",
-                retry_config=retry_config,
-            )
-        # default to chromadb
-        from audiorag.store.chromadb import ChromaDBVectorStore
-
-        return ChromaDBVectorStore(
-            persist_directory=config.chromadb_persist_directory or "./chroma_db",
-            collection_name=config.chromadb_collection_name or "audiorag",
-            retry_config=retry_config,
-        )
-
-    def _create_generation_provider(
-        self, config: AudioRAGConfig, retry_config: RetryConfig
-    ) -> GenerationProvider:
-        """Create generation provider based on config."""
-        provider_name = config.generation_provider.lower()
-
-        if provider_name == "anthropic":
-            from audiorag.generate.anthropic import AnthropicGenerator
-
-            return AnthropicGenerator(
-                api_key=config.anthropic_api_key or None,
-                model=config.generation_model or "claude-3-7-sonnet-20250219",
-                retry_config=retry_config,
-            )
-        if provider_name == "gemini":
-            from audiorag.generate.gemini import GeminiGenerator
-
-            return GeminiGenerator(
-                api_key=config.google_api_key or None,
-                model=config.generation_model or "gemini-2.0-flash-001",
-                retry_config=retry_config,
-            )
-        # default to openai
-        from audiorag.generate.openai import OpenAIGenerator
-
-        return OpenAIGenerator(
-            api_key=config.openai_api_key or None,
-            model=config.generation_model or "gpt-4o-mini",
-            retry_config=retry_config,
-        )
-
-    def _create_reranker_provider(
-        self, config: AudioRAGConfig, retry_config: RetryConfig
-    ) -> RerankerProvider:
-        """Create reranker provider based on config."""
-        provider_name = config.reranker_provider.lower()
-
-        if provider_name == "passthrough" or not config.cohere_api_key:
-            from audiorag.rerank.passthrough import PassthroughReranker
-
-            return PassthroughReranker()
-        # default to cohere
-        from audiorag.rerank.cohere import CohereReranker
-
-        return CohereReranker(
-            api_key=config.cohere_api_key or None,
-            model=config.reranker_model or "rerank-v3.5",
-            retry_config=retry_config,
-        )
 
     # ------------------------------------------------------------------
     # Initialization helpers
