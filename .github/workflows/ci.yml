@@ -114,6 +114,16 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract changelog
+        id: changelog_reader
+        uses: mindsers/changelog-reader-action@v2
+        with:
+          version: ${{ github.ref_name }}
+          path: ./CHANGELOG.md
+
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -123,7 +133,7 @@ jobs:
       - name: Create release from tag
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body: ${{ steps.changelog_reader.outputs.changes }}
           make_latest: true
           files: dist/*
 
