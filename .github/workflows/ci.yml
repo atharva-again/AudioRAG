@@ -117,11 +117,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get version from tag
+        id: get_version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
       - name: Extract changelog
         id: changelog_reader
         uses: mindsers/changelog-reader-action@v2
         with:
-          version: ${{ github.ref_name }}
+          version: ${{ steps.get_version.outputs.version }}
           path: ./CHANGELOG.md
 
       - name: Download build artifacts
@@ -135,6 +139,7 @@ jobs:
         with:
           body: ${{ steps.changelog_reader.outputs.changes }}
           make_latest: true
+          draft: false
           files: dist/*
 
   publish-pypi-tag:
