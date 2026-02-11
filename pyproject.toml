@@ -64,7 +64,7 @@ all = [
     "google-generativeai>=0.3",
     "voyageai>=0.2",
     "groq>=0.4",
-    "assemblyai>=0.20",
+    "assemblyai>=0.51",
 ]
 openai = ["openai>=1.0"]
 chromadb = ["chromadb>=0.4"]
@@ -88,6 +88,10 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "-v --tb=short"
+filterwarnings = [
+    # AssemblyAI uses deprecated Pydantic .copy() method (known issue, waiting for upstream fix)
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20:assemblyai.client",
+]
 
 [tool.coverage.run]
 source = ["src/audiorag"]
