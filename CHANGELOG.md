@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-02-11
+## [0.3.0] - 2026-02-11 - Proactive API Reliability
 
 ### Added
 - **Proactive budget governor** for API usage control:
@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Correct stale model field names (`title` instead of `video_title`)
   - Correct module/class references and provider examples to match current codebase
 
-## [0.2.0] - 2026-02-11
+## [0.2.0] - 2026-02-11 - Multi-source Indexing
 
 ### Added
 - **Multi-source indexing support** - CLI `index` command now accepts multiple inputs:
@@ -74,7 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated architecture documentation
 - Improved CLI help documentation with usage examples
 
-## [0.1.0] - 2025-02-XX
+## [0.1.0] - 2025-02-XX - Initial Release
 
 ### Added
 - Initial release of AudioRAG
