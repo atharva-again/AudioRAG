@@ -184,6 +184,12 @@ All config uses `AUDIORAG_` prefix:
   - "Co-authored-by: Sisyphus"
   - Any similar attribution to AI assistants
 - Focus on describing the change, not who made it
+- **Never do unverified commits** - Always verify changes work before committing:
+  - Run tests: `uv run pytest`
+  - Run linting: `uv run ruff check .`
+  - Run type checking: `uv run ty check`
+  - Build package: `uv build && uv run twine check dist/*`
+- **Never do unsigned commits** - All commits must be GPG signed
 
 ## Common Gotchas
 
