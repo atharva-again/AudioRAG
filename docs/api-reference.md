@@ -27,7 +27,7 @@ class AudioRAGPipeline:
 
 **Parameters:**
 - `config`: AudioRAGConfig instance with all settings
-- `audio_source`: Custom audio source provider (default: YouTubeScraper)
+- `audio_source`: Custom audio source provider (default: YouTubeSource)
 - `stt`: Custom STT provider (default: from config.stt_provider)
 - `embedder`: Custom embedding provider (default: from config.embedding_provider)
 - `vector_store`: Custom vector store (default: from config.vector_store_provider)
@@ -102,14 +102,14 @@ Query the indexed audio content.
 result = await pipeline.query("What are the main points?")
 print(result.answer)
 for source in result.sources:
-    print(f"{source.video_title} at {source.start_time}s")
+    print(f"{source.title} at {source.start_time}s")
 ```
 
 ### AudioRAGConfig
 
 Configuration management with environment variable support.
 
-**Location:** `audiorag.config.AudioRAGConfig`
+**Location:** `audiorag.core.config.AudioRAGConfig`
 
 **Environment Variable Prefix:** `AUDIORAG_`
 
@@ -136,6 +136,14 @@ Configuration management with environment variable support.
 | `database_path` | str | SQLite database path |
 | `cleanup_audio` | bool | Whether to cleanup temp files after processing |
 | `log_level` | str | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `budget_enabled` | bool | Enable proactive API budget enforcement |
+| `budget_rpm` | int \| None | Global requests-per-minute limit |
+| `budget_tpm` | int \| None | Global tokens-per-minute limit |
+| `budget_audio_seconds_per_hour` | int \| None | Global STT audio-seconds/hour limit |
+| `budget_provider_overrides` | dict | Provider-specific limit overrides |
+| `vector_store_verify_mode` | str | Vector verify mode: off, best_effort, strict |
+| `vector_store_verify_max_attempts` | int | Max verification attempts |
+| `vector_store_verify_wait_seconds` | float | Delay between verification attempts |
 
 **Methods:**
 
@@ -177,7 +185,7 @@ config = AudioRAGConfig(
 
 Result of a query with generated answer and sources.
 
-**Location:** `audiorag.models.QueryResult`
+**Location:** `audiorag.core.models.QueryResult`
 
 ```python
 class QueryResult(BaseModel):
@@ -193,7 +201,7 @@ class QueryResult(BaseModel):
 
 A source document with relevance score and timing information.
 
-**Location:** `audiorag.models.Source`
+**Location:** `audiorag.core.models.Source`
 
 ```python
 class Source(BaseModel):
@@ -201,7 +209,7 @@ class Source(BaseModel):
     start_time: float
     end_time: float
     source_url: str
-    video_title: str
+    title: str
     relevance_score: float
 ```
 
@@ -210,31 +218,22 @@ class Source(BaseModel):
 - `start_time`: Start time in seconds
 - `end_time`: End time in seconds
 - `source_url`: Original source URL
-- `video_title`: Title of the video/audio
+- `title`: Title of the source audio
 - `relevance_score`: Relevance score from reranker (0.0 to 1.0)
-
-**Properties:**
-
-```python
-@property
-def youtube_timestamp_url(self) -> str
-```
-
-Generate YouTube URL with timestamp parameter for direct linking.
 
 **Example:**
 ```python
 result = await pipeline.query("...")
 for source in result.sources:
     print(source.text)
-    print(f"URL: {source.youtube_timestamp_url}")
+    print(f"URL: {source.source_url}")
 ```
 
 ### ChunkMetadata
 
 Metadata for a text chunk.
 
-**Location:** `audiorag.models.ChunkMetadata`
+**Location:** `audiorag.core.models.ChunkMetadata`
 
 ```python
 class ChunkMetadata(BaseModel):
@@ -242,14 +241,14 @@ class ChunkMetadata(BaseModel):
     end_time: float
     text: str
     source_url: str
-    video_title: str
+    title: str
 ```
 
 ### TranscriptionSegment
 
 A segment of transcribed audio.
 
-**Location:** `audiorag.models.TranscriptionSegment`
+**Location:** `audiorag.core.models.TranscriptionSegment`
 
 ```python
 class TranscriptionSegment(BaseModel):
@@ -262,13 +261,13 @@ class TranscriptionSegment(BaseModel):
 
 Audio file metadata.
 
-**Location:** `audiorag.models.AudioFile`
+**Location:** `audiorag.core.models.AudioFile`
 
 ```python
 class AudioFile(BaseModel):
     path: Path
     source_url: str
-    video_title: str
+    title: str
     duration: float | None = None
 ```
 
@@ -276,7 +275,7 @@ class AudioFile(BaseModel):
 
 Pipeline stages for audio indexing (StrEnum).
 
-**Location:** `audiorag.models.IndexingStatus`
+**Location:** `audiorag.core.models.IndexingStatus`
 
 **Values:**
 - `DOWNLOADING`
@@ -297,7 +296,7 @@ Pipeline stages for audio indexing (StrEnum).
 
 Protocol for speech-to-text providers.
 
-**Location:** `audiorag.protocols.STTProvider`
+**Location:** `audiorag.core.protocols.STTProvider`
 
 ```python
 @runtime_checkable
@@ -318,7 +317,7 @@ class STTProvider(Protocol):
 
 Protocol for text embedding providers.
 
-**Location:** `audiorag.protocols.EmbeddingProvider`
+**Location:** `audiorag.core.protocols.EmbeddingProvider`
 
 ```python
 @runtime_checkable
@@ -336,7 +335,7 @@ class EmbeddingProvider(Protocol):
 
 Protocol for vector database providers.
 
-**Location:** `audiorag.protocols.VectorStoreProvider`
+**Location:** `audiorag.core.protocols.VectorStoreProvider`
 
 ```python
 @runtime_checkable
@@ -354,11 +353,17 @@ class VectorStoreProvider(Protocol):
     async def delete_by_source(self, source_url: str) -> None: ...
 ```
 
+```python
+@runtime_checkable
+class VerifiableVectorStoreProvider(Protocol):
+    async def verify(self, ids: list[str]) -> bool: ...
+```
+
 ### GenerationProvider
 
 Protocol for text generation providers.
 
-**Location:** `audiorag.protocols.GenerationProvider`
+**Location:** `audiorag.core.protocols.GenerationProvider`
 
 ```python
 @runtime_checkable
@@ -377,7 +382,7 @@ class GenerationProvider(Protocol):
 
 Protocol for document reranking providers.
 
-**Location:** `audiorag.protocols.RerankerProvider`
+**Location:** `audiorag.core.protocols.RerankerProvider`
 
 ```python
 @runtime_checkable
@@ -399,7 +404,7 @@ class RerankerProvider(Protocol):
 
 Protocol for audio source providers.
 
-**Location:** `audiorag.protocols.AudioSourceProvider`
+**Location:** `audiorag.core.protocols.AudioSourceProvider`
 
 ```python
 @runtime_checkable
@@ -415,7 +420,7 @@ class AudioSourceProvider(Protocol):
 
 Manages persistent state for audio sources and chunks using SQLite.
 
-**Location:** `audiorag.state.StateManager`
+**Location:** `audiorag.core.state.StateManager`
 
 ```python
 class StateManager:
@@ -466,7 +471,7 @@ async with StateManager("audiorag.db") as state:
 
 Configuration for retry behavior.
 
-**Location:** `audiorag.retry_config.RetryConfig`
+**Location:** `audiorag.core.retry_config.RetryConfig`
 
 ```python
 @dataclass
@@ -483,7 +488,7 @@ class RetryConfig:
 
 Get a structured logger instance.
 
-**Location:** `audiorag.logging_config.get_logger`
+**Location:** `audiorag.core.logging_config.get_logger`
 
 ```python
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger
@@ -502,7 +507,7 @@ logger.bind(user_id="123").info("user_action")
 
 Configure structured logging.
 
-**Location:** `audiorag.logging_config.configure_logging`
+**Location:** `audiorag.core.logging_config.configure_logging`
 
 ```python
 def configure_logging(
@@ -516,7 +521,7 @@ def configure_logging(
 
 Context manager for timing operations.
 
-**Location:** `audiorag.logging_config.Timer`
+**Location:** `audiorag.core.logging_config.Timer`
 
 ```python
 class Timer:
@@ -547,13 +552,13 @@ with Timer(logger, "download", url=url) as timer:
 
 Base exception for all AudioRAG errors.
 
-**Location:** `audiorag.exceptions.AudioRAGError`
+**Location:** `audiorag.core.exceptions.AudioRAGError`
 
 ### PipelineError
 
 Exception raised when pipeline execution fails.
 
-**Location:** `audiorag.exceptions.PipelineError`
+**Location:** `audiorag.core.exceptions.PipelineError`
 
 ```python
 class PipelineError(AudioRAGError):
@@ -569,7 +574,7 @@ class PipelineError(AudioRAGError):
 
 Exception raised when an external provider fails.
 
-**Location:** `audiorag.exceptions.ProviderError`
+**Location:** `audiorag.core.exceptions.ProviderError`
 
 ```python
 class ProviderError(AudioRAGError):
@@ -585,13 +590,19 @@ class ProviderError(AudioRAGError):
 
 Exception raised when configuration validation fails.
 
-**Location:** `audiorag.exceptions.ConfigurationError`
+**Location:** `audiorag.core.exceptions.ConfigurationError`
 
 ### StateError
 
 Exception raised when database or state management fails.
 
-**Location:** `audiorag.exceptions.StateError`
+**Location:** `audiorag.core.exceptions.StateError`
+
+### BudgetExceededError
+
+Raised when proactive budget checks fail.
+
+**Location:** `audiorag.core.exceptions.BudgetExceededError`
 
 ## Source Discovery
 
@@ -660,7 +671,7 @@ def chunk_transcription(
     segments: list[TranscriptionSegment],
     chunk_duration_seconds: int | float,
     source_url: str,
-    video_title: str,
+    title: str,
 ) -> list[ChunkMetadata]
 ```
 
@@ -668,49 +679,57 @@ def chunk_transcription(
 - `segments`: List of transcription segments
 - `chunk_duration_seconds`: Target duration for each chunk
 - `source_url`: Source URL for all chunks
-- `video_title`: Video title for all chunks
+- `title`: Source title for all chunks
 
 **Returns:**
 - List of ChunkMetadata objects
 
 ## Provider Implementations
 
-All providers are available in `audiorag.providers`:
+Providers are grouped by capability modules:
 
 **STT Providers:**
-- `OpenAISTTProvider`
-- `DeepgramSTTProvider`
-- `AssemblyAISTTProvider`
-- `GroqSTTProvider`
+- `audiorag.transcribe`
+- `OpenAITranscriber`
+- `DeepgramTranscriber`
+- `AssemblyAITranscriber`
+- `GroqTranscriber`
 
 **Embedding Providers:**
+- `audiorag.embed`
 - `OpenAIEmbeddingProvider`
 - `VoyageEmbeddingProvider`
 - `CohereEmbeddingProvider`
 
 **Vector Store Providers:**
+- `audiorag.store`
 - `ChromaDBVectorStore`
 - `PineconeVectorStore`
 - `WeaviateVectorStore`
 - `SupabasePgVectorStore`
 
 **Generation Providers:**
-- `OpenAIGenerationProvider`
-- `AnthropicGenerationProvider`
-- `GeminiGenerationProvider`
+- `audiorag.generate`
+- `OpenAIGenerator`
+- `AnthropicGenerator`
+- `GeminiGenerator`
 
 **Reranker Providers:**
+- `audiorag.rerank`
 - `CohereReranker`
 - `PassthroughReranker`
 
 **Audio Source Providers:**
-- `YouTubeScraper`
-- `AudioSplitter`
+- `audiorag.source`
+- `YouTubeSource`
+- `LocalSource`
+- `URLSource`
 
 **Example:**
 ```python
-from audiorag.providers import YouTubeScraper, OpenAISTTProvider
+from audiorag.source import YouTubeSource
+from audiorag.transcribe import OpenAITranscriber
 
-scraper = YouTubeScraper()
-audio_file = await scraper.download(url, output_dir)
+source = YouTubeSource()
+audio_file = await source.download(url, output_dir)
 ```

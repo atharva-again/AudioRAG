@@ -20,6 +20,7 @@ from audiorag.chunking import chunk_transcription
 from audiorag.core import (
     AudioRAGConfig,
     AudioSourceProvider,
+    BudgetGovernor,
     EmbeddingProvider,
     GenerationProvider,
     IndexingStatus,
@@ -31,10 +32,11 @@ from audiorag.core import (
     StateManager,
     STTProvider,
     VectorStoreProvider,
+    VerifiableVectorStoreProvider,
     configure_logging,
     get_logger,
 )
-from audiorag.core.exceptions import StateError
+from audiorag.core.exceptions import BudgetExceededError, StateError
 from audiorag.core.logging_config import Timer
 
 if TYPE_CHECKING:
@@ -83,6 +85,7 @@ class StageContext:
     all_segments: list[TranscriptionSegment] = field(default_factory=list)
     chunks: list[ChunkMetadata] = field(default_factory=list)
     chunk_ids: list[str] = field(default_factory=list)
+    reserved_audio_seconds: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +133,13 @@ class DownloadStage(Stage):
                     "duration": audio_file.duration,
                 },
             )
+            if audio_file.duration and audio_file.duration > 0:
+                seconds = int(audio_file.duration)
+                pipeline._budget_governor.reserve(
+                    provider=ctx.config.stt_provider,
+                    audio_seconds=seconds,
+                )
+                ctx.reserved_audio_seconds = seconds
             ctx.audio_file = audio_file
             timer.complete(
                 title=audio_file.title,
@@ -167,10 +177,23 @@ class TranscribeStage(Stage):
             await pipeline._state.update_source_status(ctx.url, IndexingStatus.TRANSCRIBING)
             all_segments: list[Any] = []
             cumulative_offset = 0.0
+            estimated_part_seconds = 0
+            if (
+                ctx.reserved_audio_seconds == 0
+                and ctx.audio_parts
+                and ctx.audio_file is not None
+                and ctx.audio_file.duration
+            ):
+                estimated_part_seconds = int(ctx.audio_file.duration / len(ctx.audio_parts))
 
             for part_idx, part_path in enumerate(ctx.audio_parts):
                 part_logger = ctx.logger.bind(part_index=part_idx, part_path=str(part_path))
                 part_logger.debug("transcribing_part")
+                pipeline._budget_governor.reserve(
+                    provider=ctx.config.stt_provider,
+                    requests=1,
+                    audio_seconds=estimated_part_seconds,
+                )
 
                 segments = await pipeline._stt.transcribe(part_path, ctx.config.stt_language)
                 # Adjust timestamps for subsequent parts
@@ -254,6 +277,11 @@ class EmbedStage(Stage):
         with Timer(ctx.logger, "stage_embed") as timer:
             await pipeline._state.update_source_status(ctx.url, IndexingStatus.EMBEDDING)
             texts = [c.text for c in ctx.chunks]
+            pipeline._budget_governor.reserve(
+                provider=ctx.config.embedding_provider,
+                requests=1,
+                text_chars=sum(len(text) for text in texts),
+            )
             embeddings = await pipeline._embedder.embed(texts)
 
             # Store in vector store
@@ -273,6 +301,7 @@ class EmbedStage(Stage):
                 metadatas=metadatas,
                 documents=documents,
             )
+            await pipeline._verify_vector_store_write(ctx.url, ctx.chunk_ids)
             await pipeline._state.update_source_status(ctx.url, IndexingStatus.EMBEDDED)
             timer.complete(chunks_count=len(ctx.chunks))
 
@@ -408,6 +437,7 @@ class AudioRAGPipeline:
 
         self._splitter = AudioSplitter(max_size_mb=config.audio_split_max_size_mb)
         self._state = StateManager(config.database_path)
+        self._budget_governor = BudgetGovernor.from_config(config)
         self._initialized = False
 
         # Per-URL asyncio locks for single-process concurrency guard
@@ -595,6 +625,65 @@ class AudioRAGPipeline:
             self._url_locks[url] = asyncio.Lock()
         return self._url_locks[url]
 
+    async def _verify_vector_store_write(self, source_url: str, ids: list[str]) -> None:
+        mode = str(getattr(self._config, "vector_store_verify_mode", "best_effort")).lower()
+        if mode == "off":
+            return
+
+        if not isinstance(self._vector_store, VerifiableVectorStoreProvider):
+            if mode == "strict":
+                raise PipelineError(
+                    "Vector store verification required but provider does not support verify()",
+                    stage="embed",
+                    source_url=source_url,
+                )
+            logger.warning(
+                "vector_store_verification_unavailable", provider=self._config.vector_store_provider
+            )
+            return
+
+        max_attempts = max(1, int(getattr(self._config, "vector_store_verify_max_attempts", 5)))
+        wait_seconds = max(
+            0.0, float(getattr(self._config, "vector_store_verify_wait_seconds", 0.5))
+        )
+
+        last_error: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                verified = await self._vector_store.verify(ids)
+                if verified:
+                    return
+            except Exception as exc:
+                last_error = exc
+
+            if attempt < max_attempts and wait_seconds > 0:
+                await asyncio.sleep(wait_seconds)
+
+        if mode == "strict":
+            if last_error is not None:
+                raise PipelineError(
+                    f"Vector store verification failed with provider error: {last_error}",
+                    stage="embed",
+                    source_url=source_url,
+                ) from last_error
+            raise PipelineError(
+                "Vector store verification failed after add()",
+                stage="embed",
+                source_url=source_url,
+            )
+
+        if last_error is not None:
+            logger.warning(
+                "vector_store_verification_error",
+                provider=self._config.vector_store_provider,
+                error=str(last_error),
+            )
+            return
+
+        logger.warning(
+            "vector_store_verification_failed", provider=self._config.vector_store_provider
+        )
+
     # ------------------------------------------------------------------
     # Stage runner
     # ------------------------------------------------------------------
@@ -733,10 +822,19 @@ class AudioRAGPipeline:
         try:
             # Step 1 - Embed query
             with Timer(operation_logger, "query_embed"):
+                self._budget_governor.reserve(
+                    provider=self._config.embedding_provider,
+                    requests=1,
+                    text_chars=len(query),
+                )
                 query_embedding = (await self._embedder.embed([query]))[0]
 
             # Step 2 - Retrieve
             with Timer(operation_logger, "query_retrieve") as timer:
+                self._budget_governor.reserve(
+                    provider=self._config.vector_store_provider,
+                    requests=1,
+                )
                 raw_results = await self._vector_store.query(
                     query_embedding, top_k=self._config.retrieval_top_k
                 )
@@ -749,6 +847,11 @@ class AudioRAGPipeline:
             # Step 3 - Rerank
             with Timer(operation_logger, "query_rerank") as timer:
                 documents = [r["document"] for r in raw_results]
+                self._budget_governor.reserve(
+                    provider=self._config.reranker_provider,
+                    requests=1,
+                    text_chars=len(query) + sum(len(doc) for doc in documents),
+                )
                 reranked = await self._reranker.rerank(
                     query, documents, top_n=self._config.rerank_top_n
                 )
@@ -760,6 +863,11 @@ class AudioRAGPipeline:
             # Step 4 - Generate
             with Timer(operation_logger, "query_generate"):
                 context_texts = [r["document"] for r, _ in reranked_results]
+                self._budget_governor.reserve(
+                    provider=self._config.generation_provider,
+                    requests=1,
+                    text_chars=len(query) + sum(len(text) for text in context_texts),
+                )
                 answer = await self._generator.generate(query, context_texts)
 
             # Step 5 - Build response
@@ -784,6 +892,9 @@ class AudioRAGPipeline:
             )
             return QueryResult(answer=answer, sources=sources)
 
+        except BudgetExceededError as e:
+            operation_logger.error("query_budget_exceeded", error=str(e), provider=e.provider)
+            raise
         except Exception as e:
             operation_logger.error("query_failed", error=str(e), error_type=type(e).__name__)
             raise

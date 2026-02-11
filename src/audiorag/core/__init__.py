@@ -6,9 +6,11 @@ that are shared across all AudioRAG functionality.
 
 from __future__ import annotations
 
+from audiorag.core.budget import BudgetGovernor, BudgetLimits
 from audiorag.core.config import AudioRAGConfig
 from audiorag.core.exceptions import (
     AudioRAGError,
+    BudgetExceededError,
     ConfigurationError,
     PipelineError,
     ProviderError,
@@ -30,6 +32,7 @@ from audiorag.core.protocols import (
     RerankerProvider,
     STTProvider,
     VectorStoreProvider,
+    VerifiableVectorStoreProvider,
 )
 from audiorag.core.retry_config import RetryConfig, create_retry_decorator
 from audiorag.core.state import StateManager
@@ -43,6 +46,9 @@ __all__ = [
     "AudioRAGError",
     # Protocols
     "AudioSourceProvider",
+    "BudgetExceededError",
+    "BudgetGovernor",
+    "BudgetLimits",
     "ChunkMetadata",
     "ConfigurationError",
     "EmbeddingProvider",
@@ -60,6 +66,7 @@ __all__ = [
     "StateManager",
     "TranscriptionSegment",
     "VectorStoreProvider",
+    "VerifiableVectorStoreProvider",
     # Logging
     "configure_logging",
     "create_retry_decorator",

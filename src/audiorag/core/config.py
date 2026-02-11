@@ -1,7 +1,9 @@
 """Configuration management for AudioRAG using pydantic-settings."""
 
 from pathlib import Path
+from typing import Any, Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -92,6 +94,17 @@ class AudioRAGConfig(BaseSettings):
     retry_min_wait_seconds: float = 4.0
     retry_max_wait_seconds: float = 60.0
     retry_exponential_multiplier: float = 1.0
+
+    budget_enabled: bool = False
+    budget_rpm: int | None = None
+    budget_tpm: int | None = None
+    budget_audio_seconds_per_hour: int | None = None
+    budget_token_chars_per_token: int = 4
+    budget_provider_overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+    vector_store_verify_mode: Literal["off", "best_effort", "strict"] = "best_effort"
+    vector_store_verify_max_attempts: int = 5
+    vector_store_verify_wait_seconds: float = 0.5
 
     # -- Model Getter Methods (for backward compatibility) --
     def get_stt_model(self) -> str:

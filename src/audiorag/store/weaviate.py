@@ -168,6 +168,27 @@ class WeaviateVectorStore(VectorStoreMixin):
         except Exception as e:
             raise await self._wrap_error(e, "delete_by_source")
 
+    async def verify(self, ids: list[str]) -> bool:
+        if not ids:
+            return True
+
+        retry_decorator = self._get_retry_decorator()
+
+        @retry_decorator
+        def _verify_sync() -> bool:
+            collection = self._ensure_initialized()
+            found = 0
+            for id_ in ids:
+                obj = collection.query.fetch_object_by_id(id_)
+                if obj is not None:
+                    found += 1
+            return found == len(ids)
+
+        try:
+            return _verify_sync()
+        except Exception as e:
+            raise await self._wrap_error(e, "verify")
+
     def _format_results(self, results: Any) -> list[dict]:
         """Transform Weaviate results to expected format."""
         output = []

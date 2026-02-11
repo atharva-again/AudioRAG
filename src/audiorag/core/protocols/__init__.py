@@ -5,7 +5,7 @@ from .embedding import EmbeddingProvider
 from .generation import GenerationProvider
 from .reranker import RerankerProvider
 from .stt import STTProvider
-from .vector_store import VectorStoreProvider
+from .vector_store import VectorStoreProvider, VerifiableVectorStoreProvider
 
 __all__ = [
     "AudioSourceProvider",
@@ -14,4 +14,5 @@ __all__ = [
     "RerankerProvider",
     "STTProvider",
     "VectorStoreProvider",
+    "VerifiableVectorStoreProvider",
 ]

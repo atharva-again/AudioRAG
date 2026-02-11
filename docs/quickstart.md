@@ -112,10 +112,10 @@ async def query_content():
     print("Answer:", result.answer)
     print("\nSources:")
     for source in result.sources:
-        print(f"  - {source.video_title}")
+        print(f"  - {source.title}")
         print(f"    Timestamp: {source.start_time}s")
         print(f"    Relevance: {source.relevance_score:.2f}")
-        print(f"    URL: {source.youtube_timestamp_url}")
+        print(f"    URL: {source.source_url}")
 
 asyncio.run(query_content())
 ```
@@ -214,6 +214,25 @@ To force reindexing:
 # Force reindex a specific URL
 await pipeline.index(url, force=True)
 ```
+
+## Budget and Verification (Optional)
+
+```python
+config = AudioRAGConfig(
+    budget_enabled=True,
+    budget_rpm=60,
+    budget_tpm=120000,
+    budget_audio_seconds_per_hour=7200,
+    vector_store_verify_mode="strict",  # off | best_effort | strict
+    vector_store_verify_max_attempts=5,
+    vector_store_verify_wait_seconds=0.5,
+)
+```
+
+Notes:
+- Budget checks run before expensive operations and fail fast when limits are exceeded.
+- If source duration is known, indexing reserves transcription audio budget before STT begins.
+- Strict verification ensures vector writes are confirmed before source status moves to completed.
 
 ## Checking Index Status
 

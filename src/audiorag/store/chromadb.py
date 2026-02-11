@@ -143,6 +143,24 @@ class ChromaDBVectorStore(VectorStoreMixin):
         except Exception as e:
             raise await self._wrap_error(e, "delete_by_source")
 
+    async def verify(self, ids: list[str]) -> bool:
+        if not ids:
+            return True
+
+        retry_decorator = self._get_retry_decorator()
+
+        @retry_decorator
+        def _verify_sync() -> bool:
+            collection = self._ensure_initialized()
+            results = collection.get(ids=ids, include=[])
+            found_ids = results.get("ids") or []
+            return len(found_ids) == len(ids)
+
+        try:
+            return await asyncio.to_thread(_verify_sync)
+        except Exception as e:
+            raise await self._wrap_error(e, "verify")
+
     def _format_results(self, results: Any) -> list[dict]:
         """Transform ChromaDB results to expected format."""
         output = []

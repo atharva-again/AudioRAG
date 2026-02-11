@@ -10,6 +10,7 @@ AudioRAG uses a provider-agnostic architecture. Each stage of the pipeline can u
 | STT | `STTProvider` | OpenAI, Deepgram, AssemblyAI, Groq |
 | Embeddings | `EmbeddingProvider` | OpenAI, Voyage, Cohere |
 | Vector Store | `VectorStoreProvider` | ChromaDB, Pinecone, Weaviate, Supabase |
+| Vector Verification | `VerifiableVectorStoreProvider` | ChromaDB, Pinecone, Weaviate, Supabase |
 | Generation | `GenerationProvider` | OpenAI, Anthropic, Gemini |
 | Reranker | `RerankerProvider` | Cohere, Passthrough |
 
@@ -36,6 +37,7 @@ export AUDIORAG_YOUTUBE_DOWNLOAD_ARCHIVE="./archive.txt"
 - Resumable downloads via archive file
 - Concurrent fragment downloading
 - Playlist and channel support
+- Optional JS runtime override via `AUDIORAG_JS_RUNTIME`
 
 ## STT Providers
 
@@ -208,7 +210,7 @@ export AUDIORAG_PINECONE_NAMESPACE="default"
 
 **Installation:**
 ```bash
-uv add pinecone-client
+uv add pinecone
 ```
 
 ### Weaviate
@@ -242,7 +244,22 @@ export AUDIORAG_SUPABASE_VECTOR_DIMENSION="1536"
 
 **Installation:**
 ```bash
-uv add supabase
+uv add vecs
+```
+
+## Vector Store Verification
+
+All built-in vector stores implement `verify(ids)`.
+
+Recommended mode by deployment type:
+- `best_effort`: default; safer DX when stores are eventually consistent.
+- `strict`: strongest correctness; indexing fails unless IDs are verified.
+- `off`: disables verification.
+
+```bash
+export AUDIORAG_VECTOR_STORE_VERIFY_MODE="strict"
+export AUDIORAG_VECTOR_STORE_VERIFY_MAX_ATTEMPTS="5"
+export AUDIORAG_VECTOR_STORE_VERIFY_WAIT_SECONDS="0.5"
 ```
 
 ## Generation Providers
@@ -337,8 +354,8 @@ You can implement custom providers by implementing the protocol interfaces:
 
 ```python
 from pathlib import Path
-from audiorag.protocols import STTProvider
-from audiorag.models import TranscriptionSegment
+from audiorag.core.protocols import STTProvider
+from audiorag.core.models import TranscriptionSegment
 
 class MyCustomSTT(STTProvider):
     async def transcribe(
@@ -360,4 +377,4 @@ pipeline = AudioRAGPipeline(
 )
 ```
 
-See protocol definitions in `src/audiorag/protocols/` for interface details.
+See protocol definitions in `src/audiorag/core/protocols/` for interface details.

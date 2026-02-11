@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-11
+
+### Added
+- **Proactive budget governor** for API usage control:
+  - Global and per-provider limits for RPM, TPM, and audio-seconds/hour
+  - Fail-fast budget checks before expensive operations
+  - Persistent budget accounting in SQLite for restart/process safety
+  - `BudgetExceededError` for explicit budget-limit failures
+- **Atomic vector write verification** after embedding storage:
+  - New `VerifiableVectorStoreProvider` protocol (`verify(ids) -> bool`)
+  - Built-in verification support for ChromaDB, Pinecone, Weaviate, and Supabase
+  - Verification modes: `off`, `best_effort`, `strict`
+  - Configurable retry attempts and wait interval for verification checks
+- **End-to-end test coverage** for reliability controls:
+  - Budget governor unit/integration tests
+  - Pipeline preflight budget reservation tests
+  - Vector verification mode and retry behavior tests
+
+### Changed
+- **Index pipeline reliability flow**:
+  - Preflight STT budget reservation now runs when source duration is known
+  - Embed stage verifies vector persistence before marking embedded/completed
+- **Query pipeline budget enforcement**:
+  - Budget checks added before embed/retrieve/rerank/generate steps
+
+### Documentation
+- Updated `README.md` and docs (`quickstart`, `configuration`, `providers`, `architecture`, `api-reference`) to:
+  - Document budget governor and vector verification configuration/behavior
+  - Correct stale model field names (`title` instead of `video_title`)
+  - Correct module/class references and provider examples to match current codebase
+
 ## [0.2.0] - 2026-02-11
 
 ### Added
@@ -62,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/atharva-again/audiorag/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/atharva-again/audiorag/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/atharva-again/audiorag/releases/tag/v0.1.0

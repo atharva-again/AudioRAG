@@ -253,6 +253,47 @@ export AUDIORAG_RERANK_TOP_N="3"
 export AUDIORAG_CLEANUP_AUDIO="true"
 ```
 
+## Budget Governor
+
+Use proactive, fail-fast limits to prevent avoidable 429s and runaway usage.
+
+```bash
+# Enable governor
+export AUDIORAG_BUDGET_ENABLED="true"
+
+# Global limits
+export AUDIORAG_BUDGET_RPM="60"
+export AUDIORAG_BUDGET_TPM="120000"
+export AUDIORAG_BUDGET_AUDIO_SECONDS_PER_HOUR="7200"
+
+# Token estimation ratio when exact token count is unknown
+export AUDIORAG_BUDGET_TOKEN_CHARS_PER_TOKEN="4"
+
+# Provider-specific overrides (JSON)
+export AUDIORAG_BUDGET_PROVIDER_OVERRIDES='{"openai": {"rpm": 30, "tpm": 60000}, "deepgram": {"audio_seconds_per_hour": 3600}}'
+```
+
+Behavior:
+- Budget is checked before API-heavy stages (transcribe/embed/query/generate/rerank).
+- If audio duration is known, transcription budget is reserved before STT starts.
+- Limits are persisted in SQLite for restart/process safety.
+
+## Vector Write Verification
+
+```bash
+# Verification mode: off | best_effort | strict
+export AUDIORAG_VECTOR_STORE_VERIFY_MODE="best_effort"
+
+# Retry behavior for verification checks
+export AUDIORAG_VECTOR_STORE_VERIFY_MAX_ATTEMPTS="5"
+export AUDIORAG_VECTOR_STORE_VERIFY_WAIT_SECONDS="0.5"
+```
+
+Behavior:
+- After embeddings are written, supported stores verify inserted IDs.
+- `best_effort`: logs warning if verification fails.
+- `strict`: indexing fails if verification does not pass after retries.
+
 ## Database and Storage
 
 ```bash
@@ -323,6 +364,17 @@ AUDIORAG_AUDIO_SPLIT_MAX_SIZE_MB=24
 # Retrieval
 AUDIORAG_RETRIEVAL_TOP_K=10
 AUDIORAG_RERANK_TOP_N=3
+
+# Budget governor
+AUDIORAG_BUDGET_ENABLED=true
+AUDIORAG_BUDGET_RPM=60
+AUDIORAG_BUDGET_TPM=120000
+AUDIORAG_BUDGET_AUDIO_SECONDS_PER_HOUR=7200
+
+# Vector write verification
+AUDIORAG_VECTOR_STORE_VERIFY_MODE=best_effort
+AUDIORAG_VECTOR_STORE_VERIFY_MAX_ATTEMPTS=5
+AUDIORAG_VECTOR_STORE_VERIFY_WAIT_SECONDS=0.5
 
 # Storage
 AUDIORAG_DATABASE_PATH=./audiorag.db

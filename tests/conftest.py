@@ -399,6 +399,15 @@ def mock_config(tmp_db_path: Path, tmp_vector_store_dir: Path):
     config.retry_min_wait_seconds = 4.0
     config.retry_max_wait_seconds = 60.0
     config.retry_exponential_multiplier = 1.0
+    config.budget_enabled = False
+    config.budget_rpm = None
+    config.budget_tpm = None
+    config.budget_audio_seconds_per_hour = None
+    config.budget_token_chars_per_token = 4
+    config.budget_provider_overrides = {}
+    config.vector_store_verify_mode = "best_effort"
+    config.vector_store_verify_max_attempts = 5
+    config.vector_store_verify_wait_seconds = 0.5
 
     # Model getter methods
     config.get_stt_model = MagicMock(return_value="whisper-1")

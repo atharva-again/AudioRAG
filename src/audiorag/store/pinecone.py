@@ -144,6 +144,26 @@ class PineconeVectorStore(VectorStoreMixin):
         except Exception as e:
             raise await self._wrap_error(e, "delete_by_source")
 
+    async def verify(self, ids: list[str]) -> bool:
+        if not ids:
+            return True
+
+        retry_decorator = self._get_retry_decorator()
+
+        @retry_decorator
+        def _verify_sync() -> bool:
+            index = self._ensure_initialized()
+            response = index.fetch(ids=ids, namespace=self._namespace)
+            vectors = getattr(response, "vectors", {})
+            if isinstance(vectors, dict):
+                return len(vectors) == len(ids)
+            return False
+
+        try:
+            return await self._run_sync(_verify_sync)
+        except Exception as e:
+            raise await self._wrap_error(e, "verify")
+
     async def _run_sync(self, func: Any) -> Any:
         """Run sync function in executor."""
         import asyncio

@@ -1,6 +1,7 @@
 """Comprehensive tests for AudioRAGConfig."""
 
 from pathlib import Path
+from typing import Any
 
 from audiorag.core.config import AudioRAGConfig
 
@@ -90,6 +91,7 @@ class TestAudioRAGConfigDefaults:
     def test_all_defaults_together(self):
         """Test all default values in a single config instance."""
         config = AudioRAGConfig()
+        config_any: Any = config
         assert config.openai_api_key == ""
         assert config.cohere_api_key == ""
         assert config.database_path == "audiorag.db"
@@ -105,6 +107,15 @@ class TestAudioRAGConfigDefaults:
         assert config.retrieval_top_k == 10
         assert config.rerank_top_n == 3
         assert config.cleanup_audio is True
+        assert config_any.budget_enabled is False
+        assert config_any.budget_rpm is None
+        assert config_any.budget_tpm is None
+        assert config_any.budget_audio_seconds_per_hour is None
+        assert config_any.budget_token_chars_per_token == 4
+        assert config_any.budget_provider_overrides == {}
+        assert config_any.vector_store_verify_mode == "best_effort"
+        assert config_any.vector_store_verify_max_attempts == 5
+        assert config_any.vector_store_verify_wait_seconds == 0.5
 
 
 # ============================================================================
@@ -199,6 +210,65 @@ class TestAudioRAGConfigEnvVars:
         monkeypatch.setenv("AUDIORAG_RERANK_TOP_N", "5")
         config = AudioRAGConfig()
         assert config.rerank_top_n == 5
+
+    def test_env_var_budget_enabled(self, monkeypatch):
+        monkeypatch.setenv("AUDIORAG_BUDGET_ENABLED", "true")
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.budget_enabled is True
+
+    def test_env_var_budget_rpm(self, monkeypatch):
+        monkeypatch.setenv("AUDIORAG_BUDGET_RPM", "30")
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.budget_rpm == 30
+
+    def test_env_var_budget_tpm(self, monkeypatch):
+        monkeypatch.setenv("AUDIORAG_BUDGET_TPM", "9000")
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.budget_tpm == 9000
+
+    def test_env_var_budget_audio_seconds_per_hour(self, monkeypatch):
+        monkeypatch.setenv("AUDIORAG_BUDGET_AUDIO_SECONDS_PER_HOUR", "7200")
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.budget_audio_seconds_per_hour == 7200
+
+    def test_env_var_budget_token_chars_per_token(self, monkeypatch):
+        monkeypatch.setenv("AUDIORAG_BUDGET_TOKEN_CHARS_PER_TOKEN", "3")
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.budget_token_chars_per_token == 3
+
+    def test_env_var_budget_provider_overrides(self, monkeypatch):
+        monkeypatch.setenv(
+            "AUDIORAG_BUDGET_PROVIDER_OVERRIDES",
+            '{"openai": {"rpm": 10, "tpm": 1000}, "deepgram": {"audio_seconds_per_hour": 3600}}',
+        )
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.budget_provider_overrides["openai"]["rpm"] == 10
+        assert config_any.budget_provider_overrides["openai"]["tpm"] == 1000
+        assert config_any.budget_provider_overrides["deepgram"]["audio_seconds_per_hour"] == 3600
+
+    def test_env_var_vector_store_verify_mode(self, monkeypatch):
+        monkeypatch.setenv("AUDIORAG_VECTOR_STORE_VERIFY_MODE", "strict")
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.vector_store_verify_mode == "strict"
+
+    def test_env_var_vector_store_verify_max_attempts(self, monkeypatch):
+        monkeypatch.setenv("AUDIORAG_VECTOR_STORE_VERIFY_MAX_ATTEMPTS", "7")
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.vector_store_verify_max_attempts == 7
+
+    def test_env_var_vector_store_verify_wait_seconds(self, monkeypatch):
+        monkeypatch.setenv("AUDIORAG_VECTOR_STORE_VERIFY_WAIT_SECONDS", "1.25")
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.vector_store_verify_wait_seconds == 1.25
 
     def test_env_var_cleanup_audio_true(self, monkeypatch):
         """Test loading cleanup_audio as True from AUDIORAG_CLEANUP_AUDIO."""
@@ -569,15 +639,18 @@ class TestAudioRAGConfigModelConfiguration:
     def test_env_file_is_env(self):
         """Test that env_file is set to .env."""
         # This is a configuration detail, verify it's set correctly
-        assert AudioRAGConfig.model_config["env_file"] == ".env"
+        model_config = AudioRAGConfig.model_config
+        assert model_config.get("env_file") == ".env"
 
     def test_env_file_encoding_is_utf8(self):
         """Test that env_file_encoding is utf-8."""
-        assert AudioRAGConfig.model_config["env_file_encoding"] == "utf-8"
+        model_config = AudioRAGConfig.model_config
+        assert model_config.get("env_file_encoding") == "utf-8"
 
     def test_extra_is_ignore(self):
         """Test that extra fields are ignored."""
-        assert AudioRAGConfig.model_config["extra"] == "ignore"
+        model_config = AudioRAGConfig.model_config
+        assert model_config.get("extra") == "ignore"
 
     def test_extra_fields_ignored(self, monkeypatch):
         """Test that extra environment variables are ignored."""
@@ -589,11 +662,12 @@ class TestAudioRAGConfigModelConfiguration:
     def test_model_config_dict(self):
         """Test that model_config is a SettingsConfigDict."""
         assert hasattr(AudioRAGConfig, "model_config")
-        assert isinstance(AudioRAGConfig.model_config, dict)
-        assert "env_prefix" in AudioRAGConfig.model_config
-        assert "env_file" in AudioRAGConfig.model_config
-        assert "env_file_encoding" in AudioRAGConfig.model_config
-        assert "extra" in AudioRAGConfig.model_config
+        model_config = AudioRAGConfig.model_config
+        assert isinstance(model_config, dict)
+        assert "env_prefix" in model_config
+        assert "env_file" in model_config
+        assert "env_file_encoding" in model_config
+        assert "extra" in model_config
 
 
 # ============================================================================

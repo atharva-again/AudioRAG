@@ -75,12 +75,13 @@ Provider implementations abstract external services. Each provider implements a 
 
 Protocol definitions establish contracts that providers must implement.
 
-**Location:** `src/audiorag/protocols/`
+**Location:** `src/audiorag/core/protocols/`
 
 **Protocols:**
 - `STTProvider`: `transcribe(audio_path, language) -> list[TranscriptionSegment]`
 - `EmbeddingProvider`: `embed(texts) -> list[list[float]]`
 - `VectorStoreProvider`: `add()`, `query()`, `delete_by_source()`
+- `VerifiableVectorStoreProvider`: `verify(ids) -> bool`
 - `GenerationProvider`: `generate(query, context) -> str`
 - `RerankerProvider`: `rerank(query, documents, top_n) -> list[tuple[int, float]]`
 - `AudioSourceProvider`: `download(url, output_dir, format) -> AudioFile`
@@ -89,7 +90,7 @@ Protocol definitions establish contracts that providers must implement.
 
 SQLite-based state tracking with WAL mode for concurrency.
 
-**Location:** `src/audiorag/state.py`
+**Location:** `src/audiorag/core/state.py`
 
 **Tables:**
 - `sources`: URL, status, metadata, timestamps
@@ -119,7 +120,7 @@ Pydantic models for data validation and serialization.
 
 Pydantic-settings based configuration with environment variable support.
 
-**Location:** `src/audiorag/config.py`
+**Location:** `src/audiorag/core/config.py`
 
 **Features:**
 - `AUDIORAG_` prefix for env vars
@@ -158,17 +159,20 @@ Pydantic-settings based configuration with environment variable support.
 5. **Embed**
    - Generate vector embeddings
    - Batch processing for efficiency
-   - Use configured embedding provider
-
-6. **Store**
-   - Store chunks in SQLite state
    - Store embeddings in vector DB
-   - Update source status
+   - Verify vector writes (mode-dependent)
 
-7. **Complete**
-    - Mark source as completed
-    - Cleanup temporary files (optional)
-    - Log completion metrics
+6. **Complete**
+     - Mark source as completed
+     - Cleanup temporary files (optional)
+     - Log completion metrics
+
+### Reliability Controls
+
+- **Budget governor**: Optional fail-fast limits for `rpm`, `tpm`, and `audio_seconds_per_hour`.
+- **Preflight STT reservation**: If audio duration is known, reserve full audio budget before transcription starts.
+- **Persistent accounting**: Budget events are persisted in SQLite for restart/process safety.
+- **Vector write verification**: post-`add()` verification with `off`, `best_effort`, or `strict` mode.
 
 ### Stage Execution Model
 
@@ -205,17 +209,17 @@ statuses to reduce multi-process collisions unless `force=True` is used.
    - Include source citations
 
 5. **Return**
-   - Answer text
-   - Source list with timestamps
-   - Relevance scores
-   - YouTube timestamp URLs
+    - Answer text
+    - Source list with timestamps
+    - Relevance scores
+    - Source URLs and metadata
 
 ## Data Flow
 
 ### Indexing Flow
 
 ```
-URL -> YouTubeScraper -> AudioFile
+URL -> YouTubeSource -> AudioFile
                             |
                             v
                     AudioSplitter (if needed)
@@ -382,7 +386,7 @@ Structured logging with structlog:
 Example log output:
 ```
 2024-01-15T10:30:00Z [INFO] index_started url=https://... operation=index
-2024-01-15T10:30:05Z [INFO] stage_download_completed duration_ms=5000.0 video_title=... duration_seconds=600.0
+2024-01-15T10:30:05Z [INFO] stage_download_completed duration_ms=5000.0 title=... duration_seconds=600.0
 2024-01-15T10:30:10Z [INFO] index_completed url=https://... operation=index
 ```
 

@@ -8,6 +8,8 @@ Provider-agnostic RAG pipeline for audio content. Download, transcribe, chunk, e
 - **Batch indexing**: Index multiple URLs, playlists, and local directories in one command
 - **Source discovery**: Automatically expand playlists and recursively scan directories
 - **Resumable processing**: SQLite state tracking with hash-based IDs
+- **Proactive budget governor**: Optional fail-fast limits for RPM, TPM, and audio-seconds/hour
+- **Atomic vector verification**: Optional post-write verification with strict or best-effort modes
 - **Automatic chunking**: Time-based segmentation with configurable duration
 - **Audio splitting**: Handles large files by splitting before transcription
 - **Structured logging**: Context-aware logging with operation timing
@@ -45,8 +47,8 @@ async def main():
     
     # Access sources with timestamps
     for source in result.sources:
-        print(f"{source.video_title} at {source.start_time}s")
-        print(f"URL: {source.youtube_timestamp_url}")
+        print(f"{source.title} at {source.start_time}s")
+        print(f"URL: {source.source_url}")
 
 asyncio.run(main())
 ```
@@ -150,6 +152,17 @@ export AUDIORAG_EMBEDDING_PROVIDER="voyage"
 export AUDIORAG_CHUNK_DURATION_SECONDS="30"
 export AUDIORAG_RETRIEVAL_TOP_K="10"
 export AUDIORAG_RERANK_TOP_N="3"
+
+# Optional budget governor
+export AUDIORAG_BUDGET_ENABLED="true"
+export AUDIORAG_BUDGET_RPM="60"
+export AUDIORAG_BUDGET_TPM="120000"
+export AUDIORAG_BUDGET_AUDIO_SECONDS_PER_HOUR="7200"
+
+# Optional vector write verification
+export AUDIORAG_VECTOR_STORE_VERIFY_MODE="best_effort"  # off | best_effort | strict
+export AUDIORAG_VECTOR_STORE_VERIFY_MAX_ATTEMPTS="5"
+export AUDIORAG_VECTOR_STORE_VERIFY_WAIT_SECONDS="0.5"
 ```
 
 See [Configuration Guide](docs/configuration.md) for all options.
@@ -189,6 +202,14 @@ uv run prek install
 4. **Chunk**: Group transcription into time-based segments
 5. **Embed**: Generate vector embeddings for each chunk
 6. **Store**: Persist embeddings in vector database
+
+## Reliability Controls
+
+- **Budget governor** (`AUDIORAG_BUDGET_ENABLED=true`): reserves budget before expensive calls and fails fast with `BudgetExceededError` when limits would be exceeded.
+- **Preflight transcription reservation**: when audio duration is known, indexing reserves full audio-seconds budget before STT starts.
+- **Persistent budget accounting**: budget usage is persisted in SQLite for cross-process and restart safety.
+- **Vector write verification**: after `add()`, providers that support `verify(ids)` are checked.
+- **Verification modes**: `off` disables checks, `best_effort` warns on failure, `strict` fails indexing when verification fails.
 
 ## License
 

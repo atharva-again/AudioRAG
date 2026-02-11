@@ -146,8 +146,33 @@ class StateError(AudioRAGError):
         super().__init__(message)
 
 
+class BudgetExceededError(ProviderError):
+    def __init__(
+        self,
+        *,
+        provider: str,
+        metric: str,
+        limit: int,
+        current: int,
+        requested: int,
+        window_seconds: int,
+    ) -> None:
+        message = (
+            f"Budget exceeded for provider='{provider}', metric='{metric}': "
+            f"limit={limit}, current={current}, requested={requested}, "
+            f"window_seconds={window_seconds}"
+        )
+        super().__init__(message=message, provider=provider, retryable=False)
+        self.metric = metric
+        self.limit = limit
+        self.current = current
+        self.requested = requested
+        self.window_seconds = window_seconds
+
+
 __all__ = [
     "AudioRAGError",
+    "BudgetExceededError",
     "ConfigurationError",
     "PipelineError",
     "ProviderError",
