@@ -45,6 +45,9 @@ Thumbs.db
 *.db
 chroma_db/
 
+# Sisyphus AI workspace (private plans/drafts - do not commit)
+.sisyphus/
+
 # Coverage
 .coverage
 coverage.xml
