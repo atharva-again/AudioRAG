@@ -317,7 +317,6 @@ class YouTubeSource:
         """
         self._ensure_ffmpeg()
         self._ensure_js_runtime()
-        operation_logger = self._logger.bind(url=url, operation="get_metadata")
 
         retry_decorator = self._get_retry_decorator()
 
@@ -573,7 +572,9 @@ class YouTubeSource:
                         audio_path = actual_files[0]
                     else:
                         raise ProviderError(
-                            message=f"youtube_source download failed: file not found at {audio_path}",
+                            message=(
+                                f"youtube_source download failed: file not found at {audio_path}"
+                            ),
                             provider="youtube_source",
                             retryable=False,
                         )
