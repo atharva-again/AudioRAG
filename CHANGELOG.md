@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-02-12 - Graceful Exit Handling
+
+### Added
+- **Graceful exit handling** for SDK and CLI:
+  - Added `AudioRAGPipeline.close()` method for explicit resource cleanup (idempotent)
+  - Added async context manager support (`__aenter__`/`__aexit__`) for automatic cleanup
+  - Resources cleaned up automatically on success, failure, or interruption
+  - SIGTERM/SIGINT signal handlers in CLI for graceful shutdown
+- **New test coverage** for cleanup behavior (5 comprehensive tests)
+
+### Changed
+- Updated all documentation examples to use `async with` syntax
+- CLI `index` and `query` commands now use async context managers
+
+### Documentation
+- Added "Graceful exit" to README.md features list
+- Added Resource Cleanup section to quickstart.md
+- Documented `close()` method and context manager in api-reference.md
+
 ## [0.5.0] - 2026-02-12 - Resilient Batch Indexing and SDK/CLI Parity
 
 ### Added
@@ -152,7 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/atharva-again/audiorag/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/atharva-again/audiorag/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/atharva-again/audiorag/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/atharva-again/audiorag/compare/v0.3.0...v0.3.1
