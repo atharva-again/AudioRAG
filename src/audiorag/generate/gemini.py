@@ -23,24 +23,21 @@ class GeminiGenerator(GeneratorMixin):
         retry_config: Any | None = None,
     ) -> None:
         """Initialize Gemini generator."""
-        import google.generativeai as genai  # type: ignore[import]
-        from google.api_core.exceptions import (  # type: ignore[import]
-            DeadlineExceeded,
-            ResourceExhausted,
-            ServiceUnavailable,
-        )
+        import httpx
+        from google import genai
+        from google.genai import errors as genai_errors
 
+        # Retryable exceptions for google.genai SDK
         self._retryable_exceptions: tuple[type[Exception], ...] = (
-            ResourceExhausted,
-            ServiceUnavailable,
-            DeadlineExceeded,
+            genai_errors.APIError,
+            genai_errors.ServerError,
+            httpx.ConnectError,
+            httpx.NetworkError,
+            httpx.TimeoutException,
             ConnectionError,
         )
         super().__init__(api_key=api_key, model=model, retry_config=retry_config)
-        if api_key:
-            genai.configure(api_key=api_key)
-        self._genai = genai
-        self._client = genai.GenerativeModel(model_name=model)
+        self._client = genai.Client(api_key=api_key) if api_key else genai.Client()
 
     async def generate(self, query: str, context: list[str]) -> str:
         """Generate answer using Google Gemini API."""
@@ -63,7 +60,11 @@ class GeminiGenerator(GeneratorMixin):
 
         @retry_decorator
         async def _generate_with_retry() -> Any:
-            return await self._client.generate_content_async(prompt)
+            async with self._client.aio as aclient:
+                return await aclient.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                )
 
         try:
             response = await _generate_with_retry()

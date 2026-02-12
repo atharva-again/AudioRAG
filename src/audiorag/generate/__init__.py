@@ -31,7 +31,7 @@ def __getattr__(name: str):
             return GeminiGenerator
         except ImportError:
             raise ImportError(
-                "GeminiGenerator requires 'google-generativeai'. "
+                "GeminiGenerator requires 'google-genai'. "
                 "Install with: uv pip install audiorag[gemini]"
             ) from None
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
