@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-02-12 - pyproject.toml Refactor
+
+### Added
+- **Granular optional dependencies**: Added separate optional dependency groups for all providers (deepgram, assemblyai, groq, voyageai, pinecone, weaviate, supabase, anthropic, google-genai, rerank-cohere).
+
+### Changed
+- **Renamed scraping to youtube**: Optional dependency group `scraping` renamed to `youtube` for clarity.
+- **Upper bounds on dev dependencies**: Added upper bounds to prevent supply chain issues.
+- **Coverage target**: Set realistic coverage target (65%) with documented excludes for untestable provider modules.
+- **Type checking**: Configured ty to handle optional dependencies gracefully.
+
+### Fixed
+- **Logger initialization**: Added `__init__` methods to LocalSource and URLSource for proper `_logger` attribute initialization.
+- **Type errors**: Fixed unresolved attribute type errors in source modules.
+
 ## [0.5.4] - 2026-02-12 - Gemini SDK Migration
 
 ### Changed
@@ -205,7 +220,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/atharva-again/audiorag/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/atharva-again/audiorag/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/atharva-again/audiorag/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/atharva-again/audiorag/compare/v0.5.1...v0.5.2
