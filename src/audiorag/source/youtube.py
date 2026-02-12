@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from audiorag.core.exceptions import ProviderError
 from audiorag.core.logging_config import get_logger
-from audiorag.core.models import AudioFile
+from audiorag.core.models import AudioFile, SourceMetadata
 from audiorag.core.retry_config import (
     RetryConfig,
     create_retry_decorator,
@@ -55,9 +55,13 @@ class YouTubeSource:
         playlist_items: str | None = None,
         cookie_file: Path | str | None = None,
         po_token: str | None = None,
-        impersonate_client: str | None = "chrome",
+        visitor_data: str | None = None,
+        data_sync_id: str | None = None,
+        impersonate_client: str | None = "chrome-120",
         player_clients: list[str] | None = None,
         js_runtime: str | None = "node",
+        language: str | None = "en",
+        player_skip: list[str] | None = None,
     ) -> None:
         """Initialize YouTubeSource and validate FFmpeg availability.
 
@@ -76,10 +80,15 @@ class YouTubeSource:
             cookie_file: Path to netscape format cookie file for YouTube authentication.
                 Required if YouTube blocks downloads (HTTP 403).
             po_token: Proof of Origin token to bypass bot detection (HTTP 403).
-            impersonate_client: Client to impersonate (e.g. "chrome", "safari").
+            visitor_data: Visitor data for session tracking, often bound to PO token.
+            data_sync_id: Data sync ID for account sessions, often bound to PO token.
+            impersonate_client: Client to impersonate (e.g. "chrome-120", "safari").
                 Requires curl_cffi to be installed.
             player_clients: List of YouTube player clients to use.
             js_runtime: JavaScript runtime to use for EJS scripts (e.g. "node", "deno").
+            language: Preferred language for audio tracks and metadata (e.g. "en", "ja").
+            player_skip: Components to skip in player responses to speed up extraction.
+                Defaults to ["configs", "js"] if None.
         """
         self._logger = logger.bind(provider="youtube_source")
         self._retry_config = retry_config or RetryConfig()
@@ -90,11 +99,15 @@ class YouTubeSource:
         self._playlist_items = playlist_items
         self._cookie_file = Path(cookie_file) if cookie_file else None
         self._po_token = po_token
+        self._visitor_data = visitor_data
+        self._data_sync_id = data_sync_id
         self._impersonate_client = impersonate_client
         self._player_clients = (
             player_clients if player_clients is not None else ["tv", "web", "mweb"]
         )
         self._js_runtime = js_runtime
+        self._language = language
+        self._player_skip = player_skip if player_skip is not None else ["configs", "js"]
 
     def _ensure_ffmpeg(self) -> None:
         if not shutil.which("ffmpeg"):
@@ -106,6 +119,25 @@ class YouTubeSource:
                 ),
                 provider="youtube_source",
                 retryable=False,
+            )
+
+    def _ensure_js_runtime(self) -> None:
+        """Verify that a valid JavaScript runtime is available for YouTube extraction.
+
+        Since 2025.11.12, yt-dlp requires an external JS runtime to solve
+        YouTube's signature challenges. Deno is the preferred runtime.
+        """
+        runtimes = ["deno", "node", "bun", "quickjs"]
+        found = any(shutil.which(r) for r in runtimes)
+
+        if not found and not self._js_runtime:
+            self._logger.warning("no_js_runtime_found_youtube_may_fail")
+            # We don't raise here yet as yt-dlp might have its own detection,
+            # but we warn the user proactively.
+            print(
+                "\n[AudioRAG WARNING] No JavaScript runtime (Deno/Node.js) detected. "
+                "YouTube extraction WILL fail since late 2025 updates. "
+                "Recommendation: Install Deno (https://deno.com) for the best experience.\n"
             )
 
     def _get_retry_decorator(self) -> Any:
@@ -130,8 +162,11 @@ class YouTubeSource:
         }
 
         self._apply_po_token(opts)
+        self._apply_visitor_context(opts)
         self._apply_impersonation(opts)
         self._apply_js_runtime(opts)
+        self._apply_player_skip(opts)
+        self._apply_language(opts)
         self._apply_download_archive(opts)
         self._apply_playlist_scope(opts)
         self._apply_cookie_file(opts)
@@ -143,14 +178,47 @@ class YouTubeSource:
             return
 
         token = self._po_token
+        # Robust token formatting: ensure it starts with a client prefix if missing
         if "+" not in token:
-            token = f"mweb.gvs+{token}"
-        opts["extractor_args"]["youtube"]["po_token"] = [token]
+            token = f"web.gvs+{token}"
+
+        # Merge with existing extractor_args
+        yt_args = opts["extractor_args"].setdefault("youtube", {})
+        yt_args["po_token"] = [token]
+        yt_args["formats"] = ["missing_pot"]  # Include formats requiring PO tokens
+
+    def _apply_visitor_context(self, opts: dict[str, Any]) -> None:
+        if not self._visitor_data and not self._data_sync_id:
+            return
+
+        yt_args = opts["extractor_args"].setdefault("youtube", {})
+        if self._visitor_data:
+            yt_args["visitor_data"] = self._visitor_data
+        if self._data_sync_id:
+            yt_args["data_sync_id"] = self._data_sync_id
+
+    def _apply_player_skip(self, opts: dict[str, Any]) -> None:
+        if not self._player_skip:
+            return
+
+        yt_args = opts["extractor_args"].setdefault("youtube", {})
+        yt_args["player_skip"] = self._player_skip
+
+    def _apply_language(self, opts: dict[str, Any]) -> None:
+        if not self._language:
+            return
+
+        yt_args = opts["extractor_args"].setdefault("youtube", {})
+        yt_args["lang"] = [self._language]
+
+        # Also set global preferred language for metadata
+        opts["pref_langs"] = [self._language]
 
     def _apply_impersonation(self, opts: dict[str, Any]) -> None:
         if not self._impersonate_client:
             return
 
+        # Modern yt-dlp uses 'impersonate' as a top-level option or generic extractor arg
         try:
             from yt_dlp.networking.impersonate import ImpersonateTarget
 
@@ -158,10 +226,16 @@ class YouTubeSource:
         except (ImportError, ValueError):
             opts["impersonate"] = self._impersonate_client
 
+        # Also apply to generic extractor args for maximum compatibility
+        generic_args = opts["extractor_args"].setdefault("generic", {})
+        generic_args["impersonate"] = [self._impersonate_client]
+
     def _apply_js_runtime(self, opts: dict[str, Any]) -> None:
         if not self._js_runtime:
             return
 
+        # Configure JS runtimes with priority order and optional paths
+        # Deno is the #1 preferred runtime by yt-dlp for performance and security
         if ":" in self._js_runtime:
             name, path = self._js_runtime.split(":", 1)
             expanded_path = str(Path(path).expanduser())
@@ -170,8 +244,20 @@ class YouTubeSource:
             expanded_path = str(Path(self._js_runtime).expanduser())
             opts["js_runtimes"] = {"deno": {"path": expanded_path}}
         else:
-            opts["js_runtimes"] = {self._js_runtime: {}}
+            # Provide a fallback list of runtimes with Deno as priority
+            opts["js_runtimes"] = {
+                "deno": {},
+                "node": {},
+                "bun": {},
+                self._js_runtime: {},
+            }
+
+        # Mandatory for 2025/2026 YouTube challenge solving
         opts["remote_components"] = {"ejs:github"}
+
+        # Optimize extractor args for JS solving speed
+        yt_args = opts["extractor_args"].setdefault("youtube", {})
+        yt_args["js_solver"] = "ejs"
 
     def _apply_download_archive(self, opts: dict[str, Any]) -> None:
         if not self._download_archive:
@@ -224,12 +310,46 @@ class YouTubeSource:
 
         return opts
 
+    async def get_metadata(self, url: str) -> SourceMetadata:
+        """Fetch video metadata without downloading the file.
+
+        Useful for pre-download budget checks and duration validation.
+        """
+        self._ensure_ffmpeg()
+        self._ensure_js_runtime()
+
+        retry_decorator = self._get_retry_decorator()
+
+        @retry_decorator
+        def _get_info() -> SourceMetadata:
+            import yt_dlp
+
+            opts = self._get_base_ydl_opts()
+            # Minimal extraction for metadata only
+            opts["skip_download"] = True
+            with yt_dlp.YoutubeDL(cast(Any, opts)) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if info is None:
+                    raise ProviderError(
+                        message=f"youtube_source: failed to extract metadata from {url}",
+                        provider="youtube_source",
+                        retryable=False,
+                    )
+                return SourceMetadata(
+                    duration=info.get("duration"),
+                    title=info.get("title"),
+                    raw=info,
+                )
+
+        return await asyncio.to_thread(_get_info)
+
     async def list_channel_videos(
         self,
         channel_url: str,
         max_videos: int | None = None,
     ) -> list[VideoInfo]:
         self._ensure_ffmpeg()
+        self._ensure_js_runtime()
         operation_logger = self._logger.bind(
             url=channel_url,
             max_videos=max_videos,
@@ -354,8 +474,15 @@ class YouTubeSource:
         )
         return results
 
-    async def download(self, url: str, output_dir: Path, audio_format: str = "mp3") -> AudioFile:
+    async def download(
+        self,
+        url: str,
+        output_dir: Path,
+        audio_format: str = "mp3",
+        metadata: SourceMetadata | None = None,
+    ) -> AudioFile:
         self._ensure_ffmpeg()
+        self._ensure_js_runtime()
         operation_logger = self._logger.bind(
             url=url,
             output_dir=str(output_dir),
@@ -370,10 +497,11 @@ class YouTubeSource:
 
         @retry_decorator
         def _download_with_retry() -> Any:
-            return self._download_sync(url, output_dir, audio_format, operation_logger)
+            return self._download_sync(url, output_dir, audio_format, operation_logger, metadata)
 
         try:
             result = await asyncio.to_thread(_download_with_retry)
+
             operation_logger.info(
                 "download_completed",
                 video_title=result.title,
@@ -401,6 +529,7 @@ class YouTubeSource:
         output_dir: Path,
         audio_format: str,
         operation_logger: structlog.stdlib.BoundLogger,
+        metadata: SourceMetadata | None = None,
     ) -> AudioFile:
         """Synchronous download implementation."""
         import yt_dlp
@@ -409,8 +538,14 @@ class YouTubeSource:
 
         try:
             with yt_dlp.YoutubeDL(cast(Any, ydl_opts)) as ydl:
-                operation_logger.debug("extracting_video_info")
-                info = ydl.extract_info(url, download=True)
+                if metadata and metadata.raw:
+                    operation_logger.debug("using_provided_metadata_raw")
+                    # process_info downloads the video using already fetched metadata
+                    info = ydl.process_info(cast(Any, metadata.raw))
+                else:
+                    operation_logger.debug("extracting_video_info")
+                    info = ydl.extract_info(url, download=True)
+
                 if info is None:
                     raise ProviderError(
                         message=(
@@ -421,6 +556,8 @@ class YouTubeSource:
                         retryable=False,
                     )
 
+                # Bleeding edge: info might contain multiple formats for live streams
+                # Ensure we pick the downloaded one correctly
                 video_id = info["id"]
                 raw_title = info.get("title")
                 video_title = raw_title if isinstance(raw_title, str) else "Unknown"
@@ -429,11 +566,18 @@ class YouTubeSource:
                 audio_path = output_dir / f"{video_id}.{audio_format}"
 
                 if not audio_path.exists():
-                    raise ProviderError(
-                        message=f"youtube_source download failed: file not found at {audio_path}",
-                        provider="youtube_source",
-                        retryable=False,
-                    )
+                    # Check for partial or alternative extension if conversion happened
+                    actual_files = list(output_dir.glob(f"{video_id}.*"))
+                    if actual_files:
+                        audio_path = actual_files[0]
+                    else:
+                        raise ProviderError(
+                            message=(
+                                f"youtube_source download failed: file not found at {audio_path}"
+                            ),
+                            provider="youtube_source",
+                            retryable=False,
+                        )
 
                 return AudioFile(
                     path=audio_path,
@@ -443,11 +587,32 @@ class YouTubeSource:
                 )
 
         except Exception as e:
+            error_str = str(e)
             operation_logger.error(
                 "download_sync_failed",
-                error=str(e),
+                error=error_str,
                 error_type=type(e).__name__,
             )
+
+            # Educational DX for PO Tokens and JS runtimes
+            if "403" in error_str:
+                advice = (
+                    "\n[AudioRAG ADVISORY] YouTube returned a 403 Forbidden error. "
+                    "Since late 2025, YouTube requires a 'Proof of Origin' (PO) Token "
+                    "for stable extraction. Cookies are now considered legacy and unreliable. "
+                )
+                if not self._po_token:
+                    advice += (
+                        "\nACTION REQUIRED: You are NOT using a PO Token. Please generate one "
+                        "and set 'AUDIORAG_YOUTUBE_PO_TOKEN' in your environment."
+                    )
+                if not self._js_runtime:
+                    advice += (
+                        "\nACTION REQUIRED: Ensure Deno or Node.js is installed. YouTube "
+                        "requires an external JS runtime for challenge solving."
+                    )
+                print(advice + "\n")
+
             if isinstance(e, ProviderError):
                 raise
             raise ProviderError(

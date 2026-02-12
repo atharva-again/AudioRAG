@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from audiorag.core.exceptions import ProviderError
 from audiorag.core.logging_config import get_logger
-from audiorag.core.models import AudioFile
+from audiorag.core.models import AudioFile, SourceMetadata
 
 if TYPE_CHECKING:
     import structlog
@@ -26,12 +26,16 @@ class URLSource:
     Downloads audio from direct URLs. Use YouTubeSource for YouTube videos.
     """
 
-    def __init__(self) -> None:
-        """Initialize URL source."""
-        self._logger = logger.bind(provider="url_source")
+    async def get_metadata(self, url: str) -> Any:
+        """Fetch metadata for a direct URL."""
+        return None
 
     async def download(
-        self, source_url: str, output_dir: Path, audio_format: str = "mp3"
+        self,
+        source_url: str,
+        output_dir: Path,
+        audio_format: str = "mp3",
+        metadata: SourceMetadata | None = None,
     ) -> AudioFile:
         """Download audio from HTTP URL.
 
@@ -39,6 +43,7 @@ class URLSource:
             source_url: Direct URL to audio file
             output_dir: Directory to save downloaded file
             audio_format: Target audio format for conversion
+            metadata: Not used for URL source.
 
         Returns:
             AudioFile with metadata

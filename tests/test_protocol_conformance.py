@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from audiorag.core.models import AudioFile, ChunkMetadata, TranscriptionSegment
+from audiorag.core.models import AudioFile, ChunkMetadata, SourceMetadata, TranscriptionSegment
 from audiorag.core.protocols.audio_source import AudioSourceProvider
 from audiorag.core.protocols.embedding import EmbeddingProvider
 from audiorag.core.protocols.generation import GenerationProvider
@@ -506,7 +506,11 @@ class TestAudioSourceProviderConformance:
 
         class FakeAudioSource:
             async def download(
-                self, url: str, output_dir: Path, audio_format: str = "mp3"
+                self,
+                url: str,
+                output_dir: Path,
+                audio_format: str = "mp3",
+                metadata: SourceMetadata | None = None,
             ) -> AudioFile:
                 audio_path = output_dir / f"audio.{audio_format}"
                 return AudioFile(
@@ -515,6 +519,9 @@ class TestAudioSourceProviderConformance:
                     title="Fake Video",
                     duration=120.0,
                 )
+
+            async def get_metadata(self, url: str) -> SourceMetadata:
+                return SourceMetadata(duration=120.0, title="Fake Video")
 
         provider = FakeAudioSource()
         assert isinstance(provider, AudioSourceProvider)
@@ -525,7 +532,11 @@ class TestAudioSourceProviderConformance:
 
         class FakeAudioSource:
             async def download(
-                self, url: str, output_dir: Path, audio_format: str = "mp3"
+                self,
+                url: str,
+                output_dir: Path,
+                audio_format: str = "mp3",
+                metadata: SourceMetadata | None = None,
             ) -> AudioFile:
                 audio_path = output_dir / f"downloaded.{audio_format}"
                 return AudioFile(
@@ -534,6 +545,9 @@ class TestAudioSourceProviderConformance:
                     title="Test Video Title",
                     duration=180.5,
                 )
+
+            async def get_metadata(self, url: str) -> SourceMetadata:
+                return SourceMetadata(duration=180.5, title="Test Video Title")
 
         provider = FakeAudioSource()
         output_dir = tmp_path / "audio"
@@ -679,7 +693,11 @@ class TestProtocolInteroperability:
         # Define fake implementations for all protocols
         class FakeAudioSource:
             async def download(
-                self, url: str, output_dir: Path, audio_format: str = "mp3"
+                self,
+                url: str,
+                output_dir: Path,
+                audio_format: str = "mp3",
+                metadata: SourceMetadata | None = None,
             ) -> AudioFile:
                 return AudioFile(
                     path=output_dir / "audio.mp3",
@@ -687,6 +705,9 @@ class TestProtocolInteroperability:
                     title="Test Video",
                     duration=100.0,
                 )
+
+            async def get_metadata(self, url: str) -> SourceMetadata:
+                return SourceMetadata(duration=100.0, title="Test Video")
 
         class FakeSTT:
             async def transcribe(

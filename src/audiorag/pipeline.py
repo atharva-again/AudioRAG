@@ -137,9 +137,41 @@ class DownloadStage(Stage):
     async def execute(self, ctx: StageContext, pipeline: AudioRAGPipeline) -> None:
         with Timer(ctx.logger, "stage_download") as timer:
             await pipeline._state.upsert_source(ctx.url, IndexingStatus.DOWNLOADING)
-            audio_file = await pipeline._audio_source.download(
-                ctx.url, ctx.work_dir, ctx.config.audio_format
-            )
+
+            # Pre-download budget check using metadata (duration)
+            metadata = None
+            if "youtube.com" in ctx.url or "youtu.be" in ctx.url:
+                ctx.logger.debug("pre_download_metadata_extraction")
+                try:
+                    metadata = await pipeline._audio_source.get_metadata(ctx.url)
+                    if metadata.duration and metadata.duration > 0:
+                        seconds = int(metadata.duration)
+                        ctx.logger.debug(
+                            "pre_download_budget_reservation", duration_seconds=seconds
+                        )
+                        pipeline._budget_governor.reserve(
+                            provider=ctx.config.stt_provider,
+                            audio_seconds=seconds,
+                        )
+                        ctx.reserved_audio_seconds = seconds
+                except Exception as e:
+                    ctx.logger.warning("pre_download_metadata_failed", error=str(e))
+                    # Fallback to standard download if metadata fetch fails
+
+            try:
+                audio_file = await pipeline._audio_source.download(
+                    ctx.url, ctx.work_dir, ctx.config.audio_format, metadata=metadata
+                )
+            except Exception:
+                # Release pre-flight reservation if download fails
+                if ctx.reserved_audio_seconds > 0:
+                    pipeline._budget_governor.release(
+                        provider=ctx.config.stt_provider,
+                        audio_seconds=ctx.reserved_audio_seconds,
+                    )
+                    ctx.reserved_audio_seconds = 0
+                raise
+
             await pipeline._state.upsert_source(
                 ctx.url,
                 IndexingStatus.DOWNLOADED,
@@ -148,13 +180,33 @@ class DownloadStage(Stage):
                     "duration": audio_file.duration,
                 },
             )
+
+            # Reconcile actual duration vs reserved duration
             if audio_file.duration and audio_file.duration > 0:
-                seconds = int(audio_file.duration)
-                pipeline._budget_governor.reserve(
-                    provider=ctx.config.stt_provider,
-                    audio_seconds=seconds,
-                )
-                ctx.reserved_audio_seconds = seconds
+                actual = int(audio_file.duration)
+                if ctx.reserved_audio_seconds == 0:
+                    # No pre-flight reservation, reserve full amount
+                    pipeline._budget_governor.reserve(
+                        provider=ctx.config.stt_provider,
+                        audio_seconds=actual,
+                    )
+                    ctx.reserved_audio_seconds = actual
+                elif actual != ctx.reserved_audio_seconds:
+                    # Reconcile delta
+                    delta = actual - ctx.reserved_audio_seconds
+                    ctx.logger.debug("reconciling_duration_delta", delta_seconds=delta)
+                    if delta > 0:
+                        pipeline._budget_governor.reserve(
+                            provider=ctx.config.stt_provider,
+                            audio_seconds=delta,
+                        )
+                    else:
+                        pipeline._budget_governor.release(
+                            provider=ctx.config.stt_provider,
+                            audio_seconds=abs(delta),
+                        )
+                    ctx.reserved_audio_seconds = actual
+
             ctx.audio_file = audio_file
             timer.complete(
                 title=audio_file.title,
@@ -437,6 +489,8 @@ class AudioRAGPipeline:
                 skip_playlist_after_errors=config.youtube_skip_after_errors,
                 cookie_file=config.youtube_cookie_file,
                 po_token=config.youtube_po_token,
+                visitor_data=config.youtube_visitor_data,
+                data_sync_id=config.youtube_data_sync_id,
                 impersonate_client=config.youtube_impersonate,
                 player_clients=config.youtube_player_clients,
                 js_runtime=config.js_runtime,

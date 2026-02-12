@@ -237,6 +237,100 @@ class TestBudgetGovernorDurability:
             governor.reserve(provider="openai", requests=1)
 
 
+class TestBudgetGovernorRelease:
+    def test_release_allows_subsequent_reservation(self) -> None:
+        clock = FakeClock()
+        module = _budget_module()
+        governor = create_governor(
+            clock=clock,
+            global_limits=module.BudgetLimits(audio_seconds_per_hour=100),
+        )
+
+        governor.reserve(provider="deepgram", audio_seconds=90)
+
+        with pytest.raises(module.BudgetExceededError):
+            governor.reserve(provider="deepgram", audio_seconds=20)
+
+        governor.release(provider="deepgram", audio_seconds=50)
+
+        governor.reserve(provider="deepgram", audio_seconds=40)
+
+    def test_release_with_disabled_governor_is_noop(self) -> None:
+        clock = FakeClock()
+        governor = create_governor(clock=clock, enabled=False)
+
+        governor.release(provider="openai", audio_seconds=100)
+
+    def test_release_zero_seconds_is_noop(self) -> None:
+        clock = FakeClock()
+        module = _budget_module()
+        governor = create_governor(
+            clock=clock,
+            global_limits=module.BudgetLimits(audio_seconds_per_hour=100),
+        )
+
+        governor.reserve(provider="deepgram", audio_seconds=100)
+
+        governor.release(provider="deepgram", audio_seconds=0)
+
+        with pytest.raises(module.BudgetExceededError):
+            governor.reserve(provider="deepgram", audio_seconds=1)
+
+    def test_release_negative_seconds_is_noop(self) -> None:
+        clock = FakeClock()
+        module = _budget_module()
+        governor = create_governor(
+            clock=clock,
+            global_limits=module.BudgetLimits(audio_seconds_per_hour=100),
+        )
+
+        governor.reserve(provider="deepgram", audio_seconds=100)
+
+        governor.release(provider="deepgram", audio_seconds=-10)
+
+        with pytest.raises(module.BudgetExceededError):
+            governor.reserve(provider="deepgram", audio_seconds=1)
+
+    def test_release_persists_across_instances(self, tmp_path: Path) -> None:
+        clock = FakeClock()
+        module = _budget_module()
+        db_path = tmp_path / "budget.db"
+
+        governor_1 = create_governor(
+            clock=clock,
+            global_limits=module.BudgetLimits(audio_seconds_per_hour=100),
+            db_path=db_path,
+        )
+        governor_1.reserve(provider="deepgram", audio_seconds=90)
+
+        governor_1.release(provider="deepgram", audio_seconds=50)
+
+        governor_2 = create_governor(
+            clock=clock,
+            global_limits=module.BudgetLimits(audio_seconds_per_hour=100),
+            db_path=db_path,
+        )
+        governor_2.reserve(provider="deepgram", audio_seconds=50)
+
+    def test_multiple_releases_accumulate(self) -> None:
+        clock = FakeClock()
+        module = _budget_module()
+        governor = create_governor(
+            clock=clock,
+            global_limits=module.BudgetLimits(audio_seconds_per_hour=100),
+        )
+
+        governor.reserve(provider="deepgram", audio_seconds=100)
+
+        with pytest.raises(module.BudgetExceededError):
+            governor.reserve(provider="deepgram", audio_seconds=1)
+
+        governor.release(provider="deepgram", audio_seconds=20)
+        governor.release(provider="deepgram", audio_seconds=30)
+
+        governor.reserve(provider="deepgram", audio_seconds=45)
+
+
 class TestBudgetGovernorValidation:
     @pytest.mark.parametrize("rpm", [-1, 0])
     def test_rpm_must_be_positive(self, rpm: int) -> None:
