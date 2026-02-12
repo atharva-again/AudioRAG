@@ -20,7 +20,7 @@ uv run pytest tests/test_models.py
 uv run pytest tests/test_models.py::TestChunkMetadata
 uv run pytest tests/test_models.py::TestChunkMetadata::test_valid_creation
 
-# Coverage (requires 80%)
+# Coverage (requires 65%)
 uv run pytest --cov=src/audiorag --cov-report=term-missing
 
 # Linting and formatting (Ruff)
