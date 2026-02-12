@@ -493,6 +493,39 @@ class AudioRAGPipeline:
             await self._state.initialize()
             self._initialized = True
 
+    async def close(self) -> None:
+        """Close all resources and connections.
+
+        Should be called when the pipeline is no longer needed to ensure
+        proper cleanup of database connections and other resources.
+        Safe to call multiple times (idempotent).
+        """
+        if self._initialized:
+            await self._state.close()
+            self._initialized = False
+
+    async def __aenter__(self) -> AudioRAGPipeline:
+        """Async context manager entry.
+
+        Returns:
+            The pipeline instance for use within the context.
+        """
+        await self._ensure_initialized()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
+        """Async context manager exit.
+
+        Ensures resources are cleaned up regardless of whether an
+        exception occurred.
+        """
+        await self.close()
+
     def _get_url_lock(self, url: str) -> asyncio.Lock:
         """Return (or create) the per-URL asyncio lock."""
         if url not in self._url_locks:

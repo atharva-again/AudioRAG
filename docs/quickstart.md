@@ -51,11 +51,12 @@ from audiorag import AudioRAGPipeline, AudioRAGConfig
 async def index_content():
     # Configuration loads from environment variables
     config = AudioRAGConfig()
-    pipeline = AudioRAGPipeline(config)
-    
-    # Index a YouTube video
-    await pipeline.index("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-    print("Indexing complete!")
+
+    # Use async context manager for automatic resource cleanup
+    async with AudioRAGPipeline(config) as pipeline:
+        # Index a YouTube video
+        await pipeline.index("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        print("Indexing complete!")
 
 asyncio.run(index_content())
 ```
@@ -70,23 +71,24 @@ from audiorag import AudioRAGPipeline, AudioRAGConfig
 
 async def batch_index():
     config = AudioRAGConfig()
-    pipeline = AudioRAGPipeline(config)
-    
-    # Define your inputs - mix of URLs, playlists, and local paths
-    inputs = [
-        "https://www.youtube.com/playlist?list=...",  # Entire playlist
-        "./podcasts/",                                 # Local directory
-        "https://youtube.com/watch?v=video1",         # Single video
-        "./interviews/special.mp3",                   # Local file
-    ]
 
-    result = await pipeline.index_many(inputs, raise_on_error=False)
+    # Async context manager ensures resources are cleaned up
+    async with AudioRAGPipeline(config) as pipeline:
+        # Define your inputs - mix of URLs, playlists, and local paths
+        inputs = [
+            "https://www.youtube.com/playlist?list=...",  # Entire playlist
+            "./podcasts/",                                 # Local directory
+            "https://youtube.com/watch?v=video1",         # Single video
+            "./interviews/special.mp3",                   # Local file
+        ]
 
-    print(f"Indexed: {len(result.indexed_sources)}")
-    print(f"Skipped: {len(result.skipped_sources)}")
-    print(f"Failed: {len(result.failures)}")
+        result = await pipeline.index_many(inputs, raise_on_error=False)
 
-    print("Batch indexing complete!")
+        print(f"Indexed: {len(result.indexed_sources)}")
+        print(f"Skipped: {len(result.skipped_sources)}")
+        print(f"Failed: {len(result.failures)}")
+
+        print("Batch indexing complete!")
 
 asyncio.run(batch_index())
 ```
@@ -97,22 +99,46 @@ asyncio.run(batch_index())
 - **Mixed inputs**: Combines all sources into a unique, deduplicated list
 - **Per-source resumability**: Each expanded source is tracked independently in state
 
+### Resource Cleanup
+
+AudioRAG ensures proper cleanup of resources (database connections, etc.) in all scenarios:
+
+**Using async context manager (recommended):**
+```python
+async with AudioRAGPipeline(config) as pipeline:
+    await pipeline.index_many(urls)
+    result = await pipeline.query("question")
+# Resources automatically cleaned up here
+```
+
+**Manual cleanup:**
+```python
+pipeline = AudioRAGPipeline(config)
+await pipeline.index_many(urls)
+await pipeline.close()  # Safe to call multiple times
+```
+
+**Cleanup occurs automatically on:**
+- Successful completion
+- Exceptions during processing
+- Signal interruptions (SIGINT/SIGTERM) in CLI
+
 ### 3. Query the Indexed Content
 
 ```python
 async def query_content():
     config = AudioRAGConfig()
-    pipeline = AudioRAGPipeline(config)
-    
-    result = await pipeline.query("What is the main topic of this video?")
-    
-    print("Answer:", result.answer)
-    print("\nSources:")
-    for source in result.sources:
-        print(f"  - {source.title}")
-        print(f"    Timestamp: {source.start_time}s")
-        print(f"    Relevance: {source.relevance_score:.2f}")
-        print(f"    URL: {source.source_url}")
+
+    async with AudioRAGPipeline(config) as pipeline:
+        result = await pipeline.query("What is the main topic of this video?")
+
+        print("Answer:", result.answer)
+        print("\nSources:")
+        for source in result.sources:
+            print(f"  - {source.title}")
+            print(f"    Timestamp: {source.start_time}s")
+            print(f"    Relevance: {source.relevance_score:.2f}")
+            print(f"    URL: {source.source_url}")
 
 asyncio.run(query_content())
 ```
@@ -126,35 +152,36 @@ from audiorag import AudioRAGPipeline, AudioRAGConfig
 async def main():
     # Initialize
     config = AudioRAGConfig()
-    pipeline = AudioRAGPipeline(config)
-    
-    # Index multiple sources (mix of playlists, directories, and URLs)
-    inputs = [
-        "https://www.youtube.com/playlist?list=PL...",  # Playlist
-        "./my_podcasts/",                                 # Local directory
-        "https://youtube.com/watch?v=singleVideo",      # Single video
-    ]
-    
-    batch_result = await pipeline.index_many(inputs, raise_on_error=False)
 
-    print(
-        f"\nIndexing complete: indexed={len(batch_result.indexed_sources)} "
-        f"skipped={len(batch_result.skipped_sources)} "
-        f"failed={len(batch_result.failures)}\n"
-    )
-    
-    # Query across all indexed content
-    questions = [
-        "What are the key takeaways?",
-        "Summarize the main arguments",
-        "What examples are provided?",
-    ]
-    
-    for question in questions:
-        print(f"\nQ: {question}")
-        result = await pipeline.query(question)
-        print(f"A: {result.answer}")
-        print(f"Sources: {len(result.sources)}")
+    # Use async context manager for automatic cleanup
+    async with AudioRAGPipeline(config) as pipeline:
+        # Index multiple sources (mix of playlists, directories, and URLs)
+        inputs = [
+            "https://www.youtube.com/playlist?list=PL...",  # Playlist
+            "./my_podcasts/",                                 # Local directory
+            "https://youtube.com/watch?v=singleVideo",      # Single video
+        ]
+
+        batch_result = await pipeline.index_many(inputs, raise_on_error=False)
+
+        print(
+            f"\nIndexing complete: indexed={len(batch_result.indexed_sources)} "
+            f"skipped={len(batch_result.skipped_sources)} "
+            f"failed={len(batch_result.failures)}\n"
+        )
+
+        # Query across all indexed content
+        questions = [
+            "What are the key takeaways?",
+            "Summarize the main arguments",
+            "What examples are provided?",
+        ]
+
+        for question in questions:
+            print(f"\nQ: {question}")
+            result = await pipeline.query(question)
+            print(f"A: {result.answer}")
+            print(f"Sources: {len(result.sources)}")
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -172,7 +199,9 @@ config = AudioRAGConfig(
     stt_provider="deepgram",
     stt_model="nova-2",
 )
-pipeline = AudioRAGPipeline(config)
+
+async with AudioRAGPipeline(config) as pipeline:
+    await pipeline.index("https://youtube.com/watch?v=...")
 ```
 
 ### With Anthropic for Generation

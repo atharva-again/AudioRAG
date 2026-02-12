@@ -66,18 +66,62 @@ is tracked independently for resumability.
 
 **Example:**
 ```python
-# First index
-await pipeline.index("https://youtube.com/watch?v=...")
+# Using async context manager (recommended)
+async with AudioRAGPipeline(config) as pipeline:
+    # First index
+    await pipeline.index("https://youtube.com/watch?v=...")
 
-# Skip if already indexed
-await pipeline.index("https://youtube.com/watch?v=...")  # No-op
+    # Skip if already indexed
+    await pipeline.index("https://youtube.com/watch?v=...")  # No-op
 
-# Force reindex
-await pipeline.index("https://youtube.com/watch?v=...", force=True)
+    # Force reindex
+    await pipeline.index("https://youtube.com/watch?v=...", force=True)
 
-# Playlist URL (auto-expanded to per-video sources)
-await pipeline.index("https://youtube.com/playlist?list=...")
+    # Playlist URL (auto-expanded to per-video sources)
+    await pipeline.index("https://youtube.com/playlist?list=...")
 ```
+
+#### close
+
+```python
+async def close(self) -> None
+```
+
+Close all resources and connections.
+
+Should be called when the pipeline is no longer needed to ensure proper cleanup of database connections and other resources. Safe to call multiple times (idempotent).
+
+**When to use:**
+- When not using the async context manager
+- In long-running applications to release resources
+- In signal handlers for graceful shutdown
+
+**Example:**
+```python
+pipeline = AudioRAGPipeline(config)
+try:
+    await pipeline.index_many(urls)
+    result = await pipeline.query("question")
+finally:
+    await pipeline.close()  # Always cleanup
+```
+
+#### Async Context Manager
+
+`AudioRAGPipeline` supports async context manager protocol for automatic resource cleanup.
+
+**Example:**
+```python
+async with AudioRAGPipeline(config) as pipeline:
+    await pipeline.index_many(urls)
+    result = await pipeline.query("question")
+# Resources automatically cleaned up on exit
+```
+
+Resources are cleaned up automatically when:
+- Exiting the context normally (success)
+- An exception is raised inside the context
+- The context is exited via `return`, `break`, or `continue`
 
 #### index_many
 
