@@ -146,7 +146,9 @@ class DownloadStage(Stage):
                     metadata = await pipeline._audio_source.get_metadata(ctx.url)
                     if metadata.duration and metadata.duration > 0:
                         seconds = int(metadata.duration)
-                        ctx.logger.debug("pre_download_budget_reservation", duration_seconds=seconds)
+                        ctx.logger.debug(
+                            "pre_download_budget_reservation", duration_seconds=seconds
+                        )
                         pipeline._budget_governor.reserve(
                             provider=ctx.config.stt_provider,
                             audio_seconds=seconds,
@@ -204,44 +206,6 @@ class DownloadStage(Stage):
                             audio_seconds=abs(delta),
                         )
                     ctx.reserved_audio_seconds = actual
-
-            ctx.audio_file = audio_file
-            timer.complete(
-                title=audio_file.title,
-                duration_seconds=audio_file.duration,
-                file_path=str(audio_file.path),
-            )
-
-                        pipeline._budget_governor.reserve(
-                            provider=ctx.config.stt_provider,
-                            audio_seconds=seconds,
-                        )
-                        ctx.reserved_audio_seconds = seconds
-                except Exception as e:
-                    ctx.logger.warning("pre_download_metadata_failed", error=str(e))
-                    # Fallback to standard download if metadata fetch fails
-
-            audio_file = await pipeline._audio_source.download(
-                ctx.url, ctx.work_dir, ctx.config.audio_format, info_dict=info_dict
-            )
-
-            await pipeline._state.upsert_source(
-                ctx.url,
-                IndexingStatus.DOWNLOADED,
-                metadata={
-                    "title": audio_file.title,
-                    "duration": audio_file.duration,
-                },
-            )
-
-            # Final budget reservation check (if not already reserved during pre-flight)
-            if audio_file.duration and audio_file.duration > 0 and ctx.reserved_audio_seconds == 0:
-                seconds = int(audio_file.duration)
-                pipeline._budget_governor.reserve(
-                    provider=ctx.config.stt_provider,
-                    audio_seconds=seconds,
-                )
-                ctx.reserved_audio_seconds = seconds
 
             ctx.audio_file = audio_file
             timer.complete(
