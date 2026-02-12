@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-02-12 - Gemini SDK Migration
+
+### Changed
+- **Gemini SDK migration**: Migrated from deprecated `google-generativeai` to the new `google.genai` SDK for future compatibility.
+- **Dependency updates**: Updated dependency and docs to reference `google-genai`.
+
 ## [0.5.3] - 2026-02-12 - YouTube reliability + budget safeguards
 
 ### Added
@@ -199,7 +205,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/atharva-again/audiorag/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/atharva-again/audiorag/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/atharva-again/audiorag/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/atharva-again/audiorag/compare/v0.5.0...v0.5.1
