@@ -107,7 +107,8 @@ class BudgetGovernor:
 
         token_units = self._resolve_tokens(tokens=tokens, text_chars=text_chars)
         request_units = max(0, requests)
-        audio_units = max(0, math.ceil(audio_seconds))
+        # Allow negative audio units for compensating releases
+        audio_units = math.ceil(audio_seconds)
         now = self._now()
 
         limit_entries: list[tuple[str, int, int, int]] = []
@@ -136,6 +137,22 @@ class BudgetGovernor:
             return
 
         self._reserve_in_memory(provider_key, limit_entries, now)
+
+    def release(
+        self,
+        *,
+        provider: str,
+        audio_seconds: int | float,
+    ) -> None:
+        """Undo a reservation by recording a compensating entry.
+
+        Useful for failed downloads or over-estimated durations.
+        """
+        if not self._enabled or audio_seconds <= 0:
+            return
+
+        # Record a negative entry to correct the sum
+        self.reserve(provider=provider, audio_seconds=-audio_seconds)
 
     def _reserve_in_memory(
         self,
