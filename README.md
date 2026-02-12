@@ -41,6 +41,21 @@ async def main():
     
     # Index audio from YouTube
     await pipeline.index("https://youtube.com/watch?v=...")
+
+    # Batch indexing with partial-failure reporting
+    batch_result = await pipeline.index_many(
+        [
+            "https://youtube.com/playlist?list=...",
+            "./podcasts/",
+            "https://youtube.com/watch?v=singleVideo",
+        ],
+        raise_on_error=False,
+    )
+    print(
+        f"Indexed={len(batch_result.indexed_sources)} "
+        f"Skipped={len(batch_result.skipped_sources)} "
+        f"Failed={len(batch_result.failures)}"
+    )
     
     # Query the indexed content
     result = await pipeline.query("What are the main points discussed?")
@@ -120,7 +135,7 @@ audiorag index "./local_audio/" "https://youtube.com/watch?v=..." "./interview.w
 The CLI automatically:
 - Expands YouTube playlists/channels into individual video URLs
 - Recursively discovers audio files in directories
-- Shows progress tracking for batch operations
+- Shows aggregate batch results (indexed/skipped/failed) with per-source failures
 - Handles errors per source without stopping the entire batch
 
 ### Querying
