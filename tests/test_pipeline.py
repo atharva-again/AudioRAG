@@ -1,10 +1,12 @@
 """Comprehensive integration tests for AudioRAGPipeline."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from audiorag import AudioRAGPipeline, QueryResult
 from audiorag.core.exceptions import PipelineError
-from audiorag.core.models import IndexingStatus
+from audiorag.core.models import BatchIndexResult, IndexingStatus
 
 
 class TestPipelineInitialization:
@@ -227,6 +229,155 @@ class TestPipelineIndex:
         await pipeline_for_index.index(url, force=True)
 
         spy.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_index_uses_discovery_for_playlist_inputs(
+        self, pipeline_for_index, mocker
+    ) -> None:
+        """Test that SDK index() expands playlist URLs into per-video sources."""
+        playlist_url = "https://youtube.com/playlist?list=test-playlist"
+        expanded_sources = [
+            "https://youtube.com/watch?v=video1",
+            "https://youtube.com/watch?v=video2",
+        ]
+        discover_mock = mocker.patch(
+            "audiorag.pipeline.discover_sources",
+            new=AsyncMock(return_value=expanded_sources),
+        )
+
+        await pipeline_for_index.index(playlist_url)
+
+        discover_mock.assert_awaited_once_with([playlist_url], pipeline_for_index._config)
+        for source in expanded_sources:
+            status = await pipeline_for_index._state.get_source_status(source)
+            assert status is not None
+            assert status["status"] == IndexingStatus.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_index_many_resumes_per_source(self, pipeline_for_index, mocker) -> None:
+        """Test that index_many skips already completed sources on rerun."""
+        inputs = ["https://youtube.com/playlist?list=test-playlist"]
+        expanded_sources = [
+            "https://youtube.com/watch?v=video1",
+            "https://youtube.com/watch?v=video2",
+        ]
+        mocker.patch(
+            "audiorag.pipeline.discover_sources",
+            new=AsyncMock(return_value=expanded_sources),
+        )
+
+        await pipeline_for_index.index_many(inputs)
+
+        spy = mocker.spy(pipeline_for_index._audio_source, "download")
+        await pipeline_for_index.index_many(inputs)
+
+        spy.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_index_many_returns_structured_result(self, pipeline_for_index, mocker) -> None:
+        inputs = ["https://youtube.com/playlist?list=test-playlist"]
+        expanded_sources = [
+            "https://youtube.com/watch?v=video1",
+            "https://youtube.com/watch?v=video2",
+        ]
+        mocker.patch(
+            "audiorag.pipeline.discover_sources",
+            new=AsyncMock(return_value=expanded_sources),
+        )
+
+        result = await pipeline_for_index.index_many(inputs, raise_on_error=False)
+
+        assert isinstance(result, BatchIndexResult)
+        assert result.inputs == inputs
+        assert result.discovered_sources == expanded_sources
+        assert result.indexed_sources == expanded_sources
+        assert result.skipped_sources == []
+        assert result.failures == []
+
+    @pytest.mark.asyncio
+    async def test_index_many_collects_failures_and_continues(
+        self, pipeline_for_index, mocker
+    ) -> None:
+        """Test that index_many continues processing and raises aggregate failure."""
+        inputs = ["https://youtube.com/playlist?list=test-playlist"]
+        expanded_sources = [
+            "https://youtube.com/watch?v=video1",
+            "https://youtube.com/watch?v=video2",
+            "https://youtube.com/watch?v=video3",
+        ]
+        mocker.patch(
+            "audiorag.pipeline.discover_sources",
+            new=AsyncMock(return_value=expanded_sources),
+        )
+
+        default_audio_file = pipeline_for_index._audio_source.download.return_value
+
+        async def download_with_partial_failures(url: str, *_args, **_kwargs):
+            if url.endswith("video2") or url.endswith("video3"):
+                raise Exception(f"download failed for {url}")
+            return default_audio_file
+
+        download_mock = mocker.patch.object(
+            pipeline_for_index._audio_source,
+            "download",
+            side_effect=download_with_partial_failures,
+        )
+
+        with pytest.raises(PipelineError) as exc_info:
+            await pipeline_for_index.index_many(inputs)
+
+        assert exc_info.value.stage == "index_many"
+        assert "video2" in str(exc_info.value)
+        assert "video3" in str(exc_info.value)
+        assert [call.args[0] for call in download_mock.call_args_list] == expanded_sources
+
+        completed = await pipeline_for_index._state.get_source_status(expanded_sources[0])
+        failed_second = await pipeline_for_index._state.get_source_status(expanded_sources[1])
+        failed_third = await pipeline_for_index._state.get_source_status(expanded_sources[2])
+
+        assert completed is not None
+        assert completed["status"] == IndexingStatus.COMPLETED
+        assert failed_second is not None
+        assert failed_second["status"] == IndexingStatus.FAILED
+        assert failed_third is not None
+        assert failed_third["status"] == IndexingStatus.FAILED
+
+    @pytest.mark.asyncio
+    async def test_index_many_normalizes_non_pipeline_errors(
+        self, pipeline_for_index, mocker
+    ) -> None:
+        inputs = ["https://youtube.com/playlist?list=test-playlist"]
+        expanded_sources = [
+            "https://youtube.com/watch?v=video1",
+            "https://youtube.com/watch?v=video2",
+            "https://youtube.com/watch?v=video3",
+        ]
+        mocker.patch(
+            "audiorag.pipeline.discover_sources",
+            new=AsyncMock(return_value=expanded_sources),
+        )
+
+        original_index_single = pipeline_for_index._index_single_source
+
+        async def failing_index_single(url: str, *, force: bool = False):
+            if url.endswith("video2"):
+                raise RuntimeError("unexpected crash")
+            return await original_index_single(url, force=force)
+
+        mocker.patch.object(
+            pipeline_for_index,
+            "_index_single_source",
+            side_effect=failing_index_single,
+        )
+
+        result = await pipeline_for_index.index_many(inputs, raise_on_error=False)
+
+        assert result.indexed_sources == [expanded_sources[0], expanded_sources[2]]
+        assert result.skipped_sources == []
+        assert len(result.failures) == 1
+        assert result.failures[0].source_url == expanded_sources[1]
+        assert result.failures[0].stage == "index_many"
+        assert "RuntimeError" in result.failures[0].error_message
 
 
 class TestPipelineErrorHandling:

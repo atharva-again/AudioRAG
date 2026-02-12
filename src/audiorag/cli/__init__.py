@@ -12,18 +12,10 @@ from typing import Any
 import questionary
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import (
-    BarColumn,
-    Progress,
-    SpinnerColumn,
-    TextColumn,
-    TimeElapsedColumn,
-)
 from rich.table import Table
 from rich.theme import Theme
 
 from audiorag import AudioRAGConfig, AudioRAGPipeline
-from audiorag.source.discovery import discover_sources
 
 # Top-tier design theme: Minimalist, sophisticated colors, no emojis
 AUDIORAG_THEME = Theme(
@@ -194,40 +186,29 @@ async def index_cmd(inputs: list[str], force: bool) -> None:
     config = AudioRAGConfig()
     pipeline = AudioRAGPipeline(config)
 
-    with console.status("[info]Discovering sources...", spinner="dots"):
-        sources = await discover_sources(inputs, config)
+    with console.status("[info]Indexing sources...", spinner="dots"):
+        result = await pipeline.index_many(inputs, force=force, raise_on_error=False)
 
-    if not sources:
+    if not result.discovered_sources:
         console.print("[warning]No sources found to index.[/]")
         return
 
-    console.print(f"[highlight]Starting pipeline for {len(sources)} sources[/]\n")
+    source_count = len(result.discovered_sources)
+    console.print(f"[highlight]Processed {source_count} discovered sources[/]")
+    console.print(
+        "[success]Indexed:[/] "
+        f"{len(result.indexed_sources)}  "
+        "[warning]Skipped:[/] "
+        f"{len(result.skipped_sources)}  "
+        "[error]Failed:[/] "
+        f"{len(result.failures)}"
+    )
 
-    with Progress(
-        SpinnerColumn(spinner_name="dots"),
-        TextColumn("[info]{task.description}"),
-        BarColumn(bar_width=40),
-        TextColumn("[dim]{task.percentage:>3.0f}%"),
-        TimeElapsedColumn(),
-        console=console,
-        transient=True,
-    ) as progress:
-        overall_task = progress.add_task(description="Total Progress", total=len(sources))
-
-        for idx, url in enumerate(sources, 1):
-            source_task = progress.add_task(
-                description=f"Source {idx}/{len(sources)}",
-                total=100,
-            )
-            try:
-                progress.update(source_task, description=f"Indexing: {url[:50]}...")
-                await pipeline.index(url, force=force)
-                progress.update(source_task, completed=100, description="Done")
-                progress.update(overall_task, advance=1)
-                console.print(f"[success]Indexed ({idx}/{len(sources)}):[/] {url}")
-            except Exception as e:
-                console.print(f"[error]Failed ({idx}/{len(sources)}):[/] {url} - {e}")
-                progress.update(overall_task, advance=1)
+    for failure in result.failures:
+        console.print(
+            f"[error]Failed:[/] {failure.source_url} "
+            f"(stage={failure.stage}) - {failure.error_message}"
+        )
 
 
 async def query_cmd(query_text: str) -> None:

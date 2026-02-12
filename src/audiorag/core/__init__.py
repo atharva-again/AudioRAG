@@ -19,6 +19,8 @@ from audiorag.core.exceptions import (
 from audiorag.core.logging_config import configure_logging, get_logger
 from audiorag.core.models import (
     AudioFile,
+    BatchIndexFailure,
+    BatchIndexResult,
     ChunkMetadata,
     IndexingStatus,
     QueryResult,
@@ -46,6 +48,8 @@ __all__ = [
     "AudioRAGError",
     # Protocols
     "AudioSourceProvider",
+    "BatchIndexFailure",
+    "BatchIndexResult",
     "BudgetExceededError",
     "BudgetGovernor",
     "BudgetLimits",

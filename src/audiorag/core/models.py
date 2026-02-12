@@ -6,7 +6,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ChunkMetadata(BaseModel):
@@ -37,6 +37,24 @@ class QueryResult(BaseModel):
 
     answer: str
     sources: list[Source]
+
+
+class BatchIndexFailure(BaseModel):
+    """Failure details for one source in a batch indexing run."""
+
+    source_url: str
+    stage: str
+    error_message: str
+
+
+class BatchIndexResult(BaseModel):
+    """Structured outcome for a batch indexing run."""
+
+    inputs: list[str] = Field(default_factory=list)
+    discovered_sources: list[str] = Field(default_factory=list)
+    indexed_sources: list[str] = Field(default_factory=list)
+    skipped_sources: list[str] = Field(default_factory=list)
+    failures: list[BatchIndexFailure] = Field(default_factory=list)
 
 
 class AudioFile(BaseModel):

@@ -5,6 +5,8 @@ from pathlib import Path
 
 from audiorag.core.models import (
     AudioFile,
+    BatchIndexFailure,
+    BatchIndexResult,
     ChunkMetadata,
     IndexingStatus,
     QueryResult,
@@ -680,3 +682,44 @@ class TestIndexingStatus:
         # StrEnum members should be comparable to strings
         assert IndexingStatus.DOWNLOADING == "downloading"
         assert IndexingStatus.DOWNLOADING == "downloading"
+
+
+class TestBatchIndexModels:
+    def test_batch_index_failure_creation(self):
+        failure = BatchIndexFailure(
+            source_url="https://youtube.com/watch?v=video1",
+            stage="download",
+            error_message="network timeout",
+        )
+
+        assert failure.source_url.endswith("video1")
+        assert failure.stage == "download"
+        assert failure.error_message == "network timeout"
+
+    def test_batch_index_result_defaults(self):
+        result = BatchIndexResult()
+
+        assert result.inputs == []
+        assert result.discovered_sources == []
+        assert result.indexed_sources == []
+        assert result.skipped_sources == []
+        assert result.failures == []
+
+    def test_batch_index_result_serialization(self):
+        result = BatchIndexResult(
+            inputs=["https://youtube.com/playlist?list=abc"],
+            discovered_sources=["https://youtube.com/watch?v=video1"],
+            indexed_sources=[],
+            skipped_sources=[],
+            failures=[
+                BatchIndexFailure(
+                    source_url="https://youtube.com/watch?v=video1",
+                    stage="index_many",
+                    error_message="RuntimeError: unexpected crash",
+                )
+            ],
+        )
+
+        payload = result.model_dump()
+        assert payload["inputs"] == ["https://youtube.com/playlist?list=abc"]
+        assert payload["failures"][0]["stage"] == "index_many"
