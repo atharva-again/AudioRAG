@@ -119,7 +119,7 @@ class BudgetGovernor:
         if limits.tpm is not None and token_units > 0:
             limit_entries.append(("tpm", token_units, limits.tpm, 60))
 
-        if limits.audio_seconds_per_hour is not None and audio_units > 0:
+        if limits.audio_seconds_per_hour is not None and audio_units != 0:
             limit_entries.append(
                 (
                     "audio_seconds_per_hour",
