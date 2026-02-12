@@ -59,6 +59,8 @@ async def _expand_youtube_source(item: str, config: AudioRAGConfig | None) -> li
                 download_archive=config.youtube_download_archive,
                 cookie_file=config.youtube_cookie_file,
                 po_token=config.youtube_po_token,
+                visitor_data=config.youtube_visitor_data,
+                data_sync_id=config.youtube_data_sync_id,
                 impersonate_client=config.youtube_impersonate,
                 player_clients=config.youtube_player_clients,
                 js_runtime=config.js_runtime,
