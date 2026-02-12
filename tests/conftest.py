@@ -303,13 +303,21 @@ def mock_audio_source_provider(tmp_path) -> AsyncMock:
     """Create a mock Audio Source provider.
 
     Returns:
-        AsyncMock: Mock provider with download method that creates a real audio file.
+        AsyncMock: Mock provider with download and get_metadata methods.
     """
+    from audiorag.core.models import SourceMetadata
+
     mock = AsyncMock()
     audio_path = tmp_path / "mock_audio.mp3"
     # Create a small dummy file so the splitter doesn't fail
     audio_path.write_bytes(b"dummy audio content")
 
+    mock.get_metadata = AsyncMock(
+        return_value=SourceMetadata(
+            duration=120.0,
+            title="Test Video Title",
+        )
+    )
     mock.download = AsyncMock(
         return_value=AudioFile(
             path=audio_path,
