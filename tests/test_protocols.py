@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from audiorag.core.models import AudioFile, TranscriptionSegment
+from audiorag.core.models import AudioFile, SourceMetadata, TranscriptionSegment
 from audiorag.core.protocols import (
     AudioSourceProvider,
     EmbeddingProvider,
@@ -573,7 +573,11 @@ class TestAudioSourceProvider:
         # Verify runtime_checkable decorator is applied by checking isinstance works
         class CompliantAudioSource:
             async def download(
-                self, url: str, output_dir: Path, audio_format: str = "mp3"
+                self,
+                url: str,
+                output_dir: Path,
+                audio_format: str = "mp3",
+                metadata: SourceMetadata | None = None,
             ) -> AudioFile:
                 return AudioFile(
                     path=output_dir / "audio.mp3",
@@ -581,6 +585,9 @@ class TestAudioSourceProvider:
                     title="Test",
                     duration=100.0,
                 )
+
+            async def get_metadata(self, url: str) -> SourceMetadata:
+                return SourceMetadata(duration=100.0, title="Test")
 
         audio = CompliantAudioSource()
         assert isinstance(audio, AudioSourceProvider)
@@ -595,7 +602,11 @@ class TestAudioSourceProvider:
 
         class CompliantAudioSource:
             async def download(
-                self, url: str, output_dir: Path, audio_format: str = "mp3"
+                self,
+                url: str,
+                output_dir: Path,
+                audio_format: str = "mp3",
+                metadata: SourceMetadata | None = None,
             ) -> AudioFile:
                 audio_path = output_dir / f"audio.{audio_format}"
                 return AudioFile(
@@ -604,6 +615,9 @@ class TestAudioSourceProvider:
                     title="Test Video",
                     duration=100.0,
                 )
+
+            async def get_metadata(self, url: str) -> SourceMetadata:
+                return SourceMetadata(duration=100.0, title="Test Video")
 
         source = CompliantAudioSource()
         assert isinstance(source, AudioSourceProvider)
@@ -634,7 +648,11 @@ class TestAudioSourceProvider:
 
         class MockAudioSource:
             async def download(
-                self, url: str, output_dir: Path, audio_format: str = "mp3"
+                self,
+                url: str,
+                output_dir: Path,
+                audio_format: str = "mp3",
+                metadata: SourceMetadata | None = None,
             ) -> AudioFile:
                 audio_path = output_dir / f"downloaded_audio.{audio_format}"
                 return AudioFile(
@@ -643,6 +661,9 @@ class TestAudioSourceProvider:
                     title="Downloaded Video",
                     duration=120.5,
                 )
+
+            async def get_metadata(self, url: str) -> SourceMetadata:
+                return SourceMetadata(duration=120.5, title="Downloaded Video")
 
         source = MockAudioSource()
         assert isinstance(source, AudioSourceProvider)
@@ -716,7 +737,11 @@ class TestProtocolIntegration:
 
         class MockAudioSource:
             async def download(
-                self, url: str, output_dir: Path, audio_format: str = "mp3"
+                self,
+                url: str,
+                output_dir: Path,
+                audio_format: str = "mp3",
+                metadata: SourceMetadata | None = None,
             ) -> AudioFile:
                 return AudioFile(
                     path=output_dir / "audio.mp3",
@@ -724,6 +749,9 @@ class TestProtocolIntegration:
                     title="Test",
                     duration=100.0,
                 )
+
+            async def get_metadata(self, url: str) -> SourceMetadata:
+                return SourceMetadata(duration=100.0, title="Test")
 
         # Verify all implementations are protocol-compliant
         stt = MockSTT()
@@ -896,7 +924,11 @@ class TestProtocolEdgeCases:
 
         class MockAudioSource:
             async def download(
-                self, url: str, output_dir: Path, audio_format: str = "mp3"
+                self,
+                url: str,
+                output_dir: Path,
+                audio_format: str = "mp3",
+                metadata: SourceMetadata | None = None,
             ) -> AudioFile:
                 return AudioFile(
                     path=output_dir / f"audio.{audio_format}",
@@ -904,6 +936,9 @@ class TestProtocolEdgeCases:
                     title="Test",
                     duration=100.0,
                 )
+
+            async def get_metadata(self, url: str) -> SourceMetadata:
+                return SourceMetadata(duration=100.0, title="Test")
 
         source = MockAudioSource()
         assert isinstance(source, AudioSourceProvider)
