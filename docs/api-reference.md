@@ -40,7 +40,11 @@ class AudioRAGPipeline:
 async def index(self, url: str, *, force: bool = False) -> None
 ```
 
-Index audio from a URL through the full pipeline.
+Index audio from a URL/path through the full pipeline.
+
+`index()` performs source discovery first. If `url` is a YouTube playlist/channel
+or a local directory path, it is expanded into individual sources and each source
+is tracked independently for resumability.
 
 **Stages:**
 1. Download audio from URL
@@ -52,7 +56,7 @@ Index audio from a URL through the full pipeline.
 7. Mark completed
 
 **Parameters:**
-- `url`: URL of the audio/video to index
+- `url`: URL/path to index
 - `force`: If True, re-index even if already completed
 
 **Raises:**
@@ -70,6 +74,46 @@ await pipeline.index("https://youtube.com/watch?v=...")  # No-op
 
 # Force reindex
 await pipeline.index("https://youtube.com/watch?v=...", force=True)
+
+# Playlist URL (auto-expanded to per-video sources)
+await pipeline.index("https://youtube.com/playlist?list=...")
+```
+
+#### index_many
+
+```python
+async def index_many(
+    self,
+    inputs: list[str],
+    *,
+    force: bool = False,
+    raise_on_error: bool = True,
+) -> BatchIndexResult
+```
+
+Index multiple inputs in one call with automatic source discovery.
+
+**Parameters:**
+- `inputs`: List of URLs and/or local paths
+- `force`: If True, re-index even if already completed
+- `raise_on_error`: If True, raise when any source fails. If False, return failures in result.
+
+**Returns:**
+- `BatchIndexResult` containing discovered sources, indexed/skipped sources, and failures.
+
+**Raises:**
+- `PipelineError`: If one or more sources fail indexing and `raise_on_error=True`
+
+**Example:**
+```python
+result = await pipeline.index_many([
+    "https://youtube.com/playlist?list=...",
+    "./podcasts/",
+    "https://youtube.com/watch?v=singleVideo",
+], raise_on_error=False)
+
+print(result.indexed_sources)
+print(result.failures)
 ```
 
 #### query

@@ -62,12 +62,11 @@ asyncio.run(index_content())
 
 ### Batch Indexing Multiple Sources
 
-Index multiple sources efficiently using the source discovery utility:
+Index mixed sources directly with the pipeline API:
 
 ```python
 import asyncio
 from audiorag import AudioRAGPipeline, AudioRAGConfig
-from audiorag.source import discover_sources
 
 async def batch_index():
     config = AudioRAGConfig()
@@ -80,25 +79,23 @@ async def batch_index():
         "https://youtube.com/watch?v=video1",         # Single video
         "./interviews/special.mp3",                   # Local file
     ]
-    
-    # Discover all individual sources
-    sources = await discover_sources(inputs, config)
-    print(f"Found {len(sources)} sources to index")
-    
-    # Index each source
-    for url in sources:
-        print(f"Indexing: {url}")
-        await pipeline.index(url)
-    
+
+    result = await pipeline.index_many(inputs, raise_on_error=False)
+
+    print(f"Indexed: {len(result.indexed_sources)}")
+    print(f"Skipped: {len(result.skipped_sources)}")
+    print(f"Failed: {len(result.failures)}")
+
     print("Batch indexing complete!")
 
 asyncio.run(batch_index())
 ```
 
-**What `discover_sources` handles:**
+`index_many()` automatically handles source discovery for:
 - **YouTube playlists/channels**: Expands to individual video URLs
 - **Local directories**: Recursively finds audio files (`.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`)
 - **Mixed inputs**: Combines all sources into a unique, deduplicated list
+- **Per-source resumability**: Each expanded source is tracked independently in state
 
 ### 3. Query the Indexed Content
 
@@ -125,7 +122,6 @@ asyncio.run(query_content())
 ```python
 import asyncio
 from audiorag import AudioRAGPipeline, AudioRAGConfig
-from audiorag.source import discover_sources
 
 async def main():
     # Initialize
@@ -139,16 +135,13 @@ async def main():
         "https://youtube.com/watch?v=singleVideo",      # Single video
     ]
     
-    # Discover all individual sources
-    sources = await discover_sources(inputs, config)
-    print(f"Discovered {len(sources)} sources\n")
-    
-    # Index each source with progress tracking
-    for i, url in enumerate(sources, 1):
-        print(f"[{i}/{len(sources)}] Indexing: {url}")
-        await pipeline.index(url)
-    
-    print("\nIndexing complete! Now querying...\n")
+    batch_result = await pipeline.index_many(inputs, raise_on_error=False)
+
+    print(
+        f"\nIndexing complete: indexed={len(batch_result.indexed_sources)} "
+        f"skipped={len(batch_result.skipped_sources)} "
+        f"failed={len(batch_result.failures)}\n"
+    )
     
     # Query across all indexed content
     questions = [

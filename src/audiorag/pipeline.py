@@ -14,12 +14,14 @@ import tempfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from audiorag.chunking import chunk_transcription
 from audiorag.core import (
     AudioRAGConfig,
     AudioSourceProvider,
+    BatchIndexFailure,
+    BatchIndexResult,
     BudgetGovernor,
     EmbeddingProvider,
     GenerationProvider,
@@ -50,6 +52,7 @@ from audiorag.core.provider_factory import (
     create_stt_provider,
     create_vector_store_provider,
 )
+from audiorag.source.discovery import discover_sources
 
 if TYPE_CHECKING:
     import structlog
@@ -586,21 +589,10 @@ class AudioRAGPipeline:
     # Public API
     # ------------------------------------------------------------------
 
-    async def index(self, url: str, *, force: bool = False) -> None:
-        """Index audio from a URL through the full pipeline.
-
-        Stages: download -> split -> transcribe -> chunk -> embed -> complete.
-        State is tracked in SQLite at each stage for resumability.
-
-        Args:
-            url: URL of the audio/video to index.
-            force: If True, re-index even if already completed.
-
-        Raises:
-            PipelineError: If any pipeline stage fails.
-        """
-        await self._ensure_initialized()
-
+    async def _index_single_source(
+        self, url: str, *, force: bool = False
+    ) -> Literal["indexed", "skipped"]:
+        """Index one fully-resolved source URL/path through the full pipeline."""
         # Bind URL context for all logging in this operation
         operation_logger = logger.bind(url=url, operation="index")
         operation_logger.info("index_started", force=force)
@@ -633,14 +625,14 @@ class AudioRAGPipeline:
 
                     if status == IndexingStatus.COMPLETED and not force:
                         operation_logger.info("index_skipped", reason="already_indexed")
-                        return
+                        return "skipped"
                     if status in _IN_PROGRESS_STATUSES and not force:
                         operation_logger.info(
                             "index_skipped",
                             reason="in_progress",
                             current_status=status,
                         )
-                        return
+                        return "skipped"
                     if (
                         previous_vector_id_strategy is not None
                         and previous_vector_id_strategy != current_vector_id_strategy
@@ -666,6 +658,7 @@ class AudioRAGPipeline:
                 )
 
                 await self._run_stages(_DEFAULT_STAGES, ctx)
+                return "indexed"
             except Exception as e:
                 operation_logger.error("index_failed", error=str(e), error_type=type(e).__name__)
                 try:
@@ -691,6 +684,137 @@ class AudioRAGPipeline:
                         operation_logger.warning(
                             "cleanup_failed", work_dir=str(work_dir), error=str(e)
                         )
+
+    async def index_many(
+        self,
+        inputs: list[str],
+        *,
+        force: bool = False,
+        raise_on_error: bool = True,
+    ) -> BatchIndexResult:
+        """Index inputs after source discovery with per-source resumable state.
+
+        Inputs are expanded via ``discover_sources`` before indexing. Playlist/
+        channel URLs and local directories are processed as independent sources.
+
+        Args:
+            inputs: List of URLs and/or local paths to index.
+            force: If True, re-index even if already completed.
+            raise_on_error: Raise a PipelineError if any source fails.
+
+        Raises:
+            PipelineError: If one or more source indexing runs fail.
+        """
+        await self._ensure_initialized()
+
+        operation_logger = logger.bind(operation="index_many")
+        operation_logger.info(
+            "index_many_started",
+            input_count=len(inputs),
+            force=force,
+            raise_on_error=raise_on_error,
+        )
+
+        sources = await discover_sources(inputs, self._config)
+        if not sources:
+            operation_logger.warning("index_many_no_sources")
+            return BatchIndexResult(inputs=inputs)
+
+        result = BatchIndexResult(inputs=inputs, discovered_sources=sources)
+        pipeline_failures: list[PipelineError] = []
+        failure_causes: list[Exception | None] = []
+
+        for source in sources:
+            try:
+                source_result = await self._index_single_source(source, force=force)
+                if source_result == "indexed":
+                    result.indexed_sources.append(source)
+                else:
+                    result.skipped_sources.append(source)
+            except Exception as exc:
+                pipeline_error, failure, cause = self._normalize_batch_failure(source, exc)
+                pipeline_failures.append(pipeline_error)
+                failure_causes.append(cause)
+                result.failures.append(failure)
+                operation_logger.error(
+                    "index_many_source_failed",
+                    source_url=source,
+                    stage=failure.stage,
+                    error=failure.error_message,
+                )
+
+        operation_logger.info(
+            "index_many_completed",
+            source_count=len(sources),
+            indexed_count=len(result.indexed_sources),
+            skipped_count=len(result.skipped_sources),
+            failure_count=len(result.failures),
+        )
+
+        if result.failures and raise_on_error:
+            if len(pipeline_failures) == 1:
+                if failure_causes[0] is not None:
+                    raise pipeline_failures[0] from failure_causes[0]
+                raise pipeline_failures[0]
+
+            failed_sources = [failure.source_url for failure in result.failures]
+            failed_sources_str = ", ".join(failed_sources)
+            raise PipelineError(
+                (
+                    f"Indexing failed for {len(result.failures)} of {len(sources)} sources. "
+                    f"Failed sources: {failed_sources_str}"
+                ),
+                stage="index_many",
+            )
+
+        return result
+
+    def _normalize_batch_failure(
+        self, source: str, exc: Exception
+    ) -> tuple[PipelineError, BatchIndexFailure, Exception | None]:
+        if isinstance(exc, PipelineError):
+            return (
+                exc,
+                BatchIndexFailure(
+                    source_url=exc.source_url or source,
+                    stage=exc.stage,
+                    error_message=str(exc),
+                ),
+                None,
+            )
+
+        wrapped = PipelineError(
+            f"Indexing failed for {source}: {type(exc).__name__}: {exc}",
+            stage="index_many",
+            source_url=source,
+        )
+        return (
+            wrapped,
+            BatchIndexFailure(
+                source_url=source,
+                stage="index_many",
+                error_message=f"{type(exc).__name__}: {exc}",
+            ),
+            exc,
+        )
+
+    async def index(self, url: str, *, force: bool = False) -> None:
+        """Index audio from a URL/path through the full pipeline.
+
+        Stages: download -> split -> transcribe -> chunk -> embed -> complete.
+        State is tracked in SQLite at each stage for resumability.
+
+        The input is expanded through source discovery. Playlist/channel URLs
+        are indexed as per-video sources with independent state.
+
+        Args:
+            url: URL/path to index.
+            force: If True, re-index even if already completed.
+
+        Raises:
+            PipelineError: If any pipeline stage fails.
+        """
+        await self.index_many([url], force=force)
 
     async def query(self, query: str) -> QueryResult:
         """Query the indexed audio content.

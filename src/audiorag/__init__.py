@@ -25,6 +25,7 @@ from __future__ import annotations
 # Backward compatible exports - full pipeline
 from audiorag.core import (
     AudioRAGConfig,
+    BatchIndexResult,
     QueryResult,
     RetryConfig,
     Source,
@@ -38,6 +39,7 @@ __version__ = "0.4.0"
 __all__ = [
     "AudioRAGConfig",
     "AudioRAGPipeline",
+    "BatchIndexResult",
     "QueryResult",
     "RetryConfig",
     "Source",
