@@ -26,6 +26,9 @@ class URLSource:
     Downloads audio from direct URLs. Use YouTubeSource for YouTube videos.
     """
 
+    def __init__(self) -> None:
+        self._logger = logger.bind(provider="url_source")
+
     async def get_metadata(self, url: str) -> Any:
         """Fetch metadata for a direct URL."""
         return None

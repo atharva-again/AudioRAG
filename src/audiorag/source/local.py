@@ -25,6 +25,9 @@ class LocalSource:
     - Automatic duration detection using pydub
     """
 
+    def __init__(self) -> None:
+        self._logger = logger.bind(provider="local_source")
+
     async def get_metadata(self, url: str) -> Any:
         """Fetch metadata for a local file."""
         return None
