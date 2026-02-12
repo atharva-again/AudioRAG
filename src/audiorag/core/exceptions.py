@@ -146,6 +146,32 @@ class StateError(AudioRAGError):
         super().__init__(message)
 
 
+class DiscoveryError(AudioRAGError):
+    """Exception raised when source discovery or expansion fails.
+
+    This exception indicates that a source URL (playlist, channel, etc.)
+    could not be expanded into individual video URLs, preventing indexing.
+
+    Args:
+        message: Human-readable error message describing the discovery failure.
+        url: The URL that failed to expand.
+
+    Attributes:
+        url: The source URL that could not be expanded.
+
+    Example:
+        raise DiscoveryError(
+            "Failed to expand YouTube playlist: no videos found",
+            url="https://youtube.com/playlist?list=..."
+        )
+    """
+
+    def __init__(self, message: str, url: str | None = None) -> None:
+        """Initialize DiscoveryError with context."""
+        super().__init__(message)
+        self.url = url
+
+
 class BudgetExceededError(ProviderError):
     def __init__(
         self,
@@ -174,6 +200,7 @@ __all__ = [
     "AudioRAGError",
     "BudgetExceededError",
     "ConfigurationError",
+    "DiscoveryError",
     "PipelineError",
     "ProviderError",
     "StateError",
