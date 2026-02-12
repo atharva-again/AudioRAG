@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-02-12 - YouTube reliability + budget safeguards
+
+### Added
+- **Bleeding-edge YouTube 2026 support**: Upgraded to yt-dlp 2026.02.04 with mandatory JS runtime helpers (yt-dlp-ejs, curl-cffi) and optimized player skip patterns for lower latency.
+- **Visitor context binding**: Added PO token, visitor data, and data sync ID configuration so tokens are bound to the correct session and avoid extraction failures.
+- **Pre-download budget checks**: YouTube metadata is fetched before download to reserve audio-seconds budget upfront and prevent wasted bandwidth.
+- **Duration reconciliation**: Post-download adjustments correct budget deltas when actual duration differs from estimates, including automatic release on download failures.
+
+### Changed
+- **Source metadata model**: Introduced `SourceMetadata` and updated `AudioSourceProvider` to support pre-flight metadata extraction.
+- **Budget governor release flow**: Added `release()` method and negative audio-seconds handling for compensating entries.
+- **CLI setup**: Added interactive prompts for YouTube PO tokens, visitor data, and JS runtime selection.
+- **Documentation updates**: README and docs updated for YouTube 2026 configuration and budget safeguards.
+
+### Fixed
+- **Protocol conformance tests**: Updated AudioSourceProvider mocks for `get_metadata()` and added coverage for release/reconciliation flows.
+
 ## [0.5.2] - 2026-02-12 - YouTube Source Reliability Improvements
 
 ### Fixed
@@ -182,7 +199,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/atharva-again/audiorag/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/atharva-again/audiorag/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/atharva-again/audiorag/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/atharva-again/audiorag/compare/v0.4.0...v0.5.0
