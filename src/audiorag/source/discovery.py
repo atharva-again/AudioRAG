@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
+from audiorag.core.exceptions import DiscoveryError
 from audiorag.core.logging_config import get_logger
 from audiorag.source.url import AUDIO_EXTENSIONS
 
@@ -12,6 +14,27 @@ if TYPE_CHECKING:
     from audiorag.core import AudioRAGConfig
 
 logger = get_logger(__name__)
+
+
+def _is_youtube_collection(url: str) -> bool:
+    """Check if URL is a YouTube playlist or channel.
+
+    Args:
+        url: The URL to check.
+
+    Returns:
+        True if the URL represents a collection (playlist/channel).
+    """
+    parsed = urlparse(url)
+    path = parsed.path.lower()
+    query = parsed.query.lower()
+
+    # Playlist URLs: /playlist or list= parameter
+    if "/playlist" in path or "list=" in query:
+        return True
+
+    # Channel URLs: /channel/, /c/, /user/, or /@handle
+    return "/channel/" in path or "/c/" in path or "/user/" in path or "/@" in path
 
 
 def _expand_directory(path: Path) -> list[str]:
@@ -49,8 +72,17 @@ async def _expand_youtube_source(item: str, config: AudioRAGConfig | None) -> li
             video_urls = [v.url for v in videos]
             logger.debug("youtube_source_expanded", count=len(video_urls))
             return video_urls
+
+        # Raise error for collections that failed to expand
+        if _is_youtube_collection(item):
+            raise DiscoveryError(
+                f"Failed to expand YouTube source: no videos found for {item}",
+                url=item,
+            )
     except ImportError:
         logger.warning("youtube_source_not_available_for_expansion", url=item)
+    except DiscoveryError:
+        raise
     except Exception as e:
         logger.warning("youtube_expansion_failed", url=item, error=str(e))
     return [item]
