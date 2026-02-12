@@ -146,6 +146,48 @@ async def setup_cmd() -> None:
                 return
             env_lines.extend(res)
 
+        # -- YouTube Advanced Setup --
+        setup_yt = await questionary.confirm(
+            "Configure YouTube Professional Setup? (Recommended for stability)",
+            default=True,
+            style=QUESTIONARY_STYLE,
+        ).ask_async()
+
+        if setup_yt:
+            console.print(
+                "\n[info]YouTube now requires a PO Token and JS Runtime for stable extraction.[/]"
+            )
+            po_token = await questionary.text(
+                "Enter YouTube PO Token (Optional, but recommended):",
+                style=QUESTIONARY_STYLE,
+            ).ask_async()
+            if po_token:
+                env_lines.append(f"AUDIORAG_YOUTUBE_PO_TOKEN={po_token}\n")
+
+                # If PO token is provided, suggest visitor data for binding
+                visitor_data = await questionary.text(
+                    "Enter YouTube Visitor Data (Required if PO Token is bound to visitor session):",
+                    style=QUESTIONARY_STYLE,
+                ).ask_async()
+                if visitor_data:
+                    env_lines.append(f"AUDIORAG_YOUTUBE_VISITOR_DATA={visitor_data}\n")
+
+                data_sync_id = await questionary.text(
+                    "Enter YouTube Data Sync ID (Required if using PO Token with an account):",
+                    style=QUESTIONARY_STYLE,
+                ).ask_async()
+                if data_sync_id:
+                    env_lines.append(f"AUDIORAG_YOUTUBE_DATA_SYNC_ID={data_sync_id}\n")
+
+            js_runtime = await questionary.select(
+                "Select preferred JS Runtime (Required for YouTube):",
+                choices=["deno", "node", "bun", "none"],
+                default="deno",
+                style=QUESTIONARY_STYLE,
+            ).ask_async()
+            if js_runtime and js_runtime != "none":
+                env_lines.append(f"AUDIORAG_JS_RUNTIME={js_runtime}\n")
+
         new_config = {}
         for line in env_lines:
             if "=" in line:
