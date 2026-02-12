@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-12 - Resilient Batch Indexing and SDK/CLI Parity
+
+### Added
+- Structured batch indexing result models for SDK consumers:
+  - `BatchIndexResult` (inputs, discovered/indexed/skipped sources, failures)
+  - `BatchIndexFailure` (source_url, stage, error_message)
+- New `AudioRAGPipeline.index_many(inputs, force=False, raise_on_error=True)`
+  contract that returns structured batch outcomes and supports tolerant mode
+  (`raise_on_error=False`) for partial-failure reporting.
+
+### Changed
+- Core indexing boundary now performs source discovery for SDK calls too:
+  - `index(url)` routes through discovery-backed batch indexing
+  - Playlist/channel URLs and local directories are processed per source with
+    independent state/resume semantics.
+- Batch indexing error handling is now resilient across exception types:
+  non-`PipelineError` failures are normalized and captured in batch results,
+  while strict mode still raises with clear context.
+- CLI `audiorag index` now uses the unified pipeline batch path and reports
+  aggregate batch outcomes (indexed/skipped/failed) with per-source failures.
+
+### Documentation
+- Updated README and docs (`quickstart`, `api-reference`) to reflect:
+  - SDK/CLI behavior parity for discovery-backed indexing
+  - `raise_on_error` behavior and structured batch results
+  - Updated batch indexing examples and output expectations
+
 ## [0.4.0] - 2026-02-12 - Provider-aware Vector ID Strategy
 
 ### Added
@@ -125,7 +152,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/atharva-again/audiorag/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/atharva-again/audiorag/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/atharva-again/audiorag/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/atharva-again/audiorag/compare/v0.2.0...v0.3.0
