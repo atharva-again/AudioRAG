@@ -57,6 +57,14 @@ class BatchIndexResult(BaseModel):
     failures: list[BatchIndexFailure] = Field(default_factory=list)
 
 
+class SourceMetadata(BaseModel):
+    """Pre-flight metadata from a source provider."""
+
+    duration: float | None = None
+    title: str | None = None
+    raw: Any | None = Field(default=None, exclude=True)
+
+
 class AudioFile(BaseModel):
     """Audio file metadata."""
 
