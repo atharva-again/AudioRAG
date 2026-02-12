@@ -8,6 +8,7 @@ Provider-agnostic RAG pipeline for audio content. Download, transcribe, chunk, e
 - **Batch indexing**: Index multiple URLs, playlists, and local directories in one command
 - **Source discovery**: Automatically expand playlists and recursively scan directories
 - **Resumable processing**: SQLite state tracking with hash-based IDs
+- **Provider-aware vector IDs**: Canonical SHA-256 chunk IDs with optional UUID5 conversion per vector store
 - **Proactive budget governor**: Optional fail-fast limits for RPM, TPM, and audio-seconds/hour
 - **Atomic vector verification**: Optional post-write verification with strict or best-effort modes
 - **Automatic chunking**: Time-based segmentation with configurable duration
@@ -163,6 +164,10 @@ export AUDIORAG_BUDGET_AUDIO_SECONDS_PER_HOUR="7200"
 export AUDIORAG_VECTOR_STORE_VERIFY_MODE="best_effort"  # off | best_effort | strict
 export AUDIORAG_VECTOR_STORE_VERIFY_MAX_ATTEMPTS="5"
 export AUDIORAG_VECTOR_STORE_VERIFY_WAIT_SECONDS="0.5"
+
+# Optional vector ID strategy
+export AUDIORAG_VECTOR_ID_FORMAT="auto"  # auto | sha256 | uuid5
+export AUDIORAG_VECTOR_ID_UUID5_NAMESPACE="6ba7b810-9dad-11d1-80b4-00c04fd430c8"  # optional
 ```
 
 See [Configuration Guide](docs/configuration.md) for all options.
@@ -210,6 +215,8 @@ uv run prek install
 - **Persistent budget accounting**: budget usage is persisted in SQLite for cross-process and restart safety.
 - **Vector write verification**: after `add()`, providers that support `verify(ids)` are checked.
 - **Verification modes**: `off` disables checks, `best_effort` warns on failure, `strict` fails indexing when verification fails.
+- **Provider-aware vector IDs**: state IDs stay SHA-256; vector-store IDs can be auto-resolved to UUID5 for UUID-oriented providers.
+- **Safe strategy changes**: if vector ID strategy changes for an existing source, reindex with `force=True` to avoid mixed IDs.
 
 ## License
 

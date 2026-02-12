@@ -144,6 +144,8 @@ Configuration management with environment variable support.
 | `vector_store_verify_mode` | str | Vector verify mode: off, best_effort, strict |
 | `vector_store_verify_max_attempts` | int | Max verification attempts |
 | `vector_store_verify_wait_seconds` | float | Delay between verification attempts |
+| `vector_id_format` | str | Vector ID strategy: auto, sha256, uuid5 |
+| `vector_id_uuid5_namespace` | str \| None | Optional UUID namespace for deterministic UUID5 conversion |
 
 **Methods:**
 
@@ -164,6 +166,15 @@ def get_generation_model(self) -> str
 ```
 
 Get the appropriate generation model based on provider.
+
+### Vector ID behavior
+
+- Canonical `source_id` and `chunk_id` in SQLite state are SHA-256 hashes.
+- `vector_id_format="auto"` applies provider defaults for vector-store-facing IDs.
+- Current built-in default mapping: `weaviate -> uuid5`, others -> `sha256`.
+- `vector_id_uuid5_namespace` allows deterministic UUID5 namespace override.
+- If a source has existing metadata with a different vector ID strategy, run
+  `index(..., force=True)` before reindexing that source.
 
 **Example:**
 ```python

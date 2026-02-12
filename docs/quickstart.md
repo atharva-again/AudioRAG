@@ -226,6 +226,8 @@ config = AudioRAGConfig(
     vector_store_verify_mode="strict",  # off | best_effort | strict
     vector_store_verify_max_attempts=5,
     vector_store_verify_wait_seconds=0.5,
+    vector_id_format="auto",  # auto | sha256 | uuid5
+    # vector_id_uuid5_namespace="6ba7b810-9dad-11d1-80b4-00c04fd430c8",
 )
 ```
 

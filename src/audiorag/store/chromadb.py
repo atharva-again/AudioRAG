@@ -19,6 +19,7 @@ logger = get_logger(__name__)
 class ChromaDBVectorStore(VectorStoreMixin):
     """ChromaDB-based vector store."""
 
+    vector_id_default_format: str = "sha256"
     _provider_name: str = "chromadb_vector_store"
     _retryable_exceptions: tuple[type[Exception], ...] = (
         ConnectionError,

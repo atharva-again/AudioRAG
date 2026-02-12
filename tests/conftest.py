@@ -408,6 +408,8 @@ def mock_config(tmp_db_path: Path, tmp_vector_store_dir: Path):
     config.vector_store_verify_mode = "best_effort"
     config.vector_store_verify_max_attempts = 5
     config.vector_store_verify_wait_seconds = 0.5
+    config.vector_id_format = "auto"
+    config.vector_id_uuid5_namespace = None
 
     # Model getter methods
     config.get_stt_model = MagicMock(return_value="whisper-1")

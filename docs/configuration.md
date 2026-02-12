@@ -294,6 +294,32 @@ Behavior:
 - `best_effort`: logs warning if verification fails.
 - `strict`: indexing fails if verification does not pass after retries.
 
+## Vector ID Strategy
+
+AudioRAG uses two ID layers during indexing:
+- Canonical IDs in SQLite state (`source_id`, `chunk_id`) are always SHA-256 hashes.
+- Provider-facing vector IDs can be adapted before `vector_store.add()`.
+
+```bash
+# auto: choose per provider defaults
+export AUDIORAG_VECTOR_ID_FORMAT="auto"   # auto | sha256 | uuid5
+
+# optional UUID namespace for deterministic UUID5 conversion
+export AUDIORAG_VECTOR_ID_UUID5_NAMESPACE="6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+```
+
+Behavior:
+- `auto`: Weaviate uses UUID5; other built-in stores use SHA-256 IDs.
+- `sha256`: always use canonical SHA-256 chunk IDs for vector store writes.
+- `uuid5`: deterministically convert canonical IDs to UUID5 for vector store writes.
+
+Notes:
+- UUID5 conversion is deterministic: same chunk -> same UUID.
+- `AUDIORAG_VECTOR_ID_UUID5_NAMESPACE` must be a valid UUID string.
+- State table IDs remain unchanged regardless of vector ID format.
+- If a source already has metadata from a different vector ID strategy, re-run
+  with `force=True` to avoid mixing old and new vector IDs for that source.
+
 ## Database and Storage
 
 ```bash
@@ -375,6 +401,10 @@ AUDIORAG_BUDGET_AUDIO_SECONDS_PER_HOUR=7200
 AUDIORAG_VECTOR_STORE_VERIFY_MODE=best_effort
 AUDIORAG_VECTOR_STORE_VERIFY_MAX_ATTEMPTS=5
 AUDIORAG_VECTOR_STORE_VERIFY_WAIT_SECONDS=0.5
+
+# Vector ID strategy
+AUDIORAG_VECTOR_ID_FORMAT=auto
+# AUDIORAG_VECTOR_ID_UUID5_NAMESPACE=6ba7b810-9dad-11d1-80b4-00c04fd430c8
 
 # Storage
 AUDIORAG_DATABASE_PATH=./audiorag.db

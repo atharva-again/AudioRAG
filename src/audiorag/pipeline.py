@@ -37,6 +37,11 @@ from audiorag.core import (
     get_logger,
 )
 from audiorag.core.exceptions import BudgetExceededError, StateError
+from audiorag.core.id_strategy import (
+    resolve_vector_id_format,
+    resolve_vector_id_strategy,
+    to_provider_vector_ids,
+)
 from audiorag.core.logging_config import Timer
 from audiorag.core.provider_factory import (
     create_embedding_provider,
@@ -302,14 +307,39 @@ class EmbedStage(Stage):
                 for c in ctx.chunks
             ]
             documents = [c.text for c in ctx.chunks]
+            effective_vector_id_format = resolve_vector_id_format(
+                provider_name=ctx.config.vector_store_provider,
+                configured_format=ctx.config.vector_id_format,
+                vector_store=pipeline._vector_store,
+            )
+            vector_id_strategy = resolve_vector_id_strategy(
+                provider_name=ctx.config.vector_store_provider,
+                configured_format=ctx.config.vector_id_format,
+                uuid5_namespace=ctx.config.vector_id_uuid5_namespace,
+                vector_store=pipeline._vector_store,
+            )
+            vector_ids = to_provider_vector_ids(
+                canonical_ids=ctx.chunk_ids,
+                provider_name=ctx.config.vector_store_provider,
+                configured_format=ctx.config.vector_id_format,
+                uuid5_namespace=ctx.config.vector_id_uuid5_namespace,
+                vector_store=pipeline._vector_store,
+            )
             await pipeline._vector_store.add(
-                ids=ctx.chunk_ids,
+                ids=vector_ids,
                 embeddings=embeddings,
                 metadatas=metadatas,
                 documents=documents,
             )
-            await pipeline._verify_vector_store_write(ctx.url, ctx.chunk_ids)
-            await pipeline._state.update_source_status(ctx.url, IndexingStatus.EMBEDDED)
+            await pipeline._verify_vector_store_write(ctx.url, vector_ids)
+            await pipeline._state.update_source_status(
+                ctx.url,
+                IndexingStatus.EMBEDDED,
+                metadata={
+                    "vector_id_format_effective": effective_vector_id_format,
+                    "vector_id_strategy": vector_id_strategy,
+                },
+            )
             timer.complete(chunks_count=len(ctx.chunks))
 
 
@@ -592,6 +622,15 @@ class AudioRAGPipeline:
                 source_info = await self._state.get_source_status(url)
                 if source_info is not None:
                     status = source_info["status"]
+                    current_vector_id_strategy = resolve_vector_id_strategy(
+                        provider_name=self._config.vector_store_provider,
+                        configured_format=self._config.vector_id_format,
+                        uuid5_namespace=self._config.vector_id_uuid5_namespace,
+                        vector_store=self._vector_store,
+                    )
+                    source_metadata = source_info.get("metadata") or {}
+                    previous_vector_id_strategy = source_metadata.get("vector_id_strategy")
+
                     if status == IndexingStatus.COMPLETED and not force:
                         operation_logger.info("index_skipped", reason="already_indexed")
                         return
@@ -602,6 +641,17 @@ class AudioRAGPipeline:
                             current_status=status,
                         )
                         return
+                    if (
+                        previous_vector_id_strategy is not None
+                        and previous_vector_id_strategy != current_vector_id_strategy
+                        and not force
+                    ):
+                        raise PipelineError(
+                            "Vector ID strategy changed for existing source. "
+                            "Use force=True to reindex and avoid mixed vector IDs.",
+                            stage="index",
+                            source_url=url,
+                        )
                     if force:
                         operation_logger.info("index_force_reindex")
                         await self._state.delete_source(url)
