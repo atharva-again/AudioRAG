@@ -89,7 +89,7 @@ uv add audiorag[defaults]  # or: pip install audiorag[defaults]
 uv add audiorag[all]  # or: pip install audiorag[all]
 
 # Specific providers only
-uv add audiorag[openai,chromadb,scraping,cohere]
+uv add audiorag[openai,chromadb,youtube,cohere]
 ```
 
 ## Command Line Interface
