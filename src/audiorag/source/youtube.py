@@ -91,7 +91,9 @@ class YouTubeSource:
         self._cookie_file = Path(cookie_file) if cookie_file else None
         self._po_token = po_token
         self._impersonate_client = impersonate_client
-        self._player_clients = player_clients or ["tv", "web", "mweb"]
+        self._player_clients = (
+            player_clients if player_clients is not None else ["tv", "web", "mweb"]
+        )
         self._js_runtime = js_runtime
 
     def _ensure_ffmpeg(self) -> None:
