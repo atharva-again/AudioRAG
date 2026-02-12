@@ -376,7 +376,7 @@ export AUDIORAG_GENERATION_MODEL="gemini-2.0-flash-001"
 
 **Installation:**
 ```bash
-uv add google-generativeai
+uv add google-genai
 ```
 
 ## Reranker Providers

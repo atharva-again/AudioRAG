@@ -40,7 +40,7 @@ class TestGenerationProvidersInstantiation:
 
     def test_gemini_generator_instantiation(self) -> None:
         """Test Gemini generator can be instantiated."""
-        pytest.importorskip("google.generativeai")
+        pytest.importorskip("google.genai")
         from audiorag.generate import GeminiGenerator
 
         provider = GeminiGenerator(api_key="test-key")

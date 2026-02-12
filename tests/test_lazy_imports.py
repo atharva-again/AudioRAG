@@ -13,7 +13,7 @@ import pytest
         ("audiorag.embed.voyage", "voyageai"),
         ("audiorag.generate.openai", "openai"),
         ("audiorag.generate.anthropic", "anthropic"),
-        ("audiorag.generate.gemini", "google.generativeai"),
+        ("audiorag.generate.gemini", "google.genai"),
         ("audiorag.transcribe.openai", "openai"),
         ("audiorag.transcribe.deepgram", "deepgram"),
         ("audiorag.transcribe.assemblyai", "assemblyai"),

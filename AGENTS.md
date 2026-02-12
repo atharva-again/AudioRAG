@@ -190,6 +190,8 @@ All config uses `AUDIORAG_` prefix:
   - Run type checking: `uv run ty check`
   - Build package: `uv build && uv run twine check dist/*`
 - **Never do unsigned commits** - All commits must be GPG signed
+  - If GPG signing fails with "incorrect passphrase", retry the commit command
+  - The passphrase prompt may have been missed or entered incorrectly on first attempt
 
 ## Common Gotchas
 
