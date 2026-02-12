@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-02-12 - YouTube Source Reliability Improvements
+
+### Fixed
+- **Falsey list bug in `youtube.py`**: Passing `player_clients=[]` no longer gets overridden with defaults. Uses explicit `is not None` check to distinguish between `None` (use defaults) and `[]` (use yt-dlp defaults).
+- **Playlist expansion failure handling**: Failed playlist/channel expansions now raise `DiscoveryError` immediately instead of returning the original URL, which would cause confusing "file not found" errors downstream.
+
+### Added
+- **New `DiscoveryError` exception**: Structured exception for source discovery failures with optional URL context, following existing exception hierarchy.
+- **Robust URL detection**: `_is_youtube_collection()` helper uses `urllib.parse` for proper URL parsing instead of brittle substring matching.
+- **Comprehensive test coverage**: 20 new tests in `tests/test_source_discovery.py` covering DiscoveryError, URL detection, playlist expansion, and player_clients handling.
+
 ## [0.5.1] - 2026-02-12 - Graceful Exit Handling
 
 ### Added
@@ -171,7 +182,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/atharva-again/audiorag/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/atharva-again/audiorag/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/atharva-again/audiorag/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/atharva-again/audiorag/compare/v0.3.1...v0.4.0

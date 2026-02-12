@@ -703,6 +703,21 @@ Raised when proactive budget checks fail.
 
 **Location:** `audiorag.core.exceptions.BudgetExceededError`
 
+### DiscoveryError
+
+Raised when source discovery or expansion fails (e.g., YouTube playlist/channel returns no videos).
+
+**Location:** `audiorag.core.exceptions.DiscoveryError`
+
+```python
+class DiscoveryError(AudioRAGError):
+    def __init__(
+        self, message: str, url: str | None = None
+    ) -> None
+    
+    url: str | None
+```
+
 ## Source Discovery
 
 ### discover_sources
