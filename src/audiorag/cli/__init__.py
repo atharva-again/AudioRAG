@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import signal
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -16,6 +17,8 @@ from rich.table import Table
 from rich.theme import Theme
 
 from audiorag import AudioRAGConfig, AudioRAGPipeline
+
+_active_pipeline: AudioRAGPipeline | None = None  # Set during index/query for signal handling
 
 # Top-tier design theme: Minimalist, sophisticated colors, no emojis
 AUDIORAG_THEME = Theme(
@@ -184,10 +187,16 @@ async def setup_cmd() -> None:
 
 async def index_cmd(inputs: list[str], force: bool) -> None:
     config = AudioRAGConfig()
-    pipeline = AudioRAGPipeline(config)
 
-    with console.status("[info]Indexing sources...", spinner="dots"):
-        result = await pipeline.index_many(inputs, force=force, raise_on_error=False)
+    async with AudioRAGPipeline(config) as pipeline:
+        global _active_pipeline  # noqa: PLW0603
+        _active_pipeline = pipeline
+
+        try:
+            with console.status("[info]Indexing sources...", spinner="dots"):
+                result = await pipeline.index_many(inputs, force=force, raise_on_error=False)
+        finally:
+            _active_pipeline = None
 
     if not result.discovered_sources:
         console.print("[warning]No sources found to index.[/]")
@@ -214,50 +223,61 @@ async def index_cmd(inputs: list[str], force: bool) -> None:
 async def query_cmd(query_text: str) -> None:
     """Perform a RAG query and display results in a top-tier layout."""
     config = AudioRAGConfig()
-    pipeline = AudioRAGPipeline(config)
 
-    with console.status("[info]Searching index...", spinner="dots"):
+    async with AudioRAGPipeline(config) as pipeline:
+        global _active_pipeline  # noqa: PLW0603
+        _active_pipeline = pipeline
+
         try:
-            result = await pipeline.query(query_text)
+            with console.status("[info]Searching index...", spinner="dots"):
+                result = await pipeline.query(query_text)
 
-            console.print("\n")
-            console.print(
-                Panel(
-                    result.answer,
-                    title="AudioRAG Answer",
-                    title_align="left",
-                    border_style="success",
-                    padding=(1, 2),
-                )
-            )
-
-            if result.sources:
-                table = Table(
-                    box=None,
-                    show_header=True,
-                    header_style="highlight",
-                    title="Supporting Sources",
-                    title_justify="left",
-                    title_style="dim",
-                    pad_edge=False,
-                )
-                table.add_column("#", style="dim", width=2)
-                table.add_column("Source", ratio=3)
-                table.add_column("Timestamp", justify="right", ratio=1)
-                table.add_column("Relevance", justify="right", style="success", ratio=1)
-
-                for i, source in enumerate(result.sources, 1):
-                    table.add_row(
-                        str(i),
-                        source.title,
-                        f"{source.start_time:.1f}s - {source.end_time:.1f}s",
-                        f"{source.relevance_score:.2f}",
-                    )
-                console.print(table)
                 console.print("\n")
+                console.print(
+                    Panel(
+                        result.answer,
+                        title="AudioRAG Answer",
+                        title_align="left",
+                        border_style="success",
+                        padding=(1, 2),
+                    )
+                )
+
+                if result.sources:
+                    table = Table(
+                        box=None,
+                        show_header=True,
+                        header_style="highlight",
+                        title="Supporting Sources",
+                        title_justify="left",
+                        title_style="dim",
+                        pad_edge=False,
+                    )
+                    table.add_column("#", style="dim", width=2)
+                    table.add_column("Source", ratio=3)
+                    table.add_column("Timestamp", justify="right", ratio=1)
+                    table.add_column("Relevance", justify="right", style="success", ratio=1)
+
+                    for i, source in enumerate(result.sources, 1):
+                        table.add_row(
+                            str(i),
+                            source.title,
+                            f"{source.start_time:.1f}s - {source.end_time:.1f}s",
+                            f"{source.relevance_score:.2f}",
+                        )
+                    console.print(table)
+                    console.print("\n")
         except Exception as e:
             console.print(f"[error]Query failed:[/] {e}")
             sys.exit(1)
+        finally:
+            _active_pipeline = None
+
+
+def _signal_handler(signum: int, _frame: Any) -> None:
+    sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
+    console.print(f"\n[warning]Received {sig_name}, shutting down gracefully...[/]")
+    sys.exit(0)
 
 
 def main() -> None:
@@ -305,6 +325,9 @@ Examples:
     query_parser.add_argument("text", help="The question to ask the audio index")
 
     args = parser.parse_args()
+
+    signal.signal(signal.SIGTERM, _signal_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
 
     try:
         if args.command == "setup":

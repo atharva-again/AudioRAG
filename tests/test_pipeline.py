@@ -427,3 +427,102 @@ class TestPipelineErrorHandling:
 
         with pytest.raises(Exception):  # noqa: PT011, B017
             await pipeline_for_error.query("test query")
+
+
+class TestPipelineCleanup:
+    """Test suite for pipeline cleanup and graceful exit."""
+
+    @pytest.fixture
+    async def pipeline_for_cleanup(self, mock_config, all_mock_providers):
+        """Create a pipeline for cleanup testing."""
+        return await create_mock_pipeline(mock_config, all_mock_providers)
+
+    @pytest.mark.asyncio
+    async def test_close_closes_state_manager(self, pipeline_for_cleanup, mocker) -> None:
+        """Test that close() closes the state manager."""
+        spy = mocker.spy(pipeline_for_cleanup._state, "close")
+
+        await pipeline_for_cleanup.close()
+
+        spy.assert_called_once()
+        assert pipeline_for_cleanup._initialized is False
+
+    @pytest.mark.asyncio
+    async def test_close_is_idempotent(self, pipeline_for_cleanup, mocker) -> None:
+        """Test that close() can be called multiple times without error."""
+        spy = mocker.spy(pipeline_for_cleanup._state, "close")
+
+        await pipeline_for_cleanup.close()
+        await pipeline_for_cleanup.close()
+        await pipeline_for_cleanup.close()
+
+        spy.assert_called_once()
+        assert pipeline_for_cleanup._initialized is False
+
+    @pytest.mark.asyncio
+    async def test_close_does_nothing_if_not_initialized(
+        self, mock_config, all_mock_providers
+    ) -> None:
+        """Test that close() does nothing if pipeline was never initialized."""
+        pipeline = AudioRAGPipeline(
+            config=mock_config,
+            audio_source=all_mock_providers["audio_source"],
+            stt=all_mock_providers["stt"],
+            embedder=all_mock_providers["embedding"],
+            vector_store=all_mock_providers["vector_store"],
+            generator=all_mock_providers["generation"],
+            reranker=all_mock_providers["reranker"],
+        )
+
+        await pipeline.close()
+
+        assert pipeline._initialized is False
+
+    @pytest.mark.asyncio
+    async def test_async_context_manager_initializes_and_closes(
+        self, mock_config, all_mock_providers, mocker
+    ) -> None:
+        """Test that async context manager properly initializes and closes pipeline."""
+        pipeline = AudioRAGPipeline(
+            config=mock_config,
+            audio_source=all_mock_providers["audio_source"],
+            stt=all_mock_providers["stt"],
+            embedder=all_mock_providers["embedding"],
+            vector_store=all_mock_providers["vector_store"],
+            generator=all_mock_providers["generation"],
+            reranker=all_mock_providers["reranker"],
+        )
+
+        init_spy = mocker.spy(pipeline, "_ensure_initialized")
+        close_spy = mocker.spy(pipeline._state, "close")
+
+        async with pipeline:
+            assert pipeline._initialized is True
+            init_spy.assert_called_once()
+
+        close_spy.assert_called_once()
+        assert pipeline._initialized is False
+
+    @pytest.mark.asyncio
+    async def test_async_context_manager_closes_on_exception(
+        self, mock_config, all_mock_providers, mocker
+    ) -> None:
+        """Test that async context manager closes even when exception occurs."""
+        pipeline = AudioRAGPipeline(
+            config=mock_config,
+            audio_source=all_mock_providers["audio_source"],
+            stt=all_mock_providers["stt"],
+            embedder=all_mock_providers["embedding"],
+            vector_store=all_mock_providers["vector_store"],
+            generator=all_mock_providers["generation"],
+            reranker=all_mock_providers["reranker"],
+        )
+
+        close_spy = mocker.spy(pipeline._state, "close")
+
+        with pytest.raises(ValueError, match="Test exception"):
+            async with pipeline:
+                raise ValueError("Test exception")
+
+        close_spy.assert_called_once()
+        assert pipeline._initialized is False
