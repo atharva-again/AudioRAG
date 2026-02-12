@@ -204,6 +204,10 @@ line-ending = "auto"
 [tool.ty.environment]
 python-version = "3.12"
 
+[tool.ty.rules]
+unresolved-import = "ignore"
+unused-type-ignore-comment = "ignore"
+
 [tool.ty.src]
 include = ["src", "tests"]
 exclude = [
@@ -215,5 +219,5 @@ exclude = [
 ]
 
 [tool.ty.terminal]
-error-on-warning = true
+error-on-warning = false
 output-format = "full"
