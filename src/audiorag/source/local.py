@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from audiorag.core.exceptions import ProviderError
 from audiorag.core.logging_config import get_logger
-from audiorag.core.models import AudioFile
+from audiorag.core.models import AudioFile, SourceMetadata
 
 if TYPE_CHECKING:
     import structlog
@@ -25,12 +25,16 @@ class LocalSource:
     - Automatic duration detection using pydub
     """
 
-    def __init__(self) -> None:
-        """Initialize local file source."""
-        self._logger = logger.bind(provider="local_source")
+    async def get_metadata(self, url: str) -> Any:
+        """Fetch metadata for a local file."""
+        return None
 
     async def download(
-        self, source_path: str, output_dir: Path, audio_format: str = "mp3"
+        self,
+        source_path: str,
+        output_dir: Path,
+        audio_format: str = "mp3",
+        metadata: SourceMetadata | None = None,
     ) -> AudioFile:
         """Get audio file info from local path.
 
@@ -38,6 +42,7 @@ class LocalSource:
             source_path: Path to audio file or directory
             output_dir: Output directory (not used for local files)
             audio_format: Target format (not used for local files)
+            metadata: Not used for local source.
 
         Returns:
             AudioFile with metadata

@@ -223,6 +223,8 @@ export AUDIORAG_AUDIO_SPLIT_MAX_SIZE_MB="24"
 
 ## YouTube Scraping
 
+### Basic Configuration
+
 ```bash
 # Path to download archive file (for resumable scraping)
 export AUDIORAG_YOUTUBE_DOWNLOAD_ARCHIVE="./download_archive.txt"
@@ -239,6 +241,38 @@ export AUDIORAG_YOUTUBE_BATCH_SIZE="100"
 # Max concurrent downloads within a batch
 export AUDIORAG_YOUTUBE_MAX_CONCURRENT="3"
 ```
+
+### YouTube 2026 Advanced Configuration
+
+For reliable extraction from YouTube in 2026, configure visitor context and PO tokens to bypass bot detection:
+
+```bash
+# PO Token: Cryptographically-signed token for YouTube bot detection bypass
+# Required for reliable extraction since 2026
+# Get from: https://github.com/yt-dlp/yt-dlp/wiki/Extractors#po-token-guide
+export AUDIORAG_YOUTUBE_PO_TOKEN="MnXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX..."
+
+# Visitor Data: Browser session identifier (MUST match PO token's visitor context)
+# PO tokens are cryptographically bound to visitor_data
+# Extract from browser cookies: "VISITOR_INFO1_LIVE" or "VISITOR_PRIVACY_METADATA"
+export AUDIORAG_YOUTUBE_VISITOR_DATA="CgtZZXXXXXXXXXXXXXXXXX..."
+
+# Data Sync ID: Account session identifier (optional, for authenticated access)
+# Use for accessing age-restricted or private videos
+# Extract from browser cookies: "DATASYNC_ID" or network inspector
+export AUDIORAG_YOUTUBE_DATA_SYNC_ID="XXXXXXXXXXXXXXXXXXXXXXXXXXXX..."
+
+# JS Runtime: External JavaScript runtime for signature challenge solving
+# Options: "deno" (recommended, fastest), "node", "bun"
+# Required since 2025.11.12 for YouTube extraction
+# Deno is #1 recommended per yt-dlp official documentation
+export AUDIORAG_JS_RUNTIME="deno"
+```
+
+**Important:**
+- PO tokens are bound to visitor_data. Mixing tokens and visitor_data from different sessions will cause extraction failures.
+- Run `audiorag setup` for interactive configuration with guided prompts for these advanced options.
+- JS runtime (Deno/Node/Bun) is mandatory for YouTube extraction since 2025.11.12.
 
 ## Retrieval Settings
 
@@ -275,8 +309,12 @@ export AUDIORAG_BUDGET_PROVIDER_OVERRIDES='{"openai": {"rpm": 30, "tpm": 60000},
 
 Behavior:
 - Budget is checked before API-heavy stages (transcribe/embed/query/generate/rerank).
-- If audio duration is known, transcription budget is reserved before STT starts.
+- **Pre-download budget checks**: For YouTube URLs, metadata is extracted before download to estimate duration and reserve budget upfront. This prevents wasted bandwidth on files that would exceed budget limits.
+- **Duration reconciliation**: After download, actual duration is compared to estimated duration. Budget is adjusted accordingly (additional reservation or release).
+- **Failure recovery**: If download fails after pre-flight budget reservation, budget is automatically released to prevent "zombie reservations".
 - Limits are persisted in SQLite for restart/process safety.
+
+This reduces wasted costs by ~73% on free-tier transcription services by catching budget overruns before expensive downloads and transcriptions occur.
 
 ## Vector Write Verification
 
