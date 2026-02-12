@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-12 - Provider-aware Vector ID Strategy
+
+### Added
+- Provider-aware vector ID strategy for indexing with `AUDIORAG_VECTOR_ID_FORMAT`
+  (`auto`, `sha256`, `uuid5`) and optional `AUDIORAG_VECTOR_ID_UUID5_NAMESPACE`.
+- Deterministic UUID5 conversion path for UUID-oriented vector stores while
+  preserving canonical SHA-256 IDs in SQLite state.
+- Vector store capability hint protocol (`VectorIdFormatAwareProvider`) so
+  provider defaults are explicit (`weaviate -> uuid5`, others -> `sha256`).
+- New test coverage for ID strategy resolution, deterministic UUID behavior,
+  and pipeline integration paths.
+
+### Changed
+- Embed stage now adapts provider-facing vector IDs before `add()` and verifies
+  writes using the effective provider-facing IDs.
+- Indexing now stores vector ID strategy metadata and guards against strategy
+  changes on existing sources unless `force=True` is used for reindex.
+- Configuration and docs updated across README and `docs/` for vector ID
+  strategy behavior, provider defaults, and safe migration guidance.
+
 ## [0.3.1] - 2026-02-11 - Refactor and Release Pipeline Cleanup
 
 ### Changed
@@ -105,7 +125,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/atharva-again/audiorag/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/atharva-again/audiorag/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/atharva-again/audiorag/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/atharva-again/audiorag/compare/v0.1.0...v0.2.0

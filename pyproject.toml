@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "audiorag"
-version = "0.3.1"
+version = "0.4.0"
 description = "RAG over audio files with provider-agnostic pipeline"
 readme = "README.md"
 license = "MIT"
