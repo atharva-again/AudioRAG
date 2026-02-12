@@ -13,6 +13,7 @@ logger = get_logger(__name__)
 class PineconeVectorStore(VectorStoreMixin):
     """Pinecone-based vector store."""
 
+    vector_id_default_format: str = "sha256"
     _provider_name: str = "pinecone_vector_store"
     _retryable_exceptions: tuple[type[Exception], ...] = (
         ConnectionError,

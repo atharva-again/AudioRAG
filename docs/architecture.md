@@ -102,6 +102,13 @@ SQLite-based state tracking with WAL mode for concurrency.
 - Foreign key constraints
 - Async context manager support
 
+State IDs are canonical and deterministic:
+- `source_id`: SHA-256 of source URL
+- `chunk_id`: SHA-256 of `source_id:chunk_index`
+
+Before vector store writes, pipeline can adapt canonical `chunk_id` values using
+provider-aware ID strategy (`auto`, `sha256`, `uuid5`).
+
 ### 5. Models
 
 Pydantic models for data validation and serialization.
@@ -244,7 +251,9 @@ URL -> YouTubeSource -> AudioFile
                             v
                     list[embeddings]
                             |
-                            +------> StateManager (chunk IDs)
+                            +------> StateManager (canonical chunk IDs)
+                            |
+                            +------> Provider-aware ID strategy
                             |
                             v
                     VectorStoreProvider.add()

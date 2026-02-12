@@ -18,6 +18,7 @@ logger = get_logger(__name__)
 class SupabasePgVectorStore(VectorStoreMixin):
     """Supabase pgvector-based vector store using vecs client."""
 
+    vector_id_default_format: str = "sha256"
     _provider_name: str = "supabase_pgvector"
     _retryable_exceptions: tuple[type[Exception], ...] = (
         ConnectionError,

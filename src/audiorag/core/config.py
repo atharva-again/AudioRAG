@@ -1,9 +1,10 @@
 """Configuration management for AudioRAG using pydantic-settings."""
 
+import uuid
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -105,6 +106,15 @@ class AudioRAGConfig(BaseSettings):
     vector_store_verify_mode: Literal["off", "best_effort", "strict"] = "best_effort"
     vector_store_verify_max_attempts: int = 5
     vector_store_verify_wait_seconds: float = 0.5
+    vector_id_format: Literal["auto", "sha256", "uuid5"] = "auto"
+    vector_id_uuid5_namespace: str | None = None
+
+    @field_validator("vector_id_uuid5_namespace")
+    @classmethod
+    def _validate_vector_id_uuid5_namespace(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return str(uuid.UUID(value))
 
     # -- Model Getter Methods (for backward compatibility) --
     def get_stt_model(self) -> str:

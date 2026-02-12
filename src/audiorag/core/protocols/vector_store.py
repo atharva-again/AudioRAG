@@ -1,4 +1,6 @@
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
+
+VectorIdDefaultFormat = Literal["sha256", "uuid5"]
 
 
 @runtime_checkable
@@ -19,3 +21,8 @@ class VectorStoreProvider(Protocol):
 @runtime_checkable
 class VerifiableVectorStoreProvider(Protocol):
     async def verify(self, ids: list[str]) -> bool: ...
+
+
+@runtime_checkable
+class VectorIdFormatAwareProvider(Protocol):
+    vector_id_default_format: VectorIdDefaultFormat

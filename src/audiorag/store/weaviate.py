@@ -13,6 +13,7 @@ logger = get_logger(__name__)
 class WeaviateVectorStore(VectorStoreMixin):
     """Weaviate-based vector store."""
 
+    vector_id_default_format: str = "uuid5"
     _provider_name: str = "weaviate_vector_store"
     _retryable_exceptions: tuple[type[Exception], ...] = (
         ConnectionError,

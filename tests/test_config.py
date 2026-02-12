@@ -3,6 +3,9 @@
 from pathlib import Path
 from typing import Any
 
+import pytest
+from pydantic import ValidationError
+
 from audiorag.core.config import AudioRAGConfig
 
 # ============================================================================
@@ -116,6 +119,8 @@ class TestAudioRAGConfigDefaults:
         assert config_any.vector_store_verify_mode == "best_effort"
         assert config_any.vector_store_verify_max_attempts == 5
         assert config_any.vector_store_verify_wait_seconds == 0.5
+        assert config_any.vector_id_format == "auto"
+        assert config_any.vector_id_uuid5_namespace is None
 
 
 # ============================================================================
@@ -269,6 +274,20 @@ class TestAudioRAGConfigEnvVars:
         config = AudioRAGConfig()
         config_any: Any = config
         assert config_any.vector_store_verify_wait_seconds == 1.25
+
+    def test_env_var_vector_id_format(self, monkeypatch):
+        monkeypatch.setenv("AUDIORAG_VECTOR_ID_FORMAT", "uuid5")
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.vector_id_format == "uuid5"
+
+    def test_env_var_vector_id_uuid5_namespace(self, monkeypatch):
+        monkeypatch.setenv(
+            "AUDIORAG_VECTOR_ID_UUID5_NAMESPACE", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+        )
+        config = AudioRAGConfig()
+        config_any: Any = config
+        assert config_any.vector_id_uuid5_namespace == "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
 
     def test_env_var_cleanup_audio_true(self, monkeypatch):
         """Test loading cleanup_audio as True from AUDIORAG_CLEANUP_AUDIO."""
@@ -535,6 +554,12 @@ class TestAudioRAGConfigValidation:
         monkeypatch.setenv("AUDIORAG_DATABASE_PATH", "/var/lib/audiorag.db")
         config = AudioRAGConfig()
         assert config.database_path == "/var/lib/audiorag.db"
+
+    def test_vector_id_uuid5_namespace_validation(self, monkeypatch):
+        monkeypatch.setenv("AUDIORAG_VECTOR_ID_UUID5_NAMESPACE", "not-a-uuid")
+
+        with pytest.raises(ValidationError, match="vector_id_uuid5_namespace"):
+            AudioRAGConfig()
 
 
 # ============================================================================
