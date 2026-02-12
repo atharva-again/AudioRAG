@@ -14,6 +14,7 @@ Provider-agnostic RAG pipeline for audio content. Download, transcribe, chunk, e
 - **Automatic chunking**: Time-based segmentation with configurable duration
 - **Audio splitting**: Handles large files by splitting before transcription
 - **Structured logging**: Context-aware logging with operation timing
+- **Graceful exit**: Automatic resource cleanup on completion, failure, or interruption
 - **Type-safe**: Python 3.12+ with full type annotations
 
 ## Quick Start
@@ -36,35 +37,34 @@ async def main():
         openai_api_key="sk-...",
     )
     
-    # Initialize pipeline
-    pipeline = AudioRAGPipeline(config)
-    
-    # Index audio from YouTube
-    await pipeline.index("https://youtube.com/watch?v=...")
+    # Use async context manager for automatic resource cleanup
+    async with AudioRAGPipeline(config) as pipeline:
+        # Index audio from YouTube
+        await pipeline.index("https://youtube.com/watch?v=...")
 
     # Batch indexing with partial-failure reporting
-    batch_result = await pipeline.index_many(
-        [
-            "https://youtube.com/playlist?list=...",
-            "./podcasts/",
-            "https://youtube.com/watch?v=singleVideo",
-        ],
-        raise_on_error=False,
-    )
-    print(
-        f"Indexed={len(batch_result.indexed_sources)} "
-        f"Skipped={len(batch_result.skipped_sources)} "
-        f"Failed={len(batch_result.failures)}"
-    )
-    
-    # Query the indexed content
-    result = await pipeline.query("What are the main points discussed?")
-    print(result.answer)
-    
-    # Access sources with timestamps
-    for source in result.sources:
-        print(f"{source.title} at {source.start_time}s")
-        print(f"URL: {source.source_url}")
+        batch_result = await pipeline.index_many(
+            [
+                "https://youtube.com/playlist?list=...",
+                "./podcasts/",
+                "https://youtube.com/watch?v=singleVideo",
+            ],
+            raise_on_error=False,
+        )
+        print(
+            f"Indexed={len(batch_result.indexed_sources)} "
+            f"Skipped={len(batch_result.skipped_sources)} "
+            f"Failed={len(batch_result.failures)}"
+        )
+
+        # Query the indexed content
+        result = await pipeline.query("What are the main points discussed?")
+        print(result.answer)
+
+        # Access sources with timestamps
+        for source in result.sources:
+            print(f"{source.title} at {source.start_time}s")
+            print(f"URL: {source.source_url}")
 
 asyncio.run(main())
 ```
