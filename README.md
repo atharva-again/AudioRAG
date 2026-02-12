@@ -169,6 +169,11 @@ export AUDIORAG_CHUNK_DURATION_SECONDS="30"
 export AUDIORAG_RETRIEVAL_TOP_K="10"
 export AUDIORAG_RERANK_TOP_N="3"
 
+# Optional YouTube 2026 advanced configuration (for stability)
+export AUDIORAG_YOUTUBE_PO_TOKEN="..."           # PO token for bot detection bypass
+export AUDIORAG_YOUTUBE_VISITOR_DATA="..."       # Visitor session (bound to PO token)
+export AUDIORAG_JS_RUNTIME="deno"                # JS runtime (deno/node/bun)
+
 # Optional budget governor
 export AUDIORAG_BUDGET_ENABLED="true"
 export AUDIORAG_BUDGET_RPM="60"
@@ -226,6 +231,8 @@ uv run prek install
 ## Reliability Controls
 
 - **Budget governor** (`AUDIORAG_BUDGET_ENABLED=true`): reserves budget before expensive calls and fails fast with `BudgetExceededError` when limits would be exceeded.
+- **Pre-download budget checks**: for YouTube URLs, metadata is extracted before download to reserve budget upfront, preventing wasted bandwidth on files exceeding budget limits (~73% cost reduction on free-tier services).
+- **Duration reconciliation**: actual audio duration is compared to estimated duration after download, with automatic budget adjustment.
 - **Preflight transcription reservation**: when audio duration is known, indexing reserves full audio-seconds budget before STT starts.
 - **Persistent budget accounting**: budget usage is persisted in SQLite for cross-process and restart safety.
 - **Vector write verification**: after `add()`, providers that support `verify(ids)` are checked.
