@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-02-14 - Auto-detect File Protocol
+
+### Added
+- **Audio source auto-routing**: New `AudioSourceRouter` automatically detects URL protocol:
+  - `file://` URLs → `LocalSource` (bypasses yt-dlp)
+  - Local paths (`/home/user/audio.mp3`, `./audio.mp3`) → `LocalSource`
+  - YouTube URLs → `YouTubeSource`
+  - Other HTTP URLs → `URLSource`
+- **URL source provider**: New `audio_source_provider` config option supports `url` to use URLSource directly.
+- **Robust YouTube URL detection**: Uses proper URL parsing instead of substring matching to avoid false positives (e.g., `myyoutube.com` is not YouTube).
+
+### Changed
+- **Replaced pydub with ffprobe**: Duration detection in `LocalSource` and `URLSource` now uses ffprobe directly instead of pydub.
+
+### Fixed
+- **Protocol conformance**: `get_metadata()` return type now allows `None` to conform with implementations that don't support metadata extraction.
+- **URL parameter naming**: Fixed parameter name mismatch (`source_url` → `url`) in `URLSource.download()` to match protocol.
+
+### Configuration
+```bash
+# Select audio source provider (default: youtube - auto-routing enabled)
+export AUDIORAG_AUDIO_SOURCE_PROVIDER="local"   # Force LocalSource
+export AUDIORAG_AUDIO_SOURCE_PROVIDER="url"    # Force URLSource
+export AUDIORAG_AUDIO_SOURCE_PROVIDER="youtube"  # YouTube + auto-routing (default)
+```
+
 ## [0.7.0] - 2026-02-13 - Audio Source Provider Fixes
 
 ### Added
@@ -290,7 +316,8 @@ For most users, YouTubeSource now works out of the box without any configuration
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/atharva-again/audiorag/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/atharva-again/audiorag/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/atharva-again/audiorag/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/atharva-again/audiorag/compare/v0.6.0...v0.6.1

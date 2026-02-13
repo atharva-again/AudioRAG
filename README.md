@@ -5,6 +5,7 @@ Provider-agnostic RAG pipeline for audio content. Download, transcribe, chunk, e
 ## Features
 
 - **Multi-provider support**: OpenAI, Deepgram, AssemblyAI, Groq (STT); OpenAI, Voyage, Cohere (embeddings); OpenAI, Anthropic, Gemini (generation); ChromaDB, Pinecone, Weaviate, Supabase (vector stores)
+- **Auto-protocol detection**: Automatically detects file://, local paths, YouTube URLs, and HTTP URLs
 - **Batch indexing**: Index multiple URLs, playlists, and local directories in one command
 - **Source discovery**: Automatically expand playlists and recursively scan directories
 - **Resumable processing**: SQLite state tracking with hash-based IDs
