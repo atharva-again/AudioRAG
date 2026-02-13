@@ -35,7 +35,7 @@ async def test_verifiable_vector_store_isinstance_passes() -> None:
         async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
             return []
 
-        async def delete_by_source(self, source_url: str) -> None:
+        async def delete_by_source_id(self, source_id: str) -> None:
             return None
 
         async def verify(self, ids: list[str]) -> bool:

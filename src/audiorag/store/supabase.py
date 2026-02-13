@@ -117,11 +117,11 @@ class SupabasePgVectorStore(VectorStoreMixin):
         except Exception as e:
             raise await self._wrap_error(e, "query")
 
-    async def delete_by_source(self, source_url: str) -> None:
-        """Delete all embeddings associated with a source URL."""
+    async def delete_by_source_id(self, source_id: str) -> None:
+        """Delete all embeddings associated with a source ID."""
         operation_logger = self._logger.bind(
-            operation="delete_by_source",
-            source_url=source_url,
+            operation="delete_by_source_id",
+            source_id=source_id,
         )
         operation_logger.debug("deleting_documents")
 
@@ -137,7 +137,7 @@ class SupabasePgVectorStore(VectorStoreMixin):
             )
             ids_to_delete = []
             for record in all_records:
-                if len(record) > 2 and record[2].get("source_url") == source_url:
+                if len(record) > 2 and record[2].get("source_id") == source_id:
                     ids_to_delete.append(record[0])
             if ids_to_delete:
                 collection.delete(ids=ids_to_delete)
@@ -148,7 +148,7 @@ class SupabasePgVectorStore(VectorStoreMixin):
             deleted_count = await asyncio.to_thread(_delete_sync)
             operation_logger.info("documents_deleted", deleted_count=deleted_count)
         except Exception as e:
-            raise await self._wrap_error(e, "delete_by_source")
+            raise await self._wrap_error(e, "delete_by_source_id")
 
     async def verify(self, ids: list[str]) -> bool:
         if not ids:

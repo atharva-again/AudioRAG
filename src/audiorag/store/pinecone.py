@@ -114,11 +114,11 @@ class PineconeVectorStore(VectorStoreMixin):
         except Exception as e:
             raise await self._wrap_error(e, "query")
 
-    async def delete_by_source(self, source_url: str) -> None:
-        """Delete all embeddings associated with a source URL."""
+    async def delete_by_source_id(self, source_id: str) -> None:
+        """Delete all embeddings associated with a source ID."""
         operation_logger = self._logger.bind(
-            operation="delete_by_source",
-            source_url=source_url,
+            operation="delete_by_source_id",
+            source_id=source_id,
         )
         operation_logger.debug("deleting_documents")
 
@@ -129,7 +129,7 @@ class PineconeVectorStore(VectorStoreMixin):
             index = self._ensure_initialized()
             results = index.query(
                 vector=[0.0] * len(index.describe_index_stats().dimension),
-                filter={"source_url": source_url},
+                filter={"source_id": source_id},
                 top_k=1000,
                 namespace=self._namespace,
             )
@@ -143,7 +143,7 @@ class PineconeVectorStore(VectorStoreMixin):
             deleted_count = await self._run_sync(_delete_sync)
             operation_logger.info("documents_deleted", deleted_count=deleted_count)
         except Exception as e:
-            raise await self._wrap_error(e, "delete_by_source")
+            raise await self._wrap_error(e, "delete_by_source_id")
 
     async def verify(self, ids: list[str]) -> bool:
         if not ids:

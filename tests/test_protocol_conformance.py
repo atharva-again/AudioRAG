@@ -176,7 +176,7 @@ class TestVectorStoreProviderConformance:
         """Verify VectorStoreProvider defines all required methods."""
         assert hasattr(VectorStoreProvider, "add")
         assert hasattr(VectorStoreProvider, "query")
-        assert hasattr(VectorStoreProvider, "delete_by_source")
+        assert hasattr(VectorStoreProvider, "delete_by_source_id")
 
     @pytest.mark.asyncio
     async def test_compliant_implementation_passes_isinstance(self):
@@ -195,7 +195,7 @@ class TestVectorStoreProviderConformance:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         provider = FakeVectorStore()
@@ -226,7 +226,7 @@ class TestVectorStoreProviderConformance:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         provider = FakeVectorStore()
@@ -272,7 +272,7 @@ class TestVectorStoreProviderConformance:
                     },
                 ]
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         provider = FakeVectorStore()
@@ -285,8 +285,8 @@ class TestVectorStoreProviderConformance:
         assert all("text" in r for r in results)
 
     @pytest.mark.asyncio
-    async def test_delete_by_source_method(self):
-        """Verify delete_by_source accepts source_url parameter."""
+    async def test_delete_by_source_id_method(self):
+        """Verify delete_by_source_id accepts source_id parameter."""
 
         class FakeVectorStore:
             def __init__(self):
@@ -304,13 +304,13 @@ class TestVectorStoreProviderConformance:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
-            async def delete_by_source(self, source_url: str) -> None:
-                self.deleted_sources.append(source_url)
+            async def delete_by_source_id(self, source_id: str) -> None:
+                self.deleted_sources.append(source_id)
 
         provider = FakeVectorStore()
-        await provider.delete_by_source("https://example.com/video")
+        await provider.delete_by_source_id("abc123")
 
-        assert "https://example.com/video" in provider.deleted_sources
+        assert "abc123" in provider.deleted_sources
 
     def test_non_compliant_missing_add_fails_isinstance(self):
         """Verify implementation missing add method fails isinstance."""
@@ -319,7 +319,7 @@ class TestVectorStoreProviderConformance:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         provider = NonCompliantVectorStore()
@@ -338,14 +338,14 @@ class TestVectorStoreProviderConformance:
             ) -> None:
                 pass
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         provider = NonCompliantVectorStore()
         assert not isinstance(provider, VectorStoreProvider)
 
     def test_non_compliant_missing_delete_fails_isinstance(self):
-        """Verify implementation missing delete_by_source fails isinstance."""
+        """Verify implementation missing delete_by_source_id fails isinstance."""
 
         class NonCompliantVectorStore:
             async def add(
@@ -745,8 +745,8 @@ class TestProtocolInteroperability:
                     }
                 ]
 
-            async def delete_by_source(self, source_url: str) -> None:
-                self.data = [d for d in self.data if d[2].get("source_url") != source_url]
+            async def delete_by_source_id(self, source_id: str) -> None:
+                self.data = [d for d in self.data if d[2].get("source_id") != source_id]
 
         class FakeReranker:
             async def rerank(

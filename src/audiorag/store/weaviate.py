@@ -141,11 +141,11 @@ class WeaviateVectorStore(VectorStoreMixin):
         except Exception as e:
             raise await self._wrap_error(e, "query")
 
-    async def delete_by_source(self, source_url: str) -> None:
-        """Delete all embeddings associated with a source URL."""
+    async def delete_by_source_id(self, source_id: str) -> None:
+        """Delete all embeddings associated with a source ID."""
         operation_logger = self._logger.bind(
-            operation="delete_by_source",
-            source_url=source_url,
+            operation="delete_by_source_id",
+            source_id=source_id,
         )
         operation_logger.debug("deleting_documents")
 
@@ -156,9 +156,9 @@ class WeaviateVectorStore(VectorStoreMixin):
             collection = self._ensure_initialized()
             result = collection.data.delete_many(
                 where={
-                    "path": ["source_url"],
+                    "path": ["source_id"],
                     "operator": "Equal",
-                    "valueText": source_url,
+                    "valueText": source_id,
                 }
             )
             return result.matches
@@ -167,7 +167,7 @@ class WeaviateVectorStore(VectorStoreMixin):
             deleted_count = _delete_sync()
             operation_logger.info("documents_deleted", deleted_count=deleted_count)
         except Exception as e:
-            raise await self._wrap_error(e, "delete_by_source")
+            raise await self._wrap_error(e, "delete_by_source_id")
 
     async def verify(self, ids: list[str]) -> bool:
         if not ids:
