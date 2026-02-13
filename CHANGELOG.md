@@ -273,7 +273,8 @@ For most users, YouTubeSource now works out of the box without any configuration
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/atharva-again/audiorag/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/atharva-again/audiorag/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/atharva-again/audiorag/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/atharva-again/audiorag/compare/v0.5.4...v0.5.5
