@@ -27,7 +27,7 @@ class _VectorStoreWithUuidDefault:
     async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
         return []
 
-    async def delete_by_source(self, source_url: str) -> None:
+    async def delete_by_source_id(self, source_id: str) -> None:
         return None
 
 

@@ -9,6 +9,7 @@ status guard protects against multi-process races.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import shutil
 import tempfile
 from abc import ABC, abstractmethod
@@ -90,6 +91,7 @@ class StageContext:
     """Mutable context shared across all stages of a single indexing run."""
 
     url: str
+    source_id: str
     config: AudioRAGConfig
     logger: structlog.stdlib.BoundLogger
 
@@ -365,7 +367,7 @@ class EmbedStage(Stage):
                 {
                     "start_time": c.start_time,
                     "end_time": c.end_time,
-                    "source_url": c.source_url,
+                    "source_id": ctx.source_id,
                     "title": c.title,
                 }
                 for c in ctx.chunks
@@ -746,10 +748,12 @@ class AudioRAGPipeline:
                     if force:
                         operation_logger.info("index_force_reindex")
                         await self._state.delete_source(url)
-                        await self._vector_store.delete_by_source(url)
+                        source_id = hashlib.sha256(url.encode()).hexdigest()
+                        await self._vector_store.delete_by_source_id(source_id)
 
                 ctx = StageContext(
                     url=url,
+                    source_id=hashlib.sha256(url.encode()).hexdigest(),
                     config=self._config,
                     logger=operation_logger,
                     work_dir=work_dir,

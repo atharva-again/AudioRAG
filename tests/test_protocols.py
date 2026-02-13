@@ -208,7 +208,7 @@ class TestVectorStoreProvider:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         vs = CompliantVectorStore()
@@ -218,7 +218,7 @@ class TestVectorStoreProvider:
         """Test that VectorStoreProvider protocol defines all required methods."""
         assert hasattr(VectorStoreProvider, "add")
         assert hasattr(VectorStoreProvider, "query")
-        assert hasattr(VectorStoreProvider, "delete_by_source")
+        assert hasattr(VectorStoreProvider, "delete_by_source_id")
 
     @pytest.mark.asyncio
     async def test_vector_store_compliant_implementation_passes_isinstance(self):
@@ -237,7 +237,7 @@ class TestVectorStoreProvider:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         store = CompliantVectorStore()
@@ -250,7 +250,7 @@ class TestVectorStoreProvider:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         store = IncompleteVectorStore()
@@ -269,14 +269,14 @@ class TestVectorStoreProvider:
             ) -> None:
                 pass
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         store = IncompleteVectorStore()
         assert not isinstance(store, VectorStoreProvider)
 
-    def test_vector_store_missing_delete_by_source_method_fails_isinstance(self):
-        """Test that implementation missing delete_by_source method fails isinstance check."""
+    def test_vector_store_missing_delete_by_source_id_method_fails_isinstance(self):
+        """Test that implementation missing delete_by_source_id method fails isinstance check."""
 
         class IncompleteVectorStore:
             async def add(
@@ -314,7 +314,7 @@ class TestVectorStoreProvider:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         store = MockVectorStore()
@@ -352,7 +352,7 @@ class TestVectorStoreProvider:
                     {"id": "id2", "text": "result2", "distance": 0.2},
                 ]
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         store = MockVectorStore()
@@ -365,8 +365,8 @@ class TestVectorStoreProvider:
         assert all(isinstance(result, dict) for result in results)
 
     @pytest.mark.asyncio
-    async def test_vector_store_delete_by_source_method(self):
-        """Test VectorStoreProvider delete_by_source method with mock implementation."""
+    async def test_vector_store_delete_by_source_id_method(self):
+        """Test VectorStoreProvider delete_by_source_id method with mock implementation."""
 
         class MockVectorStore:
             def __init__(self):
@@ -384,16 +384,16 @@ class TestVectorStoreProvider:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return []
 
-            async def delete_by_source(self, source_url: str) -> None:
-                self.deleted_sources.append(source_url)
+            async def delete_by_source_id(self, source_id: str) -> None:
+                self.deleted_sources.append(source_id)
 
         store = MockVectorStore()
         assert isinstance(store, VectorStoreProvider)
 
-        # Test delete_by_source method
-        source_url = "https://example.com/video"
-        await store.delete_by_source(source_url)
-        assert source_url in store.deleted_sources
+        # Test delete_by_source_id method
+        source_id = "abc123"
+        await store.delete_by_source_id(source_id)
+        assert source_id in store.deleted_sources
 
     def test_vector_store_async_mock_provider(self, mock_vector_store_provider):
         """Test VectorStoreProvider with AsyncMock from conftest."""
@@ -722,7 +722,7 @@ class TestProtocolIntegration:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return [{"id": "id1", "text": "result"}]
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         class MockGeneration:
@@ -881,7 +881,7 @@ class TestProtocolEdgeCases:
             async def query(self, embedding: list[float], top_k: int = 10) -> list[dict]:
                 return [{"id": f"id_{i}", "score": 0.9 - (i * 0.1)} for i in range(top_k)]
 
-            async def delete_by_source(self, source_url: str) -> None:
+            async def delete_by_source_id(self, source_id: str) -> None:
                 pass
 
         store = MockVectorStore()

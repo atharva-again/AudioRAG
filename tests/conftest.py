@@ -233,7 +233,7 @@ def mock_vector_store_provider() -> AsyncMock:
     """Create a mock Vector Store provider.
 
     Returns:
-        AsyncMock: Mock provider with add, query, and delete_by_source methods.
+        AsyncMock: Mock provider with add, query, and delete_by_source_id methods.
     """
     mock = AsyncMock()
     mock.add = AsyncMock(return_value=None)
@@ -245,7 +245,7 @@ def mock_vector_store_provider() -> AsyncMock:
                 "metadata": {
                     "start_time": 0.0,
                     "end_time": 5.5,
-                    "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                    "source_id": "abc123",
                     "title": "Sample Video",
                 },
                 "distance": 0.1,
@@ -256,14 +256,14 @@ def mock_vector_store_provider() -> AsyncMock:
                 "metadata": {
                     "start_time": 5.5,
                     "end_time": 11.2,
-                    "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                    "source_id": "abc123",
                     "title": "Sample Video",
                 },
                 "distance": 0.2,
             },
         ]
     )
-    mock.delete_by_source = AsyncMock(return_value=None)
+    mock.delete_by_source_id = AsyncMock(return_value=None)
     return mock
 
 
