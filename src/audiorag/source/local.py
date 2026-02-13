@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -23,7 +22,7 @@ class LocalSource:
     Supports:
     - Single audio files
     - Directories of audio files
-    - Automatic duration detection using pydub
+    - Automatic duration detection using ffprobe
     """
 
     def __init__(self) -> None:
@@ -85,7 +84,7 @@ class LocalSource:
         # Derive title from filename
         title = path.stem.replace("_", " ").replace("-", " ").strip()
 
-        # Get duration using pydub
+        # Get duration using ffprobe
         duration = await self._get_duration(path, operation_logger)
 
         return AudioFile(
@@ -98,15 +97,32 @@ class LocalSource:
     async def _get_duration(
         self, audio_path: Path, operation_logger: structlog.stdlib.BoundLogger
     ) -> float | None:
-        """Get audio duration in seconds."""
+        """Get audio duration in seconds using ffprobe."""
+        import shutil
+        import subprocess
+
+        ffprobe_path = shutil.which("ffprobe")
+        if not ffprobe_path:
+            operation_logger.warning("duration_detection_failed", error="ffprobe not found")
+            return None
+
         try:
-            from pydub import AudioSegment
-
-            def _get_sync() -> float:
-                audio = AudioSegment.from_file(str(audio_path))
-                return len(audio) / 1000.0
-
-            return await asyncio.to_thread(_get_sync)
-        except Exception as e:
+            result = subprocess.run(
+                [
+                    ffprobe_path,
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    str(audio_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return float(result.stdout.strip())
+        except (subprocess.CalledProcessError, ValueError) as e:
             operation_logger.warning("duration_detection_failed", error=str(e))
             return None

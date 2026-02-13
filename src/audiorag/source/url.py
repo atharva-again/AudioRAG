@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from audiorag.core.exceptions import ProviderError
 from audiorag.core.logging_config import get_logger
@@ -29,13 +29,13 @@ class URLSource:
     def __init__(self) -> None:
         self._logger = logger.bind(provider="url_source")
 
-    async def get_metadata(self, url: str) -> Any:
+    async def get_metadata(self, url: str) -> SourceMetadata | None:
         """Fetch metadata for a direct URL."""
         return None
 
     async def download(
         self,
-        source_url: str,
+        url: str,
         output_dir: Path,
         audio_format: str = "mp3",
         metadata: SourceMetadata | None = None,
@@ -43,7 +43,7 @@ class URLSource:
         """Download audio from HTTP URL.
 
         Args:
-            source_url: Direct URL to audio file
+            url: Direct URL to audio file
             output_dir: Directory to save downloaded file
             audio_format: Target audio format for conversion
             metadata: Not used for URL source.
@@ -52,7 +52,7 @@ class URLSource:
             AudioFile with metadata
         """
         operation_logger = self._logger.bind(
-            source_url=source_url,
+            source_url=url,
             output_dir=str(output_dir),
             audio_format=audio_format,
             operation="download",
@@ -62,9 +62,9 @@ class URLSource:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Determine filename from URL or content-disposition
-        filename = await self._get_filename(source_url, operation_logger)
+        filename = await self._get_filename(url, operation_logger)
         if not filename:
-            filename = f"audio_{hash(source_url) % 1000000:06d}.{audio_format}"
+            filename = f"audio_{hash(url) % 1000000:06d}.{audio_format}"
         else:
             # Use the extension from the audio_format, not the original
             stem = Path(filename).stem
@@ -73,12 +73,12 @@ class URLSource:
         output_path = output_dir / filename
 
         # Download the file
-        content = await self._download_file(source_url, operation_logger)
+        content = await self._download_file(url, operation_logger)
 
         # Write to output file
         await asyncio.to_thread(output_path.write_bytes, content)
 
-        # Get duration using pydub
+        # Get duration using ffprobe
         duration = await self._get_duration(output_path, operation_logger)
 
         # Derive title from filename
@@ -86,7 +86,7 @@ class URLSource:
 
         return AudioFile(
             path=output_path,
-            source_url=source_url,
+            source_url=url,
             title=title,
             duration=duration,
         )
@@ -147,15 +147,32 @@ class URLSource:
     async def _get_duration(
         self, audio_path: Path, operation_logger: structlog.stdlib.BoundLogger
     ) -> float | None:
-        """Get audio duration in seconds."""
+        """Get audio duration in seconds using ffprobe."""
+        import shutil
+        import subprocess
+
+        ffprobe_path = shutil.which("ffprobe")
+        if not ffprobe_path:
+            operation_logger.warning("duration_detection_failed", error="ffprobe not found")
+            return None
+
         try:
-            from pydub import AudioSegment
-
-            def _get_sync() -> float:
-                audio = AudioSegment.from_file(str(audio_path))
-                return len(audio) / 1000.0
-
-            return await asyncio.to_thread(_get_sync)
-        except Exception as e:
+            result = subprocess.run(
+                [
+                    ffprobe_path,
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    str(audio_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return float(result.stdout.strip())
+        except (subprocess.CalledProcessError, ValueError) as e:
             operation_logger.warning("duration_detection_failed", error=str(e))
             return None
