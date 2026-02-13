@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from audiorag.core.config import AudioRAGConfig
+from audiorag.core.logging_config import get_logger
 from audiorag.core.protocols import (
     AudioSourceProvider,
     EmbeddingProvider,
@@ -13,26 +15,130 @@ from audiorag.core.protocols import (
 )
 from audiorag.core.retry_config import RetryConfig
 
+if TYPE_CHECKING:
+    from audiorag.core.models import AudioFile, SourceMetadata
+
+
+class AudioSourceRouter:
+    """Router that delegates to the appropriate audio source provider based on URL.
+
+    Auto-detects:
+    - file:// URLs or local paths → LocalSource
+    - youtube.com, youtu.be → YouTubeSource
+    - Direct HTTP URLs → URLSource
+    """
+
+    def __init__(
+        self,
+        youtube_provider: AudioSourceProvider,
+        local_provider: AudioSourceProvider,
+        url_provider: AudioSourceProvider,
+    ) -> None:
+        self._youtube = youtube_provider
+        self._local = local_provider
+        self._url = url_provider
+        self._logger = get_logger("audiorag.source_router")
+
+    @staticmethod
+    def _is_youtube_url(url: str) -> bool:
+        """Check if URL is a YouTube URL using proper domain matching."""
+        try:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(url)
+            netloc = parsed.netloc.lower()
+
+            # Match exact youtu.be or any subdomain (www, etc.)
+            if netloc == "youtu.be" or netloc.endswith(".youtu.be"):
+                return True
+
+            # For youtube.com, ensure it's either exact match or a known subdomain
+            return netloc == "youtube.com" or netloc.endswith(".youtube.com")
+        except Exception:
+            return "youtube.com" in url or "youtu.be" in url
+
+    def _get_provider(self, url: str) -> tuple[AudioSourceProvider, str]:
+        """Determine which provider to use based on URL."""
+        # Check for file:// protocol or local path
+        # Local paths: absolute (/home/user/audio.mp3), relative (./audio.mp3),
+        # or with file:// prefix
+        if url.startswith("file://"):
+            return self._local, "local"
+
+        # Check if it looks like a local path (starts with /, ./, ../)
+        # This catches absolute paths like /home/user/audio.mp3 and relative paths
+        if url.startswith("/") or url.startswith("./") or url.startswith("../"):
+            return self._local, "local"
+
+        # Check for local path that exists
+        if Path(url).exists():
+            return self._local, "local"
+
+        # Check for YouTube URLs
+        if self._is_youtube_url(url):
+            return self._youtube, "youtube"
+
+        # Default to URL source for direct HTTP/HTTPS URLs
+        return self._url, "url"
+
+    async def get_metadata(self, url: str) -> SourceMetadata | None:
+        """Get metadata using the appropriate provider."""
+        provider, _ = self._get_provider(url)
+        return await provider.get_metadata(url)
+
+    async def download(
+        self,
+        url: str,
+        output_dir: Path,
+        audio_format: str = "mp3",
+        metadata: SourceMetadata | None = None,
+    ) -> AudioFile:
+        """Download audio using the appropriate provider."""
+        provider, _ = self._get_provider(url)
+        return await provider.download(url, output_dir, audio_format, metadata)
+
 
 def create_audio_source_provider(config: AudioRAGConfig) -> AudioSourceProvider:
-    """Create an audio source provider based on config."""
-    provider_name = config.audio_source_provider.lower()
+    """Create an audio source provider based on config.
 
-    if provider_name == "local":
-        from audiorag.source.local import LocalSource
-
-        return LocalSource()
-
+    Returns an AudioSourceRouter that auto-detects URL protocol:
+    - file:// URLs or local paths → LocalSource
+    - youtube.com, youtu.be → YouTubeSource
+    - Direct HTTP URLs → URLSource
+    """
     from audiorag.pipeline import _build_ydl_opts
+    from audiorag.source.local import LocalSource
+    from audiorag.source.url import URLSource
     from audiorag.source.youtube import YouTubeSource
 
+    provider_name = config.audio_source_provider.lower()
+
+    # Create providers
+    local_provider = LocalSource()
+    url_provider = URLSource()
+
+    if provider_name == "local":
+        # Return just local provider if explicitly configured
+        return local_provider
+    if provider_name == "url":
+        # Return just url provider if explicitly configured
+        return url_provider
+
+    # Default: YouTube provider with full config
     archive_path = (
         Path(config.youtube_download_archive) if config.youtube_download_archive else None
     )
     ydl_opts = _build_ydl_opts(config)
-    return YouTubeSource(
+    youtube_provider = YouTubeSource(
         download_archive=archive_path,
         ydl_opts=ydl_opts,
+    )
+
+    # Return router that auto-detects based on URL
+    return AudioSourceRouter(
+        youtube_provider=youtube_provider,
+        local_provider=local_provider,
+        url_provider=url_provider,
     )
 
 
