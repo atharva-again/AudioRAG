@@ -423,6 +423,24 @@ _DEFAULT_STAGES: tuple[Stage, ...] = (
 )
 
 
+def _build_ydl_opts(config: AudioRAGConfig) -> dict[str, Any] | None:
+    """Build yt-dlp options from config."""
+    ydl_opts: dict[str, Any] = {}
+    if config.youtube_po_token:
+        yt_args = ydl_opts.setdefault("extractor_args", {}).setdefault("youtube", {})
+        token = config.youtube_po_token
+        if "+" not in token:
+            token = f"web.gvs+{token}"
+        yt_args["po_token"] = [token]
+    if config.youtube_visitor_data:
+        ydl_opts.setdefault("extractor_args", {}).setdefault("youtube", {})["visitor_data"] = (
+            config.youtube_visitor_data
+        )
+    if config.youtube_impersonate:
+        ydl_opts["impersonate"] = config.youtube_impersonate
+    return ydl_opts if ydl_opts else None
+
+
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
@@ -482,17 +500,10 @@ class AudioRAGPipeline:
             archive_path = (
                 Path(config.youtube_download_archive) if config.youtube_download_archive else None
             )
+            ydl_opts = _build_ydl_opts(config)
             self._audio_source = YouTubeSource(
                 download_archive=archive_path,
-                concurrent_fragments=config.youtube_concurrent_fragments,
-                skip_playlist_after_errors=config.youtube_skip_after_errors,
-                cookie_file=config.youtube_cookie_file,
-                po_token=config.youtube_po_token,
-                visitor_data=config.youtube_visitor_data,
-                data_sync_id=config.youtube_data_sync_id,
-                impersonate_client=config.youtube_impersonate,
-                player_clients=config.youtube_player_clients,
-                js_runtime=config.js_runtime,
+                ydl_opts=ydl_opts,
             )
 
         # Initialize STT provider based on config
