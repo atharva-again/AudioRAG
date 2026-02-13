@@ -22,7 +22,12 @@ Downloads audio from YouTube videos using yt-dlp with 2026 bleeding-edge extract
 
 **Installation:**
 ```bash
-uv add yt-dlp pydub
+# Requires ffmpeg to be installed on your system
+# On macOS: brew install ffmpeg
+# On Ubuntu/Debian: sudo apt install ffmpeg
+
+# YouTube extraction
+uv add yt-dlp
 # For YouTube 2026 JS challenge solving (mandatory since 2025.11.12)
 uv add yt-dlp-ejs curl-cffi
 ```

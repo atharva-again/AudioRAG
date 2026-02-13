@@ -11,10 +11,6 @@ from typing import TYPE_CHECKING, Any, cast
 from audiorag.core.exceptions import ProviderError
 from audiorag.core.logging_config import get_logger
 from audiorag.core.models import AudioFile, SourceMetadata
-from audiorag.core.retry_config import (
-    RetryConfig,
-    create_retry_decorator,
-)
 
 if TYPE_CHECKING:
     import structlog
@@ -46,7 +42,6 @@ class YouTubeSource:
 
     def __init__(
         self,
-        retry_config: RetryConfig | None = None,
         *,
         download_archive: Path | str | None = None,
         concurrent_fragments: int = 3,
@@ -66,7 +61,6 @@ class YouTubeSource:
         """Initialize YouTubeSource and validate FFmpeg availability.
 
         Args:
-            retry_config: Retry configuration. Uses default if not provided.
             download_archive: Path to file tracking already downloaded video IDs.
                 Essential for large channels (20k+ videos) to avoid re-downloads.
             concurrent_fragments: Number of fragments to download concurrently.
@@ -91,7 +85,6 @@ class YouTubeSource:
                 Defaults to ["configs", "js"] if None.
         """
         self._logger = logger.bind(provider="youtube_source")
-        self._retry_config = retry_config or RetryConfig()
         self._download_archive = Path(download_archive) if download_archive else None
         self._concurrent_fragments = concurrent_fragments
         self._skip_playlist_after_errors = skip_playlist_after_errors
@@ -120,32 +113,6 @@ class YouTubeSource:
                 provider="youtube_source",
                 retryable=False,
             )
-
-    def _ensure_js_runtime(self) -> None:
-        """Verify that a valid JavaScript runtime is available for YouTube extraction.
-
-        Since 2025.11.12, yt-dlp requires an external JS runtime to solve
-        YouTube's signature challenges. Deno is the preferred runtime.
-        """
-        runtimes = ["deno", "node", "bun", "quickjs"]
-        found = any(shutil.which(r) for r in runtimes)
-
-        if not found and not self._js_runtime:
-            self._logger.warning("no_js_runtime_found_youtube_may_fail")
-            # We don't raise here yet as yt-dlp might have its own detection,
-            # but we warn the user proactively.
-            print(
-                "\n[AudioRAG WARNING] No JavaScript runtime (Deno/Node.js) detected. "
-                "YouTube extraction WILL fail since late 2025 updates. "
-                "Recommendation: Install Deno (https://deno.com) for the best experience.\n"
-            )
-
-    def _get_retry_decorator(self) -> Any:
-        """Get retry decorator configured for YouTube download operations."""
-        return create_retry_decorator(
-            config=self._retry_config,
-            exception_types=(ConnectionError, TimeoutError),
-        )
 
     def _get_base_ydl_opts(self) -> dict[str, Any]:
         opts: dict[str, Any] = {
@@ -316,16 +283,11 @@ class YouTubeSource:
         Useful for pre-download budget checks and duration validation.
         """
         self._ensure_ffmpeg()
-        self._ensure_js_runtime()
 
-        retry_decorator = self._get_retry_decorator()
-
-        @retry_decorator
         def _get_info() -> SourceMetadata:
             import yt_dlp
 
             opts = self._get_base_ydl_opts()
-            # Minimal extraction for metadata only
             opts["skip_download"] = True
             with yt_dlp.YoutubeDL(cast(Any, opts)) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -349,7 +311,6 @@ class YouTubeSource:
         max_videos: int | None = None,
     ) -> list[VideoInfo]:
         self._ensure_ffmpeg()
-        self._ensure_js_runtime()
         operation_logger = self._logger.bind(
             url=channel_url,
             max_videos=max_videos,
@@ -357,9 +318,6 @@ class YouTubeSource:
         )
         operation_logger.info("channel_listing_started")
 
-        retry_decorator = self._get_retry_decorator()
-
-        @retry_decorator
         def _list_sync() -> list[VideoInfo]:
             import yt_dlp
 
@@ -482,7 +440,6 @@ class YouTubeSource:
         metadata: SourceMetadata | None = None,
     ) -> AudioFile:
         self._ensure_ffmpeg()
-        self._ensure_js_runtime()
         operation_logger = self._logger.bind(
             url=url,
             output_dir=str(output_dir),
@@ -493,14 +450,10 @@ class YouTubeSource:
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        retry_decorator = self._get_retry_decorator()
-
-        @retry_decorator
-        def _download_with_retry() -> Any:
-            return self._download_sync(url, output_dir, audio_format, operation_logger, metadata)
-
         try:
-            result = await asyncio.to_thread(_download_with_retry)
+            result = await asyncio.to_thread(
+                self._download_sync, url, output_dir, audio_format, operation_logger, metadata
+            )
 
             operation_logger.info(
                 "download_completed",
@@ -538,13 +491,8 @@ class YouTubeSource:
 
         try:
             with yt_dlp.YoutubeDL(cast(Any, ydl_opts)) as ydl:
-                if metadata and metadata.raw:
-                    operation_logger.debug("using_provided_metadata_raw")
-                    # process_info downloads the video using already fetched metadata
-                    info = ydl.process_info(cast(Any, metadata.raw))
-                else:
-                    operation_logger.debug("extracting_video_info")
-                    info = ydl.extract_info(url, download=True)
+                operation_logger.debug("extracting_video_info")
+                info = ydl.extract_info(url, download=True)
 
                 if info is None:
                     raise ProviderError(

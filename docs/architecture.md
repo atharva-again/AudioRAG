@@ -30,7 +30,7 @@ User Query
 |     Download      |---->|      Split        |---->|   Transcribe      |
 |                   |     |                   |     |                   |
 | - YouTube/audio   |     | - Large files     |     | - STT provider    |
-| - yt-dlp          |     | - pydub           |     | - Whisper/Deepgram|
+| - yt-dlp          |     | - ffmpeg          |     | - Whisper/Deepgram|
 +-------------------+     +-------------------+     +-------------------+
                                                                |
                                                                v
@@ -145,9 +145,9 @@ Pydantic-settings based configuration with environment variable support.
    - Supports concurrent fragments
    - Archive file for resumable scraping
 
-2. **Split**
+ 2. **Split**
    - Check file size against threshold
-   - Split large files using pydub
+   - Split large files using ffmpeg
    - Maintain sequential ordering
    - Track cumulative time offsets
 

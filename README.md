@@ -82,7 +82,7 @@ pip install audiorag
 ### Optional Dependencies
 
 ```bash
-# Audio scraping utilities (yt-dlp, pydub)
+# Audio scraping utilities (yt-dlp, ffmpeg)
 uv add audiorag[defaults]  # or: pip install audiorag[defaults]
 
 # All providers and utilities

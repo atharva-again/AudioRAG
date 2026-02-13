@@ -83,8 +83,13 @@ def create_vector_store_provider(
     provider_name = config.vector_store_provider.lower()
 
     if provider_name == "supabase":
-        from audiorag.store.supabase import SupabasePgVectorStore
-
+        try:
+            from audiorag.store.supabase import SupabasePgVectorStore
+        except ImportError as e:
+            raise ImportError(
+                "supabase vector store requires 'supabase' package. "
+                "Install with: pip install audiorag[supabase]"
+            ) from e
         return SupabasePgVectorStore(
             connection_string=config.supabase_connection_string or "",
             collection_name=config.supabase_collection_name or "audiorag",
@@ -92,8 +97,13 @@ def create_vector_store_provider(
             retry_config=retry_config,
         )
     if provider_name == "pinecone":
-        from audiorag.store.pinecone import PineconeVectorStore
-
+        try:
+            from audiorag.store.pinecone import PineconeVectorStore
+        except ImportError as e:
+            raise ImportError(
+                "pinecone vector store requires 'pinecone-client' package. "
+                "Install with: pip install audiorag[pinecone]"
+            ) from e
         return PineconeVectorStore(
             api_key=config.pinecone_api_key or "",
             index_name=config.pinecone_index_name or "audiorag",
@@ -101,16 +111,26 @@ def create_vector_store_provider(
             retry_config=retry_config,
         )
     if provider_name == "weaviate":
-        from audiorag.store.weaviate import WeaviateVectorStore
-
+        try:
+            from audiorag.store.weaviate import WeaviateVectorStore
+        except ImportError as e:
+            raise ImportError(
+                "weaviate vector store requires 'weaviate-client' package. "
+                "Install with: pip install audiorag[weaviate]"
+            ) from e
         return WeaviateVectorStore(
             url=config.weaviate_url or None,
             api_key=config.weaviate_api_key or None,
             collection_name=config.weaviate_collection_name or "AudioRAG",
             retry_config=retry_config,
         )
-    from audiorag.store.chromadb import ChromaDBVectorStore
-
+    try:
+        from audiorag.store.chromadb import ChromaDBVectorStore
+    except ImportError as e:
+        raise ImportError(
+            "chromadb vector store requires 'chromadb' package. "
+            "Install with: pip install audiorag[chromadb]"
+        ) from e
     return ChromaDBVectorStore(
         persist_directory=config.chromadb_persist_directory or "./chroma_db",
         collection_name=config.chromadb_collection_name or "audiorag",
