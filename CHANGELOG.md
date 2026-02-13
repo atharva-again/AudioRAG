@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-02-13 - Budget Error Fix
+
+### Fixed
+- **BudgetExceededError handling**: Fixed bug where budget errors during pre-download metadata extraction were being swallowed by generic exception handler, causing wasted bandwidth and API calls. Budget errors now fail-fast immediately at the pre-download stage.
+
 ## [0.6.1] - 2026-02-13 - YouTubeSource Lean Refactor
 
 ### Changed
