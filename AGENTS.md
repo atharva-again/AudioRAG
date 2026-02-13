@@ -193,6 +193,15 @@ All config uses `AUDIORAG_` prefix:
   - If GPG signing fails with "incorrect passphrase", retry the commit command
   - The passphrase prompt may have been missed or entered incorrectly on first attempt
 
+## Release Guidelines
+
+- Always follow SemVer guidelines while deciding tag number
+- Always update the changelog. Make sure all hyperlinks work correctly.
+- Update the readme and docs if needed
+- All of this should be done directly on the master branch
+- After version is decided, update it in pyproject.toml, uv.lock, and audiorag/__init__.py
+- Commit and push both the code changes as well as the tag to both local and origin
+
 ## Common Gotchas
 
 - Never import optional dependencies at module level
