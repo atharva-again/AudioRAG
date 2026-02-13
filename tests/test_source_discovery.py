@@ -158,49 +158,37 @@ class TestExpandYouTubeSource:
         assert result == ["https://www.youtube.com/watch?v=video1"]
 
 
-class TestYouTubeSourcePlayerClients:
-    """Test YouTubeSource player_clients handling."""
+class TestYouTubeSourceYdlOpts:
+    """Test YouTubeSource ydl_opts handling."""
 
-    def test_player_clients_uses_default_when_none(self) -> None:
-        """Test default clients are used when None is passed."""
+    def test_ydl_opts_passed_to_extractor(self) -> None:
+        """Test ydl_opts are passed through to yt-dlp options."""
         from audiorag.source.youtube import YouTubeSource
 
-        source = YouTubeSource(player_clients=None)
-        assert source._player_clients == ["tv", "web", "mweb"]
+        source = YouTubeSource(
+            ydl_opts={"extractor_args": {"youtube": {"player_client": ["tv", "android"]}}}
+        )
+        opts = source._get_opts(metadata_only=True)
 
-    def test_player_clients_accepts_empty_list(self) -> None:
-        """Test empty list is preserved and not overridden."""
+        assert opts["extractor_args"]["youtube"]["player_client"] == ["tv", "android"]
+
+    def test_download_archive_supported(self) -> None:
+        """Test download_archive is passed to yt-dlp."""
         from audiorag.source.youtube import YouTubeSource
 
-        source = YouTubeSource(player_clients=[])
-        assert source._player_clients == []
+        source = YouTubeSource(download_archive="/tmp/archive.txt")
+        opts = source._get_opts(metadata_only=True)
 
-    def test_player_clients_accepts_custom_list(self) -> None:
-        """Test custom client list is preserved."""
+        assert opts["download_archive"] == "/tmp/archive.txt"
+
+    def test_empty_ydl_opts_uses_defaults(self) -> None:
+        """Test default options when no ydl_opts provided."""
         from audiorag.source.youtube import YouTubeSource
 
-        custom_clients = ["android", "ios"]
-        source = YouTubeSource(player_clients=custom_clients)
-        assert source._player_clients == custom_clients
+        source = YouTubeSource()
+        opts = source._get_opts(metadata_only=True)
 
-    def test_player_clients_passed_to_extractor_args(self) -> None:
-        """Test player_clients are correctly passed to yt-dlp options."""
-        from audiorag.source.youtube import YouTubeSource
-
-        custom_clients = ["tv", "android"]
-        source = YouTubeSource(player_clients=custom_clients)
-        opts = source._get_base_ydl_opts()
-
-        assert opts["extractor_args"]["youtube"]["player_client"] == custom_clients
-
-    def test_empty_player_clients_passed_to_extractor_args(self) -> None:
-        """Test empty list is passed to yt-dlp options."""
-        from audiorag.source.youtube import YouTubeSource
-
-        source = YouTubeSource(player_clients=[])
-        opts = source._get_base_ydl_opts()
-
-        assert opts["extractor_args"]["youtube"]["player_client"] == []
+        assert opts["skip_download"] is True
 
 
 class TestDiscoverSources:
