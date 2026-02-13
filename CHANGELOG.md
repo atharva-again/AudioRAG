@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-02-13 - YouTubeSource Lean Refactor
+
+### Changed
+- **Simplified YouTubeSource**: Reduced from 632 to 242 lines (62% smaller) by removing 16 hardcoded yt-dlp constructor parameters
+- **Unified yt-dlp options**: Now uses `ydl_opts` dict for all yt-dlp options instead of individual parameters
+- **Delegated to yt-dlp**: PO tokens, cookies, JS runtime, and other advanced options are now handled by yt-dlp internally rather than being re-implemented
+
+### Breaking
+- `YouTubeSource` constructor now only accepts `ydl_opts` and `download_archive` parameters
+- Users who were passing individual yt-dlp options (po_token, visitor_data, impersonate_client, etc.) need to pass them via `ydl_opts` dict
+
+### How to migrate
+```python
+# Before
+YouTubeSource(po_token="xxx", visitor_data="yyy", player_clients=["tv"])
+
+# After
+YouTubeSource(ydl_opts={
+    "extractor_args": {
+        "youtube": {
+            "po_token": ["web.gvs+xxx"],
+            "visitor_data": "yyy",
+            "player_client": ["tv"]
+        }
+    }
+})
+```
+
+For most users, YouTubeSource now works out of the box without any configuration.
+
 ## [0.6.0] - 2026-02-13 - Simplification Refactor
 
 ### Breaking
@@ -238,7 +268,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/atharva-again/audiorag/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/atharva-again/audiorag/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/atharva-again/audiorag/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/atharva-again/audiorag/compare/v0.5.3...v0.5.4
