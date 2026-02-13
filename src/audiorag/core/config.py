@@ -104,6 +104,7 @@ class AudioRAGConfig(BaseSettings):
         extra="ignore",
     )
 
+    audio_source_provider: str = "youtube"
     stt_provider: str = "openai"
     embedding_provider: str = "openai"
     vector_store_provider: str = "chromadb"
