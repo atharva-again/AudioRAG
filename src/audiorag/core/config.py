@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import platform
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -11,6 +13,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 if TYPE_CHECKING:
     from audiorag.core.config import AdvancedConfig
+
+
+def _get_default_work_dir() -> Path:
+    """Get platform-appropriate default work directory for audio caching."""
+    system = platform.system()
+    if system == "Windows":
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    elif system == "Darwin":
+        base = Path.home() / "Library" / "Caches"
+    else:  # Linux and other POSIX
+        base = Path.home() / ".cache"
+    return base / "audiorag"
 
 
 class AdvancedConfig(BaseSettings):
@@ -128,7 +142,7 @@ class AudioRAGConfig(BaseSettings):
     audio_format: str = "mp3"
     audio_split_max_size_mb: int = 24
     database_path: str = "audiorag.db"
-    work_dir: Path | None = None
+    work_dir: Path = Field(default_factory=_get_default_work_dir)
 
     youtube_download_archive: str | None = None
     youtube_concurrent_fragments: int = 3

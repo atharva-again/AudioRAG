@@ -325,6 +325,89 @@ async def query_cmd(query_text: str) -> None:
             _active_pipeline = None
 
 
+async def cache_info_cmd() -> None:
+    """Show cache location and size information."""
+    config = AudioRAGConfig()
+    work_dir = config.work_dir
+
+    if work_dir is None:
+        console.print("[warning]No cache directory configured (work_dir not set).[/]")
+        return
+
+    if not work_dir.exists():
+        console.print(f"[warning]Cache directory does not exist: {work_dir}[/]")
+        return
+
+    info = {
+        "location": str(work_dir),
+        "file_count": 0,
+        "total_size_bytes": 0,
+    }
+
+    total_size = 0
+    file_count = 0
+    for item in work_dir.rglob("*"):
+        if item.is_file():
+            try:
+                total_size += item.stat().st_size
+                file_count += 1
+            except OSError:
+                continue
+    info["file_count"] = file_count
+    info["total_size_bytes"] = total_size
+
+    console.print(Panel("[info]Cache Information[/]", border_style="cyan", expand=False))
+    console.print(f"[dim]Location:[/] {info['location']}")
+    console.print(f"[dim]Files:[/] {info['file_count']}")
+
+    size_mb = info["total_size_bytes"] / (1024 * 1024)
+    if size_mb >= 1:
+        console.print(f"[dim]Size:[/] {size_mb:.2f} MB")
+    else:
+        size_kb = info["total_size_bytes"] / 1024
+        console.print(f"[dim]Size:[/] {size_kb:.2f} KB")
+
+
+async def cache_clear_cmd() -> None:
+    """Clear the work directory cache."""
+    config = AudioRAGConfig()
+    work_dir = config.work_dir
+
+    if work_dir is None:
+        console.print("[warning]No cache configured (work_dir is not set).[/]")
+        return
+
+    if not work_dir.exists():
+        console.print("[warning]No cache to clear (directory doesn't exist).[/]")
+        return
+
+    confirm = await questionary.confirm(
+        f"Clear cache at {work_dir}? This will delete all downloaded audio files.",
+        default=False,
+        style=QUESTIONARY_STYLE,
+    ).ask_async()
+
+    if not confirm:
+        console.print("[info]Cache clear cancelled.[/]")
+        return
+
+    import shutil
+
+    cleared = 0
+    for item in work_dir.iterdir():
+        try:
+            if item.is_file():
+                item.unlink()
+                cleared += 1
+            elif item.is_dir():
+                shutil.rmtree(item, ignore_errors=True)
+                cleared += 1
+        except OSError:
+            continue
+
+    console.print(f"[success]Cleared {cleared} items from cache.[/]")
+
+
 def _signal_handler(signum: int, _frame: Any) -> None:
     sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
     console.print(f"\n[warning]Received {sig_name}, shutting down gracefully...[/]")
@@ -375,6 +458,28 @@ Examples:
     query_parser = subparsers.add_parser("query", help="Query the semantic index")
     query_parser.add_argument("text", help="The question to ask the audio index")
 
+    # Cache
+    cache_parser = subparsers.add_parser(
+        "cache",
+        help="Manage the audio file cache",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  audiorag cache info
+  audiorag cache clear
+        """,
+    )
+    cache_subparsers = cache_parser.add_subparsers(dest="cache_command", help="Cache operation")
+
+    cache_subparsers.add_parser(
+        "info",
+        help="Show cache location and size",
+    )
+    cache_subparsers.add_parser(
+        "clear",
+        help="Clear all cached audio files",
+    )
+
     args = parser.parse_args()
 
     signal.signal(signal.SIGTERM, _signal_handler)
@@ -387,6 +492,13 @@ Examples:
             asyncio.run(index_cmd(args.inputs, args.force))
         elif args.command == "query":
             asyncio.run(query_cmd(args.text))
+        elif args.command == "cache":
+            if args.cache_command == "info":
+                asyncio.run(cache_info_cmd())
+            elif args.cache_command == "clear":
+                asyncio.run(cache_clear_cmd())
+            else:
+                cache_parser.print_help()
         else:
             parser.print_help()
     except KeyboardInterrupt:

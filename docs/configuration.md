@@ -386,8 +386,8 @@ Notes:
 # SQLite database path
 export AUDIORAG_DATABASE_PATH="audiorag.db"
 
-# Working directory for audio files
-export AUDIORAG_WORK_DIR="/tmp/audiorag"
+# Working directory for audio files (defaults to ~/.cache/audiorag)
+export AUDIORAG_WORK_DIR="~/.cache/audiorag"
 ```
 
 ## Logging
