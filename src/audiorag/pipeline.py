@@ -154,6 +154,8 @@ class DownloadStage(Stage):
                             audio_seconds=seconds,
                         )
                         ctx.reserved_audio_seconds = seconds
+                except BudgetExceededError:
+                    raise
                 except Exception as e:
                     ctx.logger.warning("pre_download_metadata_failed", error=str(e))
                     # Fallback to standard download if metadata fetch fails
