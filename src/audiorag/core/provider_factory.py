@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from audiorag.core.config import AudioRAGConfig
 from audiorag.core.protocols import (
+    AudioSourceProvider,
     EmbeddingProvider,
     GenerationProvider,
     RerankerProvider,
@@ -9,6 +12,28 @@ from audiorag.core.protocols import (
     VectorStoreProvider,
 )
 from audiorag.core.retry_config import RetryConfig
+
+
+def create_audio_source_provider(config: AudioRAGConfig) -> AudioSourceProvider:
+    """Create an audio source provider based on config."""
+    provider_name = config.audio_source_provider.lower()
+
+    if provider_name == "local":
+        from audiorag.source.local import LocalSource
+
+        return LocalSource()
+
+    from audiorag.pipeline import _build_ydl_opts
+    from audiorag.source.youtube import YouTubeSource
+
+    archive_path = (
+        Path(config.youtube_download_archive) if config.youtube_download_archive else None
+    )
+    ydl_opts = _build_ydl_opts(config)
+    return YouTubeSource(
+        download_archive=archive_path,
+        ydl_opts=ydl_opts,
+    )
 
 
 def create_stt_provider(config: AudioRAGConfig, retry_config: RetryConfig) -> STTProvider:

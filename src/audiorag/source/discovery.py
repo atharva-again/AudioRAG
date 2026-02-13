@@ -67,7 +67,9 @@ async def _expand_youtube_source(item: str, config: AudioRAGConfig | None) -> li
                     "visitor_data"
                 ] = config.youtube_visitor_data
             if config.youtube_impersonate:
-                ydl_opts["impersonate"] = config.youtube_impersonate
+                from yt_dlp.networking.impersonate import ImpersonateTarget
+
+                ydl_opts["impersonate"] = ImpersonateTarget.from_str(config.youtube_impersonate)
 
         scraper = YouTubeSource(
             download_archive=config.youtube_download_archive if config else None,

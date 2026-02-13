@@ -46,6 +46,7 @@ from audiorag.core.id_strategy import (
 )
 from audiorag.core.logging_config import Timer
 from audiorag.core.provider_factory import (
+    create_audio_source_provider,
     create_embedding_provider,
     create_generation_provider,
     create_reranker_provider,
@@ -140,7 +141,13 @@ class DownloadStage(Stage):
 
             # Pre-download budget check using metadata (duration)
             metadata = None
-            if "youtube.com" in ctx.url or "youtu.be" in ctx.url:
+            needs_budget_check = (
+                "youtube.com" in ctx.url
+                or "youtu.be" in ctx.url
+                or ctx.url.startswith("file://")
+                or Path(ctx.url).exists()
+            )
+            if needs_budget_check:
                 ctx.logger.debug("pre_download_metadata_extraction")
                 try:
                     metadata = await pipeline._audio_source.get_metadata(ctx.url)
@@ -158,7 +165,7 @@ class DownloadStage(Stage):
                     raise
                 except Exception as e:
                     ctx.logger.warning("pre_download_metadata_failed", error=str(e))
-                    # Fallback to standard download if metadata fetch fails
+                    # Fallback to download without pre-reservation if metadata fails
 
             try:
                 audio_file = await pipeline._audio_source.download(
@@ -439,7 +446,9 @@ def _build_ydl_opts(config: AudioRAGConfig) -> dict[str, Any] | None:
             config.youtube_visitor_data
         )
     if config.youtube_impersonate:
-        ydl_opts["impersonate"] = config.youtube_impersonate
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+
+        ydl_opts["impersonate"] = ImpersonateTarget.from_str(config.youtube_impersonate)
     return ydl_opts if ydl_opts else None
 
 
@@ -497,16 +506,7 @@ class AudioRAGPipeline:
         if audio_source is not None:
             self._audio_source = audio_source
         else:
-            from audiorag.source.youtube import YouTubeSource
-
-            archive_path = (
-                Path(config.youtube_download_archive) if config.youtube_download_archive else None
-            )
-            ydl_opts = _build_ydl_opts(config)
-            self._audio_source = YouTubeSource(
-                download_archive=archive_path,
-                ydl_opts=ydl_opts,
-            )
+            self._audio_source = create_audio_source_provider(config)
 
         # Initialize STT provider based on config
         if stt is not None:
