@@ -483,7 +483,6 @@ class AudioRAGPipeline:
                 Path(config.youtube_download_archive) if config.youtube_download_archive else None
             )
             self._audio_source = YouTubeSource(
-                retry_config=retry_config,
                 download_archive=archive_path,
                 concurrent_fragments=config.youtube_concurrent_fragments,
                 skip_playlist_after_errors=config.youtube_skip_after_errors,

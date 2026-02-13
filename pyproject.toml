@@ -49,13 +49,11 @@ audiorag = "audiorag.cli:main"
 [project.optional-dependencies]
 defaults = [
     "yt-dlp>=2026.02.04",
-    "pydub>=0.25",
 ]
 all = [
     "openai>=1.0",
     "chromadb>=0.4",
     "yt-dlp>=2026.02.04",
-    "pydub>=0.25",
     "cohere>=5.0",
     "pinecone-client>=2.0",
     "weaviate-client>=3.0",
@@ -89,7 +87,6 @@ rerank-cohere = ["cohere>=5.0"]
 # YouTube scraping
 youtube = [
     "yt-dlp>=2026.02.04",
-    "pydub>=0.25",
     "yt-dlp-ejs>=0.4.0",
     "curl_cffi>=0.7.0,<0.15.0",
 ]

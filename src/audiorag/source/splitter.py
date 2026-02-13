@@ -1,8 +1,10 @@
-"""Audio file splitter using pydub."""
+"""Audio file splitter using ffmpeg."""
 
 from __future__ import annotations
 
 import asyncio
+import shutil
+import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -30,6 +32,17 @@ class AudioSplitter:
             max_size_mb=max_size_mb,
         )
 
+    def _ensure_ffmpeg(self) -> None:
+        if not shutil.which("ffmpeg"):
+            raise ProviderError(
+                message=(
+                    "audio_splitter requires ffmpeg but it's not installed or not in PATH. "
+                    "Please install ffmpeg to use audio splitting."
+                ),
+                provider="audio_splitter",
+                retryable=False,
+            )
+
     async def split_if_needed(self, audio_path: Path, output_dir: Path | None = None) -> list[Path]:
         """Split audio file if it exceeds size limit.
 
@@ -43,6 +56,8 @@ class AudioSplitter:
         Raises:
             ProviderError: If audio file doesn't exist or splitting fails
         """
+        self._ensure_ffmpeg()
+
         operation_logger = self._logger.bind(
             audio_path=str(audio_path),
             operation="split_if_needed",
@@ -85,53 +100,82 @@ class AudioSplitter:
         output_dir: Path,
         operation_logger: structlog.stdlib.BoundLogger,
     ) -> list[Path]:
-        """Synchronous split implementation."""
-        try:
-            from pydub import AudioSegment
+        """Synchronous split implementation using ffmpeg."""
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-            output_dir.mkdir(parents=True, exist_ok=True)
+        file_size = audio_path.stat().st_size
+        num_chunks = (file_size // self.max_size_bytes) + 1
 
-            operation_logger.debug("loading_audio_file")
-            audio = AudioSegment.from_file(str(audio_path))
+        stem = audio_path.stem
+        suffix = audio_path.suffix.lstrip(".")
 
-            file_size = audio_path.stat().st_size
-            duration_ms = len(audio)
+        chunks: list[Path] = []
 
-            num_chunks = (file_size // self.max_size_bytes) + 1
-            chunk_duration_ms = int((duration_ms / num_chunks) * 0.9)
-
-            operation_logger.debug(
-                "calculated_split_params",
-                num_chunks=num_chunks,
-                chunk_duration_ms=chunk_duration_ms,
-                total_duration_ms=duration_ms,
-            )
-
-            chunks: list[Path] = []
-            stem = audio_path.stem
-            suffix = audio_path.suffix
-
-            for i, start_ms in enumerate(range(0, duration_ms, chunk_duration_ms)):
-                end_ms = min(start_ms + chunk_duration_ms, duration_ms)
-                chunk = audio[start_ms:end_ms]
-
-                chunk_path = output_dir / f"{stem}_part{i + 1:03d}{suffix}"
-                chunk.export(str(chunk_path), format=suffix.lstrip("."))
-                chunks.append(chunk_path)
-
-            operation_logger.info("split_completed", chunks_count=len(chunks))
-            return chunks
-
-        except Exception as e:
-            operation_logger.error(
-                "split_sync_failed",
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            if isinstance(e, ProviderError):
-                raise
+        ffprobe_path = shutil.which("ffprobe")
+        ffmpeg_path = shutil.which("ffmpeg")
+        if not ffprobe_path or not ffmpeg_path:
             raise ProviderError(
-                message=f"audio_splitter split_if_needed failed: {e}",
+                message=("audio_splitter requires ffmpeg but it's not installed or not in PATH."),
                 provider="audio_splitter",
-                retryable=isinstance(e, (ConnectionError, TimeoutError)),
+                retryable=False,
+            )
+
+        try:
+            result = subprocess.run(
+                [
+                    ffprobe_path,
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    str(audio_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            total_duration = float(result.stdout.strip())
+        except (subprocess.CalledProcessError, ValueError) as e:
+            raise ProviderError(
+                message=f"audio_splitter: failed to get audio duration: {e}",
+                provider="audio_splitter",
+                retryable=False,
             ) from e
+
+        chunk_duration = total_duration / num_chunks
+
+        for i in range(num_chunks):
+            start_time = i * chunk_duration
+            chunk_path = output_dir / f"{stem}_part{i + 1:03d}.{suffix}"
+
+            try:
+                subprocess.run(
+                    [
+                        ffmpeg_path,
+                        "-y",
+                        "-i",
+                        str(audio_path),
+                        "-ss",
+                        str(start_time),
+                        "-t",
+                        str(chunk_duration),
+                        "-c",
+                        "copy",
+                        str(chunk_path),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                chunks.append(chunk_path)
+            except subprocess.CalledProcessError as e:
+                raise ProviderError(
+                    message=f"audio_splitter: ffmpeg failed to create chunk {i + 1}: {e.stderr}",
+                    provider="audio_splitter",
+                    retryable=False,
+                ) from e
+
+        operation_logger.info("split_completed", chunks_count=len(chunks))
+        return chunks
