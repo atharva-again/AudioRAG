@@ -221,6 +221,28 @@ export AUDIORAG_AUDIO_FORMAT="mp3"
 export AUDIORAG_AUDIO_SPLIT_MAX_SIZE_MB="24"
 ```
 
+## Audio Source Provider
+
+### Audio Source Selection
+
+```bash
+# Audio source provider: youtube | local
+# - youtube: Download from YouTube (default)
+# - local: Use local audio files
+export AUDIORAG_AUDIO_SOURCE_PROVIDER="youtube"
+```
+
+| Provider | Value | Description |
+|----------|-------|-------------|
+| YouTube | `youtube` | Download audio from YouTube URLs |
+| Local | `local` | Use local audio files (file:// URLs or paths) |
+
+When using local files:
+- Pass file paths or `file://` URLs to `pipeline.index()`
+- LocalSource automatically generates unique IDs from file paths
+- Duration is detected using pydub (requires ffmpeg)
+- Pre-download budget checks work for local files
+
 ## YouTube Scraping
 
 ### Basic Configuration

@@ -5,7 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2026-02-13 - Audio Source Provider Fixes
+
+### Added
+- **Audio source provider selection**: New `audio_source_provider` config option allows selecting between YouTube (`youtube`) and local file (`local`) sources. Defaults to `youtube` for backward compatibility.
+- **Local file unique ID extraction**: LocalSource now generates a unique ID from the file path hash, fixing vector store unique constraint violations.
+- **Pre-download budget checks for local files**: Budget reservation now works for local files (file:// URLs and local paths), not just YouTube URLs.
+
+### Fixed
+- **Impersonate handling**: String impersonate values (e.g., "chrome-120") are now properly converted to `ImpersonateTarget` objects before passing to yt-dlp, preventing crashes.
+
+### Changed
+- **Provider factory**: Added `create_audio_source_provider()` factory function for consistent provider instantiation.
+
+### Configuration
+```bash
+# Select audio source provider (default: youtube)
+export AUDIORAG_AUDIO_SOURCE_PROVIDER="local"  # or "youtube"
+```
 
 ## [0.6.2] - 2026-02-13 - Budget Error Fix
 
@@ -273,7 +290,8 @@ For most users, YouTubeSource now works out of the box without any configuration
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/atharva-again/audiorag/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/atharva-again/audiorag/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/atharva-again/audiorag/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/atharva-again/audiorag/compare/v0.5.5...v0.6.0
