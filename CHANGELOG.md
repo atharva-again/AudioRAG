@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.9.0] - 2026-02-14 - Persistent Cache & Cache Management
+
+### Added
+- **Persistent work_dir default**: Default `work_dir` now uses platform-appropriate cache directory:
+  - Linux: `~/.cache/audiorag`
+  - macOS: `~/Library/Caches/audiorag`
+  - Windows: `%LOCALAPPDATA%\audiorag`
+- **Cache management CLI**: New commands to manage cached audio files:
+  - `audiorag cache info` - Show cache location and size
+  - `audiorag cache clear` - Clear all cached audio files
+- **Cache management SDK**: New methods on `AudioRAGPipeline`:
+  - `pipeline.clear_cache()` - Clear cache, returns count of items removed
+  - `pipeline.get_cache_info()` - Get cache location, file count, and size
+
+### Fixed
+- **Type safety**: Fixed type checking for `metadata.duration` attribute access in budget reservation logic.
+
+## [0.8.1] - 2026-02-14 - Vector Store Source ID Fix
+
+### Fixed
+- **Leaky abstraction in vector stores**: Vector store providers now use canonical `source_id` instead of raw `source_url`. This fixes issue #19 where backends had to parse Source IDs from URLs.
+  - Added `source_id` to `StageContext` for pipeline-wide canonical ID
+  - Renamed `VectorStoreProvider.delete_by_source()` to `delete_by_source_id()`
+  - Updated all vector store implementations (ChromaDB, Pinecone, Weaviate, Supabase) to filter by `source_id`
+  - Updated metadata to use `source_id` instead of `source_url`
+
+### Migration Note
+> ⚠️ Existing vector stores with `source_url` metadata will need to be re-indexed for `force=True` deletion to work. Alternatively, users can manually delete via the vector store's native tools.
+
 ## [0.8.0] - 2026-02-14 - Auto-detect File Protocol
 
 ### Added
@@ -316,7 +347,9 @@ For most users, YouTubeSource now works out of the box without any configuration
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/atharva-again/audiorag/compare/v0.8.1...v0.9.0
+[0.8.1]: https://github.com/atharva-again/audiorag/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/atharva-again/audiorag/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/atharva-again/audiorag/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/atharva-again/audiorag/compare/v0.6.1...v0.6.2

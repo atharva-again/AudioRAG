@@ -32,9 +32,9 @@ class TestAudioRAGConfigDefaults:
         assert config.database_path == "audiorag.db"
 
     def test_default_work_dir(self):
-        """Test default work_dir is None."""
+        """Test default work_dir is ~/.cache/audiorag."""
         config = AudioRAGConfig()
-        assert config.work_dir is None
+        assert config.work_dir == Path("~/.cache/audiorag").expanduser()
 
     def test_default_chunk_duration_seconds(self):
         """Test default chunk_duration_seconds is 30."""
@@ -98,7 +98,7 @@ class TestAudioRAGConfigDefaults:
         assert config.openai_api_key == ""
         assert config.cohere_api_key == ""
         assert config.database_path == "audiorag.db"
-        assert config.work_dir is None
+        assert config.work_dir == Path("~/.cache/audiorag").expanduser()
         assert config.chunk_duration_seconds == 30
         assert config.audio_format == "mp3"
         assert config.audio_split_max_size_mb == 24
@@ -393,10 +393,10 @@ class TestAudioRAGConfigValidation:
         assert isinstance(config.work_dir, Path)
         assert config.work_dir == Path(work_dir)
 
-    def test_work_dir_none_when_not_set(self):
-        """Test work_dir is None when not set."""
+    def test_work_dir_default_when_not_set(self):
+        """Test work_dir defaults to ~/.cache/audiorag when not set."""
         config = AudioRAGConfig()
-        assert config.work_dir is None
+        assert config.work_dir == Path("~/.cache/audiorag").expanduser()
 
     def test_stt_language_none_when_not_set(self):
         """Test stt_language is None when not set."""
@@ -589,10 +589,10 @@ class TestAudioRAGConfigPathHandling:
         config = AudioRAGConfig()
         assert config.database_path == "~/audiorag.db"
 
-    def test_work_dir_none_explicit(self):
-        """Test work_dir is None when not provided."""
+    def test_work_dir_default_persistent(self):
+        """Test work_dir defaults to persistent cache when not provided."""
         config = AudioRAGConfig()
-        assert config.work_dir is None
+        assert config.work_dir == Path("~/.cache/audiorag").expanduser()
 
     def test_work_dir_empty_string_becomes_none(self, monkeypatch):
         """Test work_dir with empty string."""
@@ -610,10 +610,10 @@ class TestAudioRAGConfigPathHandling:
 class TestAudioRAGConfigOptionalFields:
     """Test optional field handling (None values)."""
 
-    def test_work_dir_optional(self):
-        """Test work_dir is optional."""
+    def test_work_dir_default_persistent(self):
+        """Test work_dir defaults to persistent cache directory."""
         config = AudioRAGConfig()
-        assert config.work_dir is None
+        assert config.work_dir == Path("~/.cache/audiorag").expanduser()
 
     def test_stt_language_optional(self):
         """Test stt_language is optional."""
@@ -638,8 +638,9 @@ class TestAudioRAGConfigOptionalFields:
     def test_optional_fields_with_defaults(self):
         """Test that optional fields have proper defaults."""
         config = AudioRAGConfig()
-        # These should be None
-        assert config.work_dir is None
+        # work_dir has a persistent default
+        assert config.work_dir == Path("~/.cache/audiorag").expanduser()
+        # stt_language is still optional
         assert config.stt_language is None
         # These should have defaults
         assert config.database_path == "audiorag.db"

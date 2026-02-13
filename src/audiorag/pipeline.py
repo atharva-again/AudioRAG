@@ -153,7 +153,12 @@ class DownloadStage(Stage):
                 ctx.logger.debug("pre_download_metadata_extraction")
                 try:
                     metadata = await pipeline._audio_source.get_metadata(ctx.url)
-                    if metadata.duration and metadata.duration > 0:
+                    if (
+                        metadata is not None
+                        and hasattr(metadata, "duration")
+                        and metadata.duration
+                        and metadata.duration > 0
+                    ):
                         seconds = int(metadata.duration)
                         ctx.logger.debug(
                             "pre_download_budget_reservation", duration_seconds=seconds
@@ -571,6 +576,80 @@ class AudioRAGPipeline:
         if self._initialized:
             await self._state.close()
             self._initialized = False
+
+    def clear_cache(self) -> int:
+        """Clear the work directory cache.
+
+        Removes all downloaded audio files and YouTube download archive
+        from the work directory. This does not affect the database or
+        indexed vectors - only the cached audio files.
+
+        The database still contains records of indexed sources, so
+        re-indexing will skip sources that haven't changed.
+
+        Returns:
+            Number of items removed from cache.
+        """
+        work_dir = self._config.work_dir
+        if work_dir is None:
+            logger.info("cache_clear_skipped", reason="work_dir_not_configured")
+            return 0
+
+        if not work_dir.exists():
+            logger.info(
+                "cache_clear_skipped", reason="directory_does_not_exist", work_dir=str(work_dir)
+            )
+            return 0
+
+        cleared = 0
+        for item in work_dir.iterdir():
+            try:
+                if item.is_file():
+                    item.unlink()
+                    cleared += 1
+                elif item.is_dir():
+                    shutil.rmtree(item, ignore_errors=True)
+                    cleared += 1
+            except Exception as e:
+                logger.warning("cache_clear_item_failed", path=str(item), error=str(e))
+
+        logger.info("cache_cleared", work_dir=str(work_dir), items_cleared=cleared)
+        return cleared
+
+    def get_cache_info(self) -> dict[str, Any]:
+        """Get information about the work directory cache.
+
+        Returns:
+            Dictionary with cache location, file count, and total size.
+        """
+        work_dir = self._config.work_dir
+        if work_dir is None:
+            return {
+                "location": None,
+                "file_count": 0,
+                "total_size_bytes": 0,
+                "exists": False,
+            }
+
+        total_size = 0
+        file_count = 0
+        exists = work_dir.exists()
+
+        if exists:
+            for item in work_dir.rglob("*"):
+                if item.is_file():
+                    try:
+                        total_size += item.stat().st_size
+                        file_count += 1
+                    except OSError:
+                        continue
+
+        return {
+            "location": str(work_dir),
+            "file_count": file_count,
+            "total_size_bytes": total_size,
+            "exists": exists,
+        }
 
     async def __aenter__(self) -> AudioRAGPipeline:
         """Async context manager entry.

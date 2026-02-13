@@ -526,3 +526,150 @@ class TestPipelineCleanup:
 
         close_spy.assert_called_once()
         assert pipeline._initialized is False
+
+
+class TestPipelineCache:
+    """Test suite for pipeline cache management - functional tests with real filesystem."""
+
+    @pytest.fixture
+    def real_config(self, tmp_path):
+        """Create a real config with a temporary work directory."""
+        from audiorag import AudioRAGConfig
+
+        config = AudioRAGConfig()
+        config.work_dir = tmp_path / "cache"
+        config.work_dir.mkdir(parents=True, exist_ok=True)
+        config.cleanup_audio = False
+        return config
+
+    def test_get_cache_info_empty(self, real_config) -> None:
+        """Test get_cache_info returns correct info for empty cache."""
+        pipeline = AudioRAGPipeline(
+            config=real_config,
+            audio_source=AsyncMock(),
+            stt=AsyncMock(),
+            embedder=AsyncMock(),
+            vector_store=AsyncMock(),
+            generator=AsyncMock(),
+            reranker=AsyncMock(),
+        )
+
+        info = pipeline.get_cache_info()
+
+        assert info["exists"] is True
+        assert info["file_count"] == 0
+        assert info["total_size_bytes"] == 0
+        assert info["location"] == str(real_config.work_dir)
+
+    def test_get_cache_info_with_files(self, real_config) -> None:
+        """Test get_cache_info returns correct file count and size."""
+        (real_config.work_dir / "file1.mp3").write_text("test content 1")
+        (real_config.work_dir / "file2.mp3").write_text("test content 2")
+        (real_config.work_dir / "subdir").mkdir()
+        (real_config.work_dir / "subdir" / "file3.mp3").write_text("test content 3")
+
+        pipeline = AudioRAGPipeline(
+            config=real_config,
+            audio_source=AsyncMock(),
+            stt=AsyncMock(),
+            embedder=AsyncMock(),
+            vector_store=AsyncMock(),
+            generator=AsyncMock(),
+            reranker=AsyncMock(),
+        )
+
+        info = pipeline.get_cache_info()
+
+        assert info["exists"] is True
+        assert info["file_count"] == 3
+        assert info["total_size_bytes"] == len("test content 1") + len("test content 2") + len(
+            "test content 3"
+        )
+
+    def test_clear_cache_removes_files(self, real_config) -> None:
+        """Test clear_cache actually removes files from work directory."""
+        (real_config.work_dir / "file1.mp3").write_text("test content")
+        (real_config.work_dir / "file2.mp3").write_text("test content")
+
+        assert len(list(real_config.work_dir.iterdir())) == 2
+
+        pipeline = AudioRAGPipeline(
+            config=real_config,
+            audio_source=AsyncMock(),
+            stt=AsyncMock(),
+            embedder=AsyncMock(),
+            vector_store=AsyncMock(),
+            generator=AsyncMock(),
+            reranker=AsyncMock(),
+        )
+
+        cleared = pipeline.clear_cache()
+
+        assert cleared == 2
+        assert len(list(real_config.work_dir.iterdir())) == 0
+
+    def test_clear_cache_removes_subdirs(self, real_config) -> None:
+        """Test clear_cache also removes subdirectories."""
+        subdir = real_config.work_dir / "subdir"
+        subdir.mkdir()
+        (subdir / "nested.mp3").write_text("nested content")
+
+        assert (real_config.work_dir / "subdir").exists()
+
+        pipeline = AudioRAGPipeline(
+            config=real_config,
+            audio_source=AsyncMock(),
+            stt=AsyncMock(),
+            embedder=AsyncMock(),
+            vector_store=AsyncMock(),
+            generator=AsyncMock(),
+            reranker=AsyncMock(),
+        )
+
+        cleared = pipeline.clear_cache()
+
+        assert cleared == 1
+        assert not (real_config.work_dir / "subdir").exists()
+        assert len(list(real_config.work_dir.iterdir())) == 0
+
+    def test_clear_cache_with_default_work_dir(self, tmp_path, monkeypatch) -> None:
+        """Test clear_cache works with the default work_dir."""
+        monkeypatch.chdir(tmp_path)
+        from audiorag import AudioRAGConfig
+
+        config = AudioRAGConfig()
+
+        pipeline = AudioRAGPipeline(
+            config=config,
+            audio_source=AsyncMock(),
+            stt=AsyncMock(),
+            embedder=AsyncMock(),
+            vector_store=AsyncMock(),
+            generator=AsyncMock(),
+            reranker=AsyncMock(),
+        )
+
+        cleared = pipeline.clear_cache()
+
+        assert cleared == 0
+
+    def test_get_cache_info_with_default_work_dir(self, tmp_path, monkeypatch) -> None:
+        """Test get_cache_info works with the default work_dir (may not exist)."""
+        monkeypatch.chdir(tmp_path)
+        from audiorag import AudioRAGConfig
+
+        config = AudioRAGConfig()
+
+        pipeline = AudioRAGPipeline(
+            config=config,
+            audio_source=AsyncMock(),
+            stt=AsyncMock(),
+            embedder=AsyncMock(),
+            vector_store=AsyncMock(),
+            generator=AsyncMock(),
+            reranker=AsyncMock(),
+        )
+
+        info = pipeline.get_cache_info()
+
+        assert info["location"] is not None
