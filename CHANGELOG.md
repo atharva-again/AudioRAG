@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-13 - Simplification Refactor
+
+### Breaking
+- **Removed pydub dependency**: Audio splitting now uses ffmpeg subprocess calls directly instead of pydub. Users must have ffmpeg installed on their system.
+
+### Changed
+- **Removed Tenacity retry wrapper**: YouTube source no longer wraps yt-dlp calls with Tenacity, simplifying the download flow.
+- **Advanced config flattening**: Added `AdvancedConfig` nested class for advanced settings while maintaining flat `AUDIORAG_X` env var access with automatic sync.
+- **Simplified provider factory**: Added fail-fast `ImportError` messages with installation hints when optional vector store packages are missing.
+- **CI ffmpeg installation**: Added ffmpeg installation via apt-get in GitHub Actions workflow.
+
+### Fixed
+- **Lint warnings**: Fixed warnings by using `shutil.which()` for full ffmpeg/ffprobe paths.
+- **Dead code removal**: Removed unused `retry_config` parameter and empty `_ensure_js_runtime()` method.
+
+### Documentation
+- Updated README.md and docs to reflect pydub → ffmpeg change.
+
 ## [0.5.5] - 2026-02-12 - pyproject.toml Refactor
 
 ### Added
@@ -220,7 +238,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/atharva-again/audiorag/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/atharva-again/audiorag/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/atharva-again/audiorag/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/atharva-again/audiorag/compare/v0.5.2...v0.5.3
