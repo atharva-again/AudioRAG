@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from io import StringIO
 from unittest.mock import patch
 
 import pytest
 
-if TYPE_CHECKING:
-    from audiorag.core.config import AudioRAGConfig
+from audiorag.cli import doctor_cmd, main
+from audiorag.core.doctor import (
+    DependencyCheck,
+    DoctorResult,
+    check_dependencies,
+)
 
 
 @dataclass
@@ -35,8 +40,6 @@ class TestCheckDependencies:
 
     def test_all_dependencies_found(self) -> None:
         """Test when all dependencies are available in PATH."""
-        from audiorag.core.doctor import check_dependencies, DependencyCheck, DoctorResult
-
         with patch("shutil.which") as mock_which:
             mock_which.side_effect = lambda name: f"/usr/bin/{name}"
             result = check_dependencies()
@@ -54,7 +57,6 @@ class TestCheckDependencies:
 
     def test_ffmpeg_missing(self) -> None:
         """Test when ffmpeg is not available."""
-        from audiorag.core.doctor import check_dependencies
 
         def mock_which(name: str) -> str | None:
             if name == "ffmpeg":
@@ -71,7 +73,6 @@ class TestCheckDependencies:
 
     def test_ffprobe_missing(self) -> None:
         """Test when ffprobe is not available."""
-        from audiorag.core.doctor import check_dependencies
 
         def mock_which(name: str) -> str | None:
             if name == "ffprobe":
@@ -88,7 +89,6 @@ class TestCheckDependencies:
 
     def test_yt_dlp_missing(self) -> None:
         """Test when yt-dlp is not available."""
-        from audiorag.core.doctor import check_dependencies
 
         def mock_which(name: str) -> str | None:
             if name == "yt-dlp":
@@ -105,7 +105,6 @@ class TestCheckDependencies:
 
     def test_js_runtime_missing(self) -> None:
         """Test when configured js_runtime is not available."""
-        from audiorag.core.doctor import check_dependencies
 
         def mock_which(name: str) -> str | None:
             if name == "deno":
@@ -122,13 +121,11 @@ class TestCheckDependencies:
 
     def test_js_runtime_none_configured(self) -> None:
         """Test when js_runtime is None - should skip check."""
-        from audiorag.core.doctor import check_dependencies
-
         config = MockConfig(js_runtime=None)
 
         with patch("shutil.which") as mock_which:
             mock_which.side_effect = lambda name: f"/usr/bin/{name}"
-            result = check_dependencies(config)
+            result = check_dependencies(config)  # type: ignore[arg-type]
 
         check_names = [check.name for check in result.checks]
         assert "deno" not in check_names
@@ -139,8 +136,6 @@ class TestCheckDependencies:
 
     def test_returns_structured_result(self) -> None:
         """Test that function returns properly structured DoctorResult."""
-        from audiorag.core.doctor import check_dependencies, DependencyCheck, DoctorResult
-
         with patch("shutil.which") as mock_which:
             mock_which.side_effect = lambda name: f"/usr/bin/{name}"
             result = check_dependencies()
@@ -157,8 +152,6 @@ class TestCheckDependencies:
 
     def test_custom_js_runtime_checked(self) -> None:
         """Test that custom js_runtime from config is checked, not default."""
-        from audiorag.core.doctor import check_dependencies
-
         config = MockConfig(js_runtime="node")
 
         checked_tools: list[str] = []
@@ -168,7 +161,7 @@ class TestCheckDependencies:
             return f"/usr/bin/{name}"
 
         with patch("shutil.which", side_effect=mock_which):
-            result = check_dependencies(config)
+            result = check_dependencies(config)  # type: ignore[arg-type]
 
         assert "node" in checked_tools
         assert "deno" not in checked_tools
@@ -179,8 +172,6 @@ class TestCheckDependencies:
 
     def test_dependency_check_required_field(self) -> None:
         """Test that required field is present in DependencyCheck."""
-        from audiorag.core.doctor import check_dependencies
-
         with patch("shutil.which") as mock_which:
             mock_which.side_effect = lambda name: f"/usr/bin/{name}"
             result = check_dependencies()
@@ -194,8 +185,6 @@ class TestDependencyCheck:
 
     def test_dependency_check_creation(self) -> None:
         """Test DependencyCheck can be created with all fields."""
-        from audiorag.core.doctor import DependencyCheck
-
         check = DependencyCheck(
             name="ffmpeg",
             available=True,
@@ -210,8 +199,6 @@ class TestDependencyCheck:
 
     def test_dependency_check_missing_path(self) -> None:
         """Test DependencyCheck with missing tool."""
-        from audiorag.core.doctor import DependencyCheck
-
         check = DependencyCheck(
             name="missing_tool",
             available=False,
@@ -228,8 +215,6 @@ class TestDoctorResult:
 
     def test_all_ok_true_when_all_available(self) -> None:
         """Test all_ok is True when all dependencies are available."""
-        from audiorag.core.doctor import DependencyCheck, DoctorResult
-
         checks = [
             DependencyCheck(name="ffmpeg", available=True, path="/usr/bin/ffmpeg", required=True),
             DependencyCheck(name="ffprobe", available=True, path="/usr/bin/ffprobe", required=True),
@@ -240,8 +225,6 @@ class TestDoctorResult:
 
     def test_all_ok_false_when_one_missing(self) -> None:
         """Test all_ok is False when any dependency is missing."""
-        from audiorag.core.doctor import DependencyCheck, DoctorResult
-
         checks = [
             DependencyCheck(name="ffmpeg", available=True, path="/usr/bin/ffmpeg", required=True),
             DependencyCheck(name="missing", available=False, path=None, required=True),
@@ -252,8 +235,6 @@ class TestDoctorResult:
 
     def test_all_ok_true_when_empty(self) -> None:
         """Test all_ok is True when checks list is empty."""
-        from audiorag.core.doctor import DoctorResult
-
         result = DoctorResult(checks=[])
 
         assert result.all_ok is True
@@ -264,22 +245,17 @@ class TestDoctorCLI:
 
     def test_doctor_command_registered(self) -> None:
         """Test that doctor command is registered in argparse."""
-        from audiorag.cli import main
-        import sys
-        from io import StringIO
-
         # Capture stdout
         old_stdout = sys.stdout
         sys.stdout = StringIO()
 
-        try:
-            # Test --help includes doctor command
-            with pytest.raises(SystemExit) as exc_info:
-                sys.argv = ["audiorag", "--help"]
-                main()
-        finally:
-            output = sys.stdout.getvalue()
-            sys.stdout = old_stdout
+        # Test --help includes doctor command
+        sys.argv = ["audiorag", "--help"]
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        output = sys.stdout.getvalue()
+        sys.stdout = old_stdout
 
         assert "doctor" in output.lower()
         assert exc_info.value.code == 0
@@ -287,21 +263,16 @@ class TestDoctorCLI:
     @pytest.mark.asyncio
     async def test_doctor_exit_code_0_all_found(self) -> None:
         """Test doctor command exits 0 when all deps found."""
-        from audiorag.cli import doctor_cmd
-
         with patch("shutil.which") as mock_which:
             mock_which.side_effect = lambda name: f"/usr/bin/{name}"
 
-            # Should not raise SystemExit(1)
-            try:
+            with pytest.raises(SystemExit) as exc_info:
                 await doctor_cmd()
-            except SystemExit as e:
-                assert e.code == 0
+            assert exc_info.value.code == 0
 
     @pytest.mark.asyncio
     async def test_doctor_exit_code_1_missing_dep(self) -> None:
         """Test doctor command exits 1 when dependency missing."""
-        from audiorag.cli import doctor_cmd
 
         def mock_which(name: str) -> str | None:
             if name == "ffmpeg":

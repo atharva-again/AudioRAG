@@ -48,7 +48,7 @@ class DoctorResult:
 
 
 def check_dependencies(
-    config: "AudioRAGConfig | None" = None,
+    config: AudioRAGConfig | None = None,
 ) -> DoctorResult:
     """Check if required system dependencies are available.
 
@@ -73,10 +73,7 @@ def check_dependencies(
     ]
 
     # Determine which JS runtime to check
-    if config is not None:
-        js_runtime = config.advanced.js_runtime
-    else:
-        js_runtime = "deno"
+    js_runtime = config.advanced.js_runtime if config is not None else "deno"
 
     # Add JS runtime to check list if configured
     if js_runtime is not None:

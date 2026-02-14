@@ -45,17 +45,9 @@ from audiorag.core.retry_config import RetryConfig, create_retry_decorator
 from audiorag.core.state import StateManager
 
 __all__ = [
-    # Models
     "AudioFile",
-    # Config
     "AudioRAGConfig",
-    # Doctor
-    "check_dependencies",
-    "DependencyCheck",
-    "DoctorResult",
-    # Exceptions
     "AudioRAGError",
-    # Protocols
     "AudioSourceProvider",
     "BatchIndexFailure",
     "BatchIndexResult",
@@ -64,6 +56,8 @@ __all__ = [
     "BudgetLimits",
     "ChunkMetadata",
     "ConfigurationError",
+    "DependencyCheck",
+    "DoctorResult",
     "EmbeddingProvider",
     "GenerationProvider",
     "IndexingStatus",
@@ -75,12 +69,11 @@ __all__ = [
     "STTProvider",
     "Source",
     "StateError",
-    # State
     "StateManager",
     "TranscriptionSegment",
     "VectorStoreProvider",
     "VerifiableVectorStoreProvider",
-    # Logging
+    "check_dependencies",
     "configure_logging",
     "create_retry_decorator",
     "get_logger",

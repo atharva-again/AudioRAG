@@ -446,6 +446,7 @@ async def doctor_cmd() -> None:
         sys.exit(1)
 
     console.print("\n[success]All dependencies are available![/]")
+    sys.exit(0)
 
 
 def _signal_handler(signum: int, _frame: Any) -> None:
