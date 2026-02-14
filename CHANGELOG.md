@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-02-14 - YouTube Improvements
+
+### Added
+- **YouTube cookies-from-browser**: New config option `youtube_cookies_from_browser` to extract cookies directly from browser (e.g., `chrome`, `firefox:default`, `chrome+gnomekeyring:Profile1`).
+- **Cookie file support**: Wired up existing `youtube_cookie_file` config option (was dead code).
+- **CI improvements**: CI now installs all optional dependencies for better test coverage.
+
+### Changed
+- **Consolidated ydl_opts**: Created shared `audiorag.source.ydl_utils` module to consolidate yt-dlp option building (was duplicated in pipeline.py and discovery.py).
+
+### Fixed
+- **Type safety**: Resolved pre-existing type errors in weaviate.py, assemblyai.py, groq.py, and cohere.py exposed by full dependency installation.
+
 ## [0.10.0] - 2026-02-14 - Transcription Resumability
 
 ### Added
@@ -362,7 +375,8 @@ For most users, YouTubeSource now works out of the box without any configuration
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/atharva-again/audiorag/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/atharva-again/audiorag/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/atharva-again/audiorag/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/atharva-again/audiorag/compare/v0.8.0...v0.8.1
