@@ -41,6 +41,17 @@ CHUNKS_TABLE_SQL = """
     )
 """
 
+TRANSCRIPTS_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS transcripts (
+        source_id TEXT NOT NULL,
+        part_index INTEGER NOT NULL,
+        raw_response TEXT,
+        segments TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (source_id, part_index)
+    )
+"""
+
 CREATE_INDEX_SQL: tuple[str, ...] = (
     """
     CREATE INDEX IF NOT EXISTS idx_chunks_source_id
@@ -77,6 +88,25 @@ GET_CHUNKS_FOR_SOURCE_SQL = (
 DELETE_CHUNKS_FOR_SOURCE_SQL = "DELETE FROM chunks WHERE source_id = ?"
 DELETE_SOURCE_SQL = "DELETE FROM sources WHERE source_id = ?"
 
+# Transcript SQL queries
+INSERT_OR_REPLACE_TRANSCRIPT_SQL = (
+    "INSERT OR REPLACE INTO transcripts "
+    "(source_id, part_index, raw_response, segments, created_at) "
+    "VALUES (?, ?, ?, ?, ?)"
+)
+GET_TRANSCRIPTS_FOR_SOURCE_SQL = (
+    "SELECT part_index, raw_response, segments, created_at "
+    "FROM transcripts WHERE source_id = ? ORDER BY part_index"
+)
+GET_TRANSCRIPT_FOR_PART_SQL = (
+    "SELECT part_index, raw_response, segments, created_at "
+    "FROM transcripts WHERE source_id = ? AND part_index = ?"
+)
+GET_TRANSCRIBED_PART_INDICES_SQL = (
+    "SELECT part_index FROM transcripts WHERE source_id = ? ORDER BY part_index"
+)
+DELETE_TRANSCRIPTS_FOR_SOURCE_SQL = "DELETE FROM transcripts WHERE source_id = ?"
+
 
 class StateManager:
     """Manages persistent state for audio sources and chunks using SQLite."""
@@ -106,6 +136,7 @@ class StateManager:
 
         await self._db.execute(SOURCES_TABLE_SQL)
         await self._db.execute(CHUNKS_TABLE_SQL)
+        await self._db.execute(TRANSCRIPTS_TABLE_SQL)
         for statement in CREATE_INDEX_SQL:
             await self._db.execute(statement)
 
@@ -192,6 +223,15 @@ class StateManager:
             "embedding": row[5],
             "metadata": self._json_loads(row[6]),
             "created_at": row[7],
+        }
+
+    def _transcript_from_row(self, row: Sequence[Any]) -> dict[str, Any]:
+        segments_data = json.loads(row[2]) if row[2] else []
+        return {
+            "part_index": row[0],
+            "raw_response": self._json_loads(row[1]),
+            "segments": segments_data,
+            "created_at": row[3],
         }
 
     async def get_source_status(self, source_path: str) -> dict[str, Any] | None:
@@ -359,8 +399,78 @@ class StateManager:
 
         return [self._chunk_from_row(row) for row in rows]
 
+    async def store_transcript(
+        self,
+        source_path: str,
+        part_index: int,
+        segments: list[dict[str, Any]],
+        raw_response: dict[str, Any] | None = None,
+    ) -> None:
+        """Store transcription result for a single audio part.
+
+        Args:
+            source_path: Path to source file
+            part_index: Index of the audio part (0-based)
+            segments: List of segment dictionaries with start_time, end_time, text
+            raw_response: Optional raw STT provider response (for re-chunking)
+        """
+        db = self._get_db()
+
+        source_id = self._generate_source_id(source_path)
+        now = self._now_iso8601()
+        segments_json = json.dumps(segments)
+        raw_response_json = self._json_dumps(raw_response)
+
+        await db.execute(
+            INSERT_OR_REPLACE_TRANSCRIPT_SQL,
+            (source_id, part_index, raw_response_json, segments_json, now),
+        )
+        await db.commit()
+
+    async def get_transcripts(self, source_path: str) -> dict[int, dict[str, Any]]:
+        """Retrieve all transcripts for a source.
+
+        Args:
+            source_path: Path to source file
+
+        Returns:
+            Dictionary mapping part_index to transcript data
+        """
+        db = self._get_db()
+
+        source_id = self._generate_source_id(source_path)
+
+        async with db.execute(
+            GET_TRANSCRIPTS_FOR_SOURCE_SQL,
+            (source_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return {row[0]: self._transcript_from_row(row) for row in rows}
+
+    async def get_transcribed_part_indices(self, source_path: str) -> set[int]:
+        """Get set of already transcribed part indices for a source.
+
+        Args:
+            source_path: Path to source file
+
+        Returns:
+            Set of part indices that already have transcripts
+        """
+        db = self._get_db()
+
+        source_id = self._generate_source_id(source_path)
+
+        async with db.execute(
+            GET_TRANSCRIBED_PART_INDICES_SQL,
+            (source_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return {row[0] for row in rows}
+
     async def delete_source(self, source_path: str) -> bool:
-        """Delete a source and all its chunks.
+        """Delete a source and all its chunks and transcripts.
 
         Args:
             source_path: Path to source file
@@ -372,15 +482,12 @@ class StateManager:
 
         source_id = self._generate_source_id(source_path)
 
-        # Check if source exists
         existing = await self.get_source_status(source_path)
         if not existing:
             return False
 
-        # Delete chunks (CASCADE should handle this, but explicit is better)
         await db.execute(DELETE_CHUNKS_FOR_SOURCE_SQL, (source_id,))
-
-        # Delete source
+        await db.execute(DELETE_TRANSCRIPTS_FOR_SOURCE_SQL, (source_id,))
         await db.execute(DELETE_SOURCE_SQL, (source_id,))
 
         await db.commit()
