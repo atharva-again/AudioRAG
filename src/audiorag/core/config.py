@@ -9,10 +9,48 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+)
 
 if TYPE_CHECKING:
     from audiorag.core.config import AdvancedConfig
+
+
+def _find_env_file() -> Path | None:
+    """Find .env file by searching upward from current working directory.
+
+    Priority:
+    1. AUDIORAG_ENV_FILE environment variable (explicit path)
+    2. .env file in current directory or any parent directory
+    3. None (no .env file found)
+    """
+    # Check for explicit path first
+    explicit_path = os.environ.get("AUDIORAG_ENV_FILE")
+    if explicit_path:
+        path = Path(explicit_path)
+        if path.exists():
+            return path
+        # If explicit path doesn't exist, return it anyway (pydantic will error)
+        return path
+
+    # Search upward from CWD
+    cwd = Path.cwd()
+    current = cwd
+
+    # Walk up to root or user home
+    while True:
+        env_path = current / ".env"
+        if env_path.exists():
+            return env_path
+
+        # Stop at filesystem root or home directory
+        if current == current.parent or current == Path.home():
+            break
+        current = current.parent
+
+    return None
 
 
 def _get_default_work_dir() -> Path:
@@ -103,6 +141,18 @@ _ADVANCED_KEYS: set[str] = set(AdvancedConfig.model_fields)
 class AudioRAGConfig(BaseSettings):
     """AudioRAG main configuration.
 
+    Configuration is loaded from multiple sources in order of priority
+    (lowest to highest):
+    1. Default values defined in this class
+    2. .env file found by searching upward from CWD (or AUDIORAG_ENV_FILE)
+    3. Environment variables with AUDIORAG_ prefix
+    4. Values passed directly to constructor
+
+    .env file search behavior:
+    - If AUDIORAG_ENV_FILE is set, use that exact path
+    - Otherwise, search upward from current working directory
+    - Stop at filesystem root or user home directory
+
     Top-level settings (most common):
     - Providers: stt, embedding, vector_store, generation, reranker
     - API Keys: openai_api_key, deepgram_api_key, etc.
@@ -114,7 +164,7 @@ class AudioRAGConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="AUDIORAG_",
-        env_file=".env",
+        env_file=_find_env_file(),
         env_file_encoding="utf-8",
         extra="ignore",
     )
