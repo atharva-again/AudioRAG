@@ -1123,7 +1123,9 @@ class AudioRAGPipeline:
             operation_logger.error("query_failed", error=str(e), error_type=type(e).__name__)
             raise
 
-    async def get_index_status(self, url: str) -> str:
+    async def get_index_status(
+        self, url: str
+    ) -> Literal["not_started", "processing", "completed", "failed"]:
         """Get the indexing status for a URL.
 
         Queries the SQLite database to determine the current indexing state
