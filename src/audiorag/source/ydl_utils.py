@@ -81,4 +81,7 @@ def build_ydl_opts(config: AudioRAGConfig) -> dict[str, Any] | None:
 
         ydl_opts["impersonate"] = ImpersonateTarget.from_str(config.youtube_impersonate)
 
+    if config.youtube_format:
+        ydl_opts["format"] = config.youtube_format
+
     return ydl_opts if ydl_opts else None

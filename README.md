@@ -175,6 +175,9 @@ export AUDIORAG_YOUTUBE_PO_TOKEN="..."           # PO token for bot detection by
 export AUDIORAG_YOUTUBE_VISITOR_DATA="..."       # Visitor session (bound to PO token)
 export AUDIORAG_JS_RUNTIME="deno"                # JS runtime (deno/node/bun)
 
+# Optional YouTube audio-only download (saves ~95% bandwidth)
+export AUDIORAG_YOUTUBE_FORMAT="bestaudio"       # bestaudio | bestaudio/best | worstaudio
+
 # Optional budget governor
 export AUDIORAG_BUDGET_ENABLED="true"
 export AUDIORAG_BUDGET_RPM="60"
