@@ -673,3 +673,142 @@ class TestPipelineCache:
         info = pipeline.get_cache_info()
 
         assert info["location"] is not None
+
+
+class TestGetIndexStatus:
+    """Test suite for pipeline get_index_status method."""
+
+    @pytest.fixture
+    async def initialized_pipeline(self, mock_config, all_mock_providers):
+        """Create and initialize a pipeline with mocked providers."""
+        return await create_mock_pipeline(mock_config, all_mock_providers)
+
+    @pytest.mark.asyncio
+    async def test_returns_not_started_for_unknown_url(self, initialized_pipeline) -> None:
+        """Test that get_index_status returns 'not_started' for URLs not in database."""
+        # Mock state to return None (no source found)
+        initialized_pipeline._state.get_source_status = AsyncMock(return_value=None)
+
+        status = await initialized_pipeline.get_index_status("http://never-seen.example.com")
+
+        assert status == "not_started"
+
+    @pytest.mark.asyncio
+    async def test_returns_completed_for_completed_source(self, initialized_pipeline) -> None:
+        """Test that get_index_status returns 'completed' for completed sources."""
+        initialized_pipeline._state.get_source_status = AsyncMock(
+            return_value={"status": IndexingStatus.COMPLETED}
+        )
+
+        status = await initialized_pipeline.get_index_status("http://completed.example.com")
+
+        assert status == "completed"
+
+    @pytest.mark.asyncio
+    async def test_returns_failed_for_failed_source(self, initialized_pipeline) -> None:
+        """Test that get_index_status returns 'failed' for failed sources."""
+        initialized_pipeline._state.get_source_status = AsyncMock(
+            return_value={"status": IndexingStatus.FAILED}
+        )
+
+        status = await initialized_pipeline.get_index_status("http://failed.example.com")
+
+        assert status == "failed"
+
+    @pytest.mark.asyncio
+    async def test_returns_processing_for_downloading(self, initialized_pipeline) -> None:
+        """Test that get_index_status returns 'processing' for downloading status."""
+        initialized_pipeline._state.get_source_status = AsyncMock(
+            return_value={"status": IndexingStatus.DOWNLOADING}
+        )
+
+        status = await initialized_pipeline.get_index_status("http://downloading.example.com")
+
+        assert status == "processing"
+
+    @pytest.mark.asyncio
+    async def test_returns_processing_for_transcribing(self, initialized_pipeline) -> None:
+        """Test that get_index_status returns 'processing' for transcribing status."""
+        initialized_pipeline._state.get_source_status = AsyncMock(
+            return_value={"status": IndexingStatus.TRANSCRIBING}
+        )
+
+        status = await initialized_pipeline.get_index_status("http://transcribing.example.com")
+
+        assert status == "processing"
+
+    @pytest.mark.asyncio
+    async def test_returns_processing_for_embedding(self, initialized_pipeline) -> None:
+        """Test that get_index_status returns 'processing' for embedding status."""
+        initialized_pipeline._state.get_source_status = AsyncMock(
+            return_value={"status": IndexingStatus.EMBEDDING}
+        )
+
+        status = await initialized_pipeline.get_index_status("http://embedding.example.com")
+
+        assert status == "processing"
+
+    @pytest.mark.asyncio
+    async def test_returns_processing_for_embedded(self, initialized_pipeline) -> None:
+        """Test that get_index_status returns 'processing' for embedded status (gap case)."""
+        initialized_pipeline._state.get_source_status = AsyncMock(
+            return_value={"status": IndexingStatus.EMBEDDED}
+        )
+
+        status = await initialized_pipeline.get_index_status("http://embedded.example.com")
+
+        assert status == "processing"
+
+    @pytest.mark.asyncio
+    async def test_returns_processing_for_all_intermediate_statuses(
+        self, initialized_pipeline
+    ) -> None:
+        """Test that get_index_status returns 'processing' for all intermediate statuses."""
+        # All statuses except COMPLETED and FAILED should return "processing"
+        intermediate_statuses = [
+            IndexingStatus.DOWNLOADING,
+            IndexingStatus.DOWNLOADED,
+            IndexingStatus.SPLITTING,
+            IndexingStatus.TRANSCRIBING,
+            IndexingStatus.TRANSCRIBED,
+            IndexingStatus.CHUNKING,
+            IndexingStatus.CHUNKED,
+            IndexingStatus.EMBEDDING,
+            IndexingStatus.EMBEDDED,
+        ]
+
+        for status in intermediate_statuses:
+            initialized_pipeline._state.get_source_status = AsyncMock(
+                return_value={"status": status}
+            )
+
+            result = await initialized_pipeline.get_index_status("http://test.example.com")
+
+            assert result == "processing", f"Expected 'processing' for {status}, got {result}"
+
+    @pytest.mark.asyncio
+    async def test_initializes_state_if_needed(
+        self, mock_config, all_mock_providers, mocker
+    ) -> None:
+        """Test that get_index_status initializes state if not already initialized."""
+        # Create pipeline but don't initialize
+        pipeline = AudioRAGPipeline(
+            config=mock_config,
+            audio_source=all_mock_providers["audio_source"],
+            stt=all_mock_providers["stt"],
+            embedder=all_mock_providers["embedding"],
+            vector_store=all_mock_providers["vector_store"],
+            generator=all_mock_providers["generation"],
+            reranker=all_mock_providers["reranker"],
+        )
+
+        # Mock the state manager's get_source_status using mocker
+        mocker.patch.object(
+            pipeline._state, "get_source_status", new_callable=AsyncMock, return_value=None
+        )
+
+        # Should not raise - should initialize automatically
+        status = await pipeline.get_index_status("http://test.example.com")
+
+        assert status == "not_started"
+        assert pipeline._initialized is True

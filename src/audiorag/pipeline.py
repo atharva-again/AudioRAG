@@ -1122,3 +1122,36 @@ class AudioRAGPipeline:
         except Exception as e:
             operation_logger.error("query_failed", error=str(e), error_type=type(e).__name__)
             raise
+
+    async def get_index_status(self, url: str) -> str:
+        """Get the indexing status for a URL.
+
+        Queries the SQLite database to determine the current indexing state
+        of the given URL without initiating any indexing operations.
+
+        Args:
+            url: The source URL to check the status for.
+
+        Returns:
+            One of:
+            - "not_started": URL has never been indexed
+            - "processing": Indexing is currently in progress
+            - "completed": Indexing finished successfully
+            - "failed": Indexing failed with an error
+        """
+        await self._ensure_initialized()
+
+        source_info = await self._state.get_source_status(url)
+
+        if source_info is None:
+            return "not_started"
+
+        status = source_info["status"]
+
+        if status == IndexingStatus.COMPLETED:
+            return "completed"
+        if status == IndexingStatus.FAILED:
+            return "failed"
+        # Any other status (downloading, downloaded, splitting, transcribing,
+        # transcribed, chunking, chunked, embedding, embedded) means processing
+        return "processing"
