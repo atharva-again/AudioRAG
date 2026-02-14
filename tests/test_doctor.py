@@ -284,7 +284,8 @@ class TestDoctorCLI:
         assert "doctor" in output.lower()
         assert exc_info.value.code == 0
 
-    def test_doctor_exit_code_0_all_found(self) -> None:
+    @pytest.mark.asyncio
+    async def test_doctor_exit_code_0_all_found(self) -> None:
         """Test doctor command exits 0 when all deps found."""
         from audiorag.cli import doctor_cmd
 
@@ -293,11 +294,12 @@ class TestDoctorCLI:
 
             # Should not raise SystemExit(1)
             try:
-                doctor_cmd()
+                await doctor_cmd()
             except SystemExit as e:
                 assert e.code == 0
 
-    def test_doctor_exit_code_1_missing_dep(self) -> None:
+    @pytest.mark.asyncio
+    async def test_doctor_exit_code_1_missing_dep(self) -> None:
         """Test doctor command exits 1 when dependency missing."""
         from audiorag.cli import doctor_cmd
 
@@ -308,6 +310,6 @@ class TestDoctorCLI:
 
         with patch("shutil.which", side_effect=mock_which):
             with pytest.raises(SystemExit) as exc_info:
-                doctor_cmd()
+                await doctor_cmd()
 
             assert exc_info.value.code == 1
