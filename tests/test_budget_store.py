@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
 from audiorag.core.budget_store_sqlite import SqliteBudgetStore
+from audiorag.core.exceptions import BudgetExceededError
 from audiorag.core.protocols import BudgetStore
 
 
@@ -26,8 +28,6 @@ class TestBudgetStoreProtocol:
 
     def test_protocol_is_runtime_checkable(self) -> None:
         """BudgetStore should be runtime_checkable."""
-        from typing import Protocol, runtime_checkable
-
         assert hasattr(BudgetStore, "__subclasshook__")
 
     def test_sqlite_store_satisfies_protocol(self, tmp_path: Path) -> None:
@@ -202,7 +202,7 @@ class TestGovernorWithCustomStore:
         assert usage == 1
 
         # Second request should fail
-        with pytest.raises(Exception):  # BudgetExceededError
+        with pytest.raises(BudgetExceededError):
             governor.reserve(provider="openai", requests=1)
 
     def test_governor_db_path_creates_sqlite_store(self, tmp_path: Path) -> None:
@@ -266,21 +266,21 @@ class TestGovernorWithCustomStore:
         governor.reserve(provider="openai", requests=1)
 
         # Second request should fail within window
-        with pytest.raises(Exception):  # BudgetExceededError
+        with pytest.raises(BudgetExceededError):
             governor.reserve(provider="openai", requests=1)
 
     def test_governor_from_config_with_custom_store(self) -> None:
         """from_config should accept optional store parameter."""
-        from audiorag.core.budget import BudgetGovernor, BudgetLimits
+        from audiorag.core.budget import BudgetGovernor
 
         class MockConfig:
-            budget_enabled = True
-            budget_rpm = 1
-            budget_tpm = None
-            budget_audio_seconds_per_hour = None
-            budget_token_chars_per_token = 4
-            budget_provider_overrides = {}
-            database_path = None
+            budget_enabled: ClassVar[bool] = True
+            budget_rpm: ClassVar[int] = 1
+            budget_tpm: ClassVar[None] = None
+            budget_audio_seconds_per_hour: ClassVar[None] = None
+            budget_token_chars_per_token: ClassVar[int] = 4
+            budget_provider_overrides: ClassVar[dict] = {}
+            database_path: ClassVar[None] = None
 
         custom_store = InMemoryBudgetStore()
         governor = BudgetGovernor.from_config(MockConfig(), store=custom_store)

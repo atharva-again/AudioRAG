@@ -142,50 +142,8 @@ class DownloadStage(Stage):
             await pipeline._state.upsert_source(ctx.url, IndexingStatus.DOWNLOADING)
 
             # Pre-download budget check using metadata (duration)
-            metadata = None
-            needs_budget_check = (
-                "youtube.com" in ctx.url
-                or "youtu.be" in ctx.url
-                or ctx.url.startswith("file://")
-                or Path(ctx.url).exists()
-            )
-            if needs_budget_check:
-                ctx.logger.debug("pre_download_metadata_extraction")
-                try:
-                    metadata = await pipeline._audio_source.get_metadata(ctx.url)
-                    if (
-                        metadata is not None
-                        and hasattr(metadata, "duration")
-                        and metadata.duration
-                        and metadata.duration > 0
-                    ):
-                        seconds = int(metadata.duration)
-                        ctx.logger.debug(
-                            "pre_download_budget_reservation", duration_seconds=seconds
-                        )
-                        pipeline._budget_governor.reserve(
-                            provider=ctx.config.stt_provider,
-                            audio_seconds=seconds,
-                        )
-                        ctx.reserved_audio_seconds = seconds
-                except BudgetExceededError:
-                    # When sipping is enabled, make pre-download check soft
-                    # (allow download to proceed, sipping will handle budget in TranscribeStage)
-                    try:
-                        sip_max_retries = int(getattr(ctx.config, "budget_sip_max_retries", 0))
-                    except (TypeError, ValueError):
-                        sip_max_retries = 0
-                    if sip_max_retries > 0:
-                        ctx.logger.warning(
-                            "pre_download_budget_exceeded_sipping_enabled",
-                            message="Budget exceeded for pre-download check, "
-                            "but sipping is enabled - proceeding with download",
-                        )
-                    else:
-                        raise
-                except Exception as e:
-                    ctx.logger.warning("pre_download_metadata_failed", error=str(e))
-                    # Fallback to download without pre-reservation if metadata fails
+            metadata, reserved = await self._pre_download_budget_check(ctx, pipeline)
+            ctx.reserved_audio_seconds = reserved
 
             try:
                 audio_file = await pipeline._audio_source.download(
@@ -242,6 +200,55 @@ class DownloadStage(Stage):
                 duration_seconds=audio_file.duration,
                 file_path=str(audio_file.path),
             )
+
+    async def _pre_download_budget_check(
+        self, ctx: StageContext, pipeline: AudioRAGPipeline
+    ) -> tuple[Any | None, int]:
+        """Handle pre-download budget reservation with sipping support.
+
+        Returns:
+            Tuple of (metadata, reserved_audio_seconds)
+        """
+        needs_check = (
+            "youtube.com" in ctx.url
+            or "youtu.be" in ctx.url
+            or ctx.url.startswith("file://")
+            or Path(ctx.url).exists()
+        )
+        if not needs_check:
+            return None, 0
+
+        ctx.logger.debug("pre_download_metadata_extraction")
+        try:
+            metadata = await pipeline._audio_source.get_metadata(ctx.url)
+            if not (
+                metadata
+                and hasattr(metadata, "duration")
+                and metadata.duration
+                and metadata.duration > 0
+            ):
+                return metadata, 0
+
+            seconds = int(metadata.duration)
+            ctx.logger.debug("pre_download_budget_reservation", duration_seconds=seconds)
+            pipeline._budget_governor.reserve(
+                provider=ctx.config.stt_provider,
+                audio_seconds=seconds,
+            )
+            return metadata, seconds
+        except BudgetExceededError:
+            # When sipping is enabled, make pre-download check soft
+            sip_max_retries = int(getattr(ctx.config, "budget_sip_max_retries", 0) or 0)
+            if sip_max_retries > 0:
+                ctx.logger.warning(
+                    "pre_download_budget_exceeded_sipping_enabled",
+                    message="Budget exceeded but sipping enabled - proceeding",
+                )
+                return None, 0
+            raise
+        except Exception as e:
+            ctx.logger.warning("pre_download_metadata_failed", error=str(e))
+            return None, 0
 
 
 class SplitStage(Stage):

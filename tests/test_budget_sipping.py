@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from audiorag.core.budget import BudgetGovernor, BudgetLimits
-from audiorag.core.budget_store_sqlite import SqliteBudgetStore
 from audiorag.core.exceptions import BudgetExceededError
-from audiorag.pipeline import AudioRAGPipeline, StageContext, TranscribeStage
+from audiorag.pipeline import AudioRAGPipeline, TranscribeStage
 
 
 @dataclass
@@ -169,7 +168,7 @@ class TestBudgetSipping:
         ctx.logger = MagicMock()
 
         with pytest.raises(BudgetExceededError):
-            with patch("asyncio.sleep") as mock_sleep:
+            with patch("asyncio.sleep"):
                 await stage._sip_reserve(pipeline, "openai", 50, ctx)
 
     @pytest.mark.asyncio
@@ -220,6 +219,3 @@ class TestBudgetSipping:
             call for call in ctx.logger.info.call_args_list if "budget_sip_waiting" in str(call)
         ]
         assert len(log_calls) >= 1
-
-
-import asyncio
