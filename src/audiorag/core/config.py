@@ -36,7 +36,11 @@ def _find_env_file() -> Path | None:
         return path
 
     # Search upward from CWD
-    cwd = Path.cwd()
+    try:
+        cwd = Path.cwd()
+    except OSError:
+        return None
+
     current = cwd
 
     # Walk up to root or user home

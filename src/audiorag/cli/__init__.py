@@ -427,10 +427,11 @@ Examples:
   audiorag query "What are the main points?"
 
 Configuration:
-  AudioRAG uses .env files for configuration. Place a .env file in your
-  project directory with AUDIORAG_ prefixed variables (e.g., AUDIORAG_OPENAI_API_KEY).
+  AudioRAG can be configured via environment variables and/or a .env file.
+  Environment variables (e.g., AUDIORAG_OPENAI_API_KEY) take precedence over
+  values defined in .env files.
 
-  The .env file is searched automatically:
+  If you use a .env file, it is searched automatically:
   - If AUDIORAG_ENV_FILE is set, that exact path is used
   - Otherwise, searches upward from the current directory
   - Falls back to default values if no .env is found
