@@ -17,6 +17,7 @@ from rich.table import Table
 from rich.theme import Theme
 
 from audiorag import AudioRAGConfig, AudioRAGPipeline
+from audiorag.core.doctor import check_dependencies
 
 _active_pipeline: AudioRAGPipeline | None = None  # Set during index/query for signal handling
 
@@ -408,6 +409,46 @@ async def cache_clear_cmd() -> None:
     console.print(f"[success]Cleared {cleared} items from cache.[/]")
 
 
+async def doctor_cmd() -> None:
+    """Check system dependencies and report their availability."""
+    config = AudioRAGConfig()
+    result = check_dependencies(config)
+
+    table = Table(
+        box=None,
+        show_header=True,
+        header_style="highlight",
+        title="System Dependencies",
+        title_justify="left",
+        title_style="dim",
+        pad_edge=False,
+    )
+    table.add_column("Dependency", ratio=2)
+    table.add_column("Status", justify="center", ratio=1)
+    table.add_column("Path", ratio=3)
+
+    for check in result.checks:
+        if check.available:
+            status = "[success]✓[/]"
+            path_str = check.path or "N/A"
+        else:
+            status = "[error]✗[/]"
+            path_str = "[error]not found[/]"
+        table.add_row(check.name, status, path_str)
+
+    console.print(table)
+
+    if not result.all_ok:
+        console.print(
+            "\n[error]Some dependencies are missing. "
+            "Please install them to use all AudioRAG features.[/]"
+        )
+        sys.exit(1)
+
+    console.print("\n[success]All dependencies are available![/]")
+    sys.exit(0)
+
+
 def _signal_handler(signum: int, _frame: Any) -> None:
     sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
     console.print(f"\n[warning]Received {sig_name}, shutting down gracefully...[/]")
@@ -433,6 +474,12 @@ Note: Use "audiorag [command] --help" for more details on a specific command.
 
     # Setup
     subparsers.add_parser("setup", help="Initialize provider configuration")
+
+    # Doctor
+    subparsers.add_parser(
+        "doctor",
+        help="Check system dependencies",
+    )
 
     # Index
     index_parser = subparsers.add_parser(
@@ -488,6 +535,8 @@ Examples:
     try:
         if args.command == "setup":
             asyncio.run(setup_cmd())
+        elif args.command == "doctor":
+            asyncio.run(doctor_cmd())
         elif args.command == "index":
             asyncio.run(index_cmd(args.inputs, args.force))
         elif args.command == "query":

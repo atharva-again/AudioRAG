@@ -8,6 +8,11 @@ from __future__ import annotations
 
 from audiorag.core.budget import BudgetGovernor, BudgetLimits
 from audiorag.core.config import AudioRAGConfig
+from audiorag.core.doctor import (
+    DependencyCheck,
+    DoctorResult,
+    check_dependencies,
+)
 from audiorag.core.exceptions import (
     AudioRAGError,
     BudgetExceededError,
@@ -40,13 +45,9 @@ from audiorag.core.retry_config import RetryConfig, create_retry_decorator
 from audiorag.core.state import StateManager
 
 __all__ = [
-    # Models
     "AudioFile",
-    # Config
     "AudioRAGConfig",
-    # Exceptions
     "AudioRAGError",
-    # Protocols
     "AudioSourceProvider",
     "BatchIndexFailure",
     "BatchIndexResult",
@@ -55,6 +56,8 @@ __all__ = [
     "BudgetLimits",
     "ChunkMetadata",
     "ConfigurationError",
+    "DependencyCheck",
+    "DoctorResult",
     "EmbeddingProvider",
     "GenerationProvider",
     "IndexingStatus",
@@ -66,12 +69,11 @@ __all__ = [
     "STTProvider",
     "Source",
     "StateError",
-    # State
     "StateManager",
     "TranscriptionSegment",
     "VectorStoreProvider",
     "VerifiableVectorStoreProvider",
-    # Logging
+    "check_dependencies",
     "configure_logging",
     "create_retry_decorator",
     "get_logger",
