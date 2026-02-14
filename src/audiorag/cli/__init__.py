@@ -467,6 +467,16 @@ Examples:
   audiorag index "./local_folder/"
   audiorag query "What are the main points?"
 
+Configuration:
+  AudioRAG can be configured via environment variables and/or a .env file.
+  Environment variables (e.g., AUDIORAG_OPENAI_API_KEY) take precedence over
+  values defined in .env files.
+
+  If you use a .env file, it is searched automatically:
+  - If AUDIORAG_ENV_FILE is set, that exact path is used
+  - Otherwise, searches upward from the current directory
+  - Falls back to default values if no .env is found
+
 Note: Use "audiorag [command] --help" for more details on a specific command.
         """,
     )
