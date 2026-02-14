@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from audiorag.core.logging_config import get_logger
 from audiorag.embed._base import EmbedderMixin
@@ -73,7 +73,7 @@ class CohereEmbeddingProvider(EmbedderMixin):
                     input_type=self.input_type,
                     embedding_types=["float"],
                 )
-                all_embeddings.extend(response.embeddings.float)
+                all_embeddings.extend(cast(Any, response.embeddings).float)
             return all_embeddings
 
         try:
