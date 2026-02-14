@@ -106,9 +106,9 @@ def create_audio_source_provider(config: AudioRAGConfig) -> AudioSourceProvider:
     - youtube.com, youtu.be → YouTubeSource
     - Direct HTTP URLs → URLSource
     """
-    from audiorag.pipeline import _build_ydl_opts
     from audiorag.source.local import LocalSource
     from audiorag.source.url import URLSource
+    from audiorag.source.ydl_utils import build_ydl_opts
     from audiorag.source.youtube import YouTubeSource
 
     provider_name = config.audio_source_provider.lower()
@@ -128,7 +128,7 @@ def create_audio_source_provider(config: AudioRAGConfig) -> AudioSourceProvider:
     archive_path = (
         Path(config.youtube_download_archive) if config.youtube_download_archive else None
     )
-    ydl_opts = _build_ydl_opts(config)
+    ydl_opts = build_ydl_opts(config)
     youtube_provider = YouTubeSource(
         download_archive=archive_path,
         ydl_opts=ydl_opts,

@@ -57,7 +57,7 @@ class AssemblyAITranscriber(TranscriberMixin):
 
         @retry_decorator
         async def _transcribe_with_retry() -> Any:
-            return self._transcriber.transcribe(audio_path)
+            return self._transcriber.transcribe(str(audio_path))
 
         try:
             response = await _transcribe_with_retry()
