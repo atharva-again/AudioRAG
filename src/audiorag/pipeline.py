@@ -172,12 +172,28 @@ class DownloadStage(Stage):
             if audio_file.duration and audio_file.duration > 0:
                 actual = int(audio_file.duration)
                 if ctx.reserved_audio_seconds == 0:
-                    # No pre-flight reservation, reserve full amount
-                    pipeline._budget_governor.reserve(
-                        provider=ctx.config.stt_provider,
-                        audio_seconds=actual,
-                    )
-                    ctx.reserved_audio_seconds = actual
+                    # No pre-flight reservation, try to reserve full amount
+                    # Make soft when sipping is enabled (let TranscribeStage handle it)
+                    sip_enabled = int(getattr(ctx.config, "budget_sip_max_retries", 0) or 0) > 0
+                    if sip_enabled:
+                        try:
+                            pipeline._budget_governor.reserve(
+                                provider=ctx.config.stt_provider,
+                                audio_seconds=actual,
+                            )
+                            ctx.reserved_audio_seconds = actual
+                        except BudgetExceededError:
+                            ctx.logger.warning(
+                                "post_download_budget_exceeded_sipping_enabled",
+                                message="Budget exceeded, sipping handles in TranscribeStage",
+                            )
+                            ctx.reserved_audio_seconds = 0
+                    else:
+                        pipeline._budget_governor.reserve(
+                            provider=ctx.config.stt_provider,
+                            audio_seconds=actual,
+                        )
+                        ctx.reserved_audio_seconds = actual
                 elif actual != ctx.reserved_audio_seconds:
                     # Reconcile delta
                     delta = actual - ctx.reserved_audio_seconds

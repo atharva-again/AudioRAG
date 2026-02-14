@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from audiorag.core.exceptions import ConfigurationError
+from audiorag.core.exceptions import BudgetExceededError, ConfigurationError
 from audiorag.core.protocols.budget_store import BudgetStore
 
 PathLike = str | Path
@@ -54,6 +54,7 @@ class SqliteBudgetStore:
         """Return total usage for provider/metric within the time window.
 
         Automatically cleans up expired entries before calculating.
+        Uses single connection for both cleanup and sum to reduce lock contention.
 
         Args:
             provider: The provider name (e.g., "openai").
@@ -65,9 +66,11 @@ class SqliteBudgetStore:
             Total usage units within the window.
         """
         cutoff = now - window_seconds
-        self.cleanup(provider, metric, cutoff)
-
         with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                "DELETE FROM budget_events WHERE provider = ? AND metric = ? AND event_time <= ?",
+                (provider, metric, cutoff),
+            )
             cursor = conn.execute(
                 "SELECT COALESCE(SUM(units), 0) FROM budget_events "
                 "WHERE provider = ? AND metric = ?",
@@ -99,17 +102,70 @@ class SqliteBudgetStore:
         except sqlite3.DatabaseError as exc:
             raise ConfigurationError(f"budget store database failure: {exc}") from exc
 
+    def atomic_reserve(
+        self,
+        provider: str,
+        limit_entries: list[tuple[str, int, int, int]],
+        now: float,
+    ) -> None:
+        """Atomically check and reserve budget across multiple metrics.
+
+        Uses a single transaction to ensure atomicity - either all reservations
+        succeed or none do.
+
+        Args:
+            provider: The provider name.
+            limit_entries: List of (metric, requested, limit, window_seconds) tuples.
+            now: Current timestamp.
+
+        Raises:
+            BudgetExceededError: If any metric would exceed its limit.
+            ConfigurationError: If database operation fails.
+        """
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                for metric, requested, limit, window_seconds in limit_entries:
+                    cutoff = now - window_seconds
+                    cursor = conn.execute(
+                        "SELECT COALESCE(SUM(units), 0) FROM budget_events "
+                        "WHERE provider = ? AND metric = ? AND event_time > ?",
+                        (provider, metric, cutoff),
+                    )
+                    row = cursor.fetchone()
+                    current = int(row[0] if row and row[0] is not None else 0)
+                    if current + requested > limit:
+                        raise BudgetExceededError(
+                            provider=provider,
+                            metric=metric,
+                            limit=limit,
+                            current=current,
+                            requested=requested,
+                            window_seconds=window_seconds,
+                        )
+
+                for metric, requested, _limit, _window_seconds in limit_entries:
+                    conn.execute(
+                        "INSERT INTO budget_events (provider, metric, units, event_time) "
+                        "VALUES (?, ?, ?, ?)",
+                        (provider, metric, requested, now),
+                    )
+                conn.commit()
+        except BudgetExceededError:
+            raise
+        except sqlite3.DatabaseError as exc:
+            raise ConfigurationError(f"budget store database failure: {exc}") from exc
+
     def cleanup(self, provider: str, metric: str, cutoff_time: float) -> None:
-        """Remove entries before the cutoff time.
+        """Remove entries at or before the cutoff time.
 
         Args:
             provider: The provider name.
             metric: The metric name.
-            cutoff_time: Entries before this time are removed (exclusive).
+            cutoff_time: Entries at or before this time are removed (inclusive).
         """
         with sqlite3.connect(self._db_path) as conn:
             conn.execute(
-                "DELETE FROM budget_events WHERE provider = ? AND metric = ? AND event_time < ?",
+                "DELETE FROM budget_events WHERE provider = ? AND metric = ? AND event_time <= ?",
                 (provider, metric, cutoff_time),
             )
             conn.commit()

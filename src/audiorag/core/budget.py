@@ -200,26 +200,32 @@ class BudgetGovernor:
         limit_entries: list[tuple[str, int, int, int]],
         now: float,
     ) -> None:
-        """Reserve budget using the configured store."""
+        """Reserve budget using the configured store.
+
+        Uses atomic reserve when available for concurrency safety.
+        """
         if self._store is None:
             return
 
-        # Check current usage for each metric
-        for metric, requested, limit, window_seconds in limit_entries:
-            current = self._store.check_usage(provider, metric, window_seconds, now)
-            if current + requested > limit:
-                raise BudgetExceededError(
-                    provider=provider,
-                    metric=metric,
-                    limit=limit,
-                    current=current,
-                    requested=requested,
-                    window_seconds=window_seconds,
-                )
+        # Use atomic reserve if the store supports it
+        if hasattr(self._store, "atomic_reserve"):
+            self._store.atomic_reserve(provider, limit_entries, now)
+        else:
+            # Fallback to non-atomic check + record
+            for metric, requested, limit, window_seconds in limit_entries:
+                current = self._store.check_usage(provider, metric, window_seconds, now)
+                if current + requested > limit:
+                    raise BudgetExceededError(
+                        provider=provider,
+                        metric=metric,
+                        limit=limit,
+                        current=current,
+                        requested=requested,
+                        window_seconds=window_seconds,
+                    )
 
-        # Record usage for each metric
-        for metric, requested, _limit, _window_seconds in limit_entries:
-            self._store.record_usage(provider, metric, requested, now)
+            for metric, requested, _limit, _window_seconds in limit_entries:
+                self._store.record_usage(provider, metric, requested, now)
 
     def _resolve_tokens(self, *, tokens: int | None, text_chars: int | None) -> int:
         if tokens is not None:

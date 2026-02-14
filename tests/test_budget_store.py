@@ -53,7 +53,7 @@ class TestSqliteBudgetStore:
         """Should record usage and return correct sum."""
         store = SqliteBudgetStore(tmp_path / "test.db")
 
-        store.record_usage("openai", "rpm", 10, now=0.0)
+        store.record_usage("openai", "rpm", 10, now=1.0)
         store.record_usage("openai", "rpm", 20, now=30.0)
         store.record_usage("openai", "rpm", 30, now=59.0)
 
