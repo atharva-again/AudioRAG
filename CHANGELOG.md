@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-02-14 - Transcription Resumability
+
+### Added
+- **Transcription resumability**: Pipeline now tracks per-part transcription in SQLite, enabling resumption after partial failures without re-transcribing completed parts.
+- **Transcripts table**: New database table stores transcription segments per audio part.
+- **StateManager methods**: Added `store_transcript()`, `get_transcripts()`, and `get_transcribed_part_indices()` methods.
+
+### Benefits
+- **Saves money**: If transcription fails at part 8/10, next run skips parts 1-7 and only transcribes 8-10, saving Groq/STT budget.
+- **Enables re-chunking**: Raw transcript storage infrastructure ready for future re-chunking without re-STT.
+- **Resilient**: Each part is persisted immediately after successful transcription.
+
+### Fixed
+- **Timestamp alignment**: Stored timestamps are now adjusted with cumulative offset to ensure correct time alignment after resume.
+
 ## [0.9.0] - 2026-02-14 - Persistent Cache & Cache Management
 
 ### Added
