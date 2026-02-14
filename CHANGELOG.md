@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-02-15 - YouTube Audio-Only Downloads
+
+### Added
+- **youtube_format config option**: New `youtube_format` config to enable audio-only YouTube downloads.
+  - Set `AUDIORAG_YOUTUBE_FORMAT=bestaudio` to download audio-only (saves ~95% bandwidth).
+  - Works with yt-dlp format selection: `bestaudio`, `bestaudio/best`, `worstaudio`.
+  - Compatible with existing `-x --audio-format mp3` post-processing.
+
 ## [0.12.0] - 2026-02-14 - Budget Store, Doctor CLI, .env Discovery, Index Status
 
 ### Added
