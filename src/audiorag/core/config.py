@@ -41,6 +41,7 @@ class AdvancedConfig(BaseSettings):
     youtube_batch_size: int = 100
     youtube_max_concurrent: int = 3
     youtube_cookie_file: str | None = None
+    youtube_cookies_from_browser: str | None = None
     youtube_po_token: str | None = None
     youtube_visitor_data: str | None = None
     youtube_data_sync_id: str | None = None
@@ -150,6 +151,7 @@ class AudioRAGConfig(BaseSettings):
     youtube_batch_size: int = 100
     youtube_max_concurrent: int = 3
     youtube_cookie_file: str | None = None
+    youtube_cookies_from_browser: str | None = None
     youtube_po_token: str | None = None
     youtube_visitor_data: str | None = None
     youtube_data_sync_id: str | None = None

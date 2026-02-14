@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from audiorag.core.exceptions import DiscoveryError
 from audiorag.core.logging_config import get_logger
 from audiorag.source.url import AUDIO_EXTENSIONS
+from audiorag.source.ydl_utils import build_ydl_opts
 
 if TYPE_CHECKING:
     from audiorag.core import AudioRAGConfig
@@ -54,26 +55,11 @@ async def _expand_youtube_source(item: str, config: AudioRAGConfig | None) -> li
     try:
         from audiorag.source.youtube import YouTubeSource
 
-        ydl_opts: dict[str, Any] = {}
-        if config:
-            if config.youtube_po_token:
-                yt_args = ydl_opts.setdefault("extractor_args", {}).setdefault("youtube", {})
-                token = config.youtube_po_token
-                if "+" not in token:
-                    token = f"web.gvs+{token}"
-                yt_args["po_token"] = [token]
-            if config.youtube_visitor_data:
-                ydl_opts.setdefault("extractor_args", {}).setdefault("youtube", {})[
-                    "visitor_data"
-                ] = config.youtube_visitor_data
-            if config.youtube_impersonate:
-                from yt_dlp.networking.impersonate import ImpersonateTarget
-
-                ydl_opts["impersonate"] = ImpersonateTarget.from_str(config.youtube_impersonate)
+        ydl_opts = build_ydl_opts(config) if config else None
 
         scraper = YouTubeSource(
             download_archive=config.youtube_download_archive if config else None,
-            ydl_opts=ydl_opts if ydl_opts else None,
+            ydl_opts=ydl_opts,
         )
         videos = await scraper.list_channel_videos(item)
 

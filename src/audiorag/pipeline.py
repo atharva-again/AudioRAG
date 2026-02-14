@@ -486,26 +486,6 @@ _DEFAULT_STAGES: tuple[Stage, ...] = (
 )
 
 
-def _build_ydl_opts(config: AudioRAGConfig) -> dict[str, Any] | None:
-    """Build yt-dlp options from config."""
-    ydl_opts: dict[str, Any] = {}
-    if config.youtube_po_token:
-        yt_args = ydl_opts.setdefault("extractor_args", {}).setdefault("youtube", {})
-        token = config.youtube_po_token
-        if "+" not in token:
-            token = f"web.gvs+{token}"
-        yt_args["po_token"] = [token]
-    if config.youtube_visitor_data:
-        ydl_opts.setdefault("extractor_args", {}).setdefault("youtube", {})["visitor_data"] = (
-            config.youtube_visitor_data
-        )
-    if config.youtube_impersonate:
-        from yt_dlp.networking.impersonate import ImpersonateTarget
-
-        ydl_opts["impersonate"] = ImpersonateTarget.from_str(config.youtube_impersonate)
-    return ydl_opts if ydl_opts else None
-
-
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------

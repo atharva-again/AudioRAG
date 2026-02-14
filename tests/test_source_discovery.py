@@ -251,3 +251,110 @@ class TestDiscoverSources:
         assert len(result) == 2
         assert "https://example.com/audio.mp3" in result
         assert "https://another.com/song.wav" in result
+
+
+class TestBuildYdlOpts:
+    """Test build_ydl_opts function."""
+
+    def test_no_youtube_options_returns_none(self) -> None:
+        """Test config with only defaults returns None."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(
+            youtube_impersonate=None,
+            youtube_cookie_file=None,
+            youtube_cookies_from_browser=None,
+            youtube_po_token=None,
+            youtube_visitor_data=None,
+        )
+        result = build_ydl_opts(config)
+        assert result is None
+
+    def test_cookie_file(self) -> None:
+        """Test cookie file option."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(youtube_cookie_file="/path/to/cookies.txt")
+        result = build_ydl_opts(config)
+        assert result is not None
+        assert result["cookiefile"] == "/path/to/cookies.txt"
+
+    def test_cookies_from_browser_chrome(self) -> None:
+        """Test cookies from browser option."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(youtube_cookies_from_browser="chrome")
+        result = build_ydl_opts(config)
+        assert result is not None
+        assert result["cookiesfrombrowser"] == "chrome"
+
+    def test_cookies_from_browser_with_profile(self) -> None:
+        """Test cookies from browser with profile."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(youtube_cookies_from_browser="firefox:default")
+        result = build_ydl_opts(config)
+        assert result is not None
+        assert result["cookiesfrombrowser"] == "firefox:default"
+
+    def test_cookies_from_browser_with_keyring(self) -> None:
+        """Test cookies from browser with keyring."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(youtube_cookies_from_browser="chrome+gnomekeyring")
+        result = build_ydl_opts(config)
+        assert result is not None
+        assert result["cookiesfrombrowser"] == "chrome+gnomekeyring"
+
+    def test_cookies_from_browser_invalid(self) -> None:
+        """Test invalid browser raises ValueError."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(youtube_cookies_from_browser="invalid_browser")
+        with pytest.raises(ValueError, match="Unsupported browser"):
+            build_ydl_opts(config)
+
+    def test_po_token(self) -> None:
+        """Test po_token option."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(youtube_po_token="test_token")
+        result = build_ydl_opts(config)
+        assert result is not None
+        assert "extractor_args" in result
+        assert "youtube" in result["extractor_args"]
+        assert "po_token" in result["extractor_args"]["youtube"]
+        assert "web.gvs+test_token" in result["extractor_args"]["youtube"]["po_token"][0]
+
+    def test_visitor_data(self) -> None:
+        """Test visitor_data option."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(youtube_visitor_data="test_visitor_data")
+        result = build_ydl_opts(config)
+        assert result is not None
+        assert result["extractor_args"]["youtube"]["visitor_data"] == "test_visitor_data"
+
+    def test_multiple_options(self) -> None:
+        """Test multiple options combined."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(
+            youtube_cookie_file="/path/to/cookies.txt",
+            youtube_po_token="test_token",
+            youtube_visitor_data="test_visitor",
+        )
+        result = build_ydl_opts(config)
+        assert result is not None
+        assert result["cookiefile"] == "/path/to/cookies.txt"
+        assert "extractor_args" in result
+        assert "youtube" in result["extractor_args"]
