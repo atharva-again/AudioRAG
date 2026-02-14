@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-02-14 - Budget Store, Doctor CLI, .env Discovery, Index Status
+
+### Added
+- **Persistent BudgetStore**: New `BudgetStore` protocol enables pluggable budget state management backends.
+  - Added `SqliteBudgetStore` for persistent budget tracking across process restarts.
+  - Added `atomic_reserve()` for atomic check-and-record in a single transaction.
+- **Budget sipping**: New budget adjustment feature that reconciles estimated vs actual audio duration after download.
+  - Prevents budget waste by reserving based on estimated duration, then "sipping" (releasing) excess after actual duration is known.
+- **audiorag doctor CLI**: New `audiorag doctor` subcommand for diagnosing pipeline issues.
+  - Verifies all required dependencies are installed.
+  - Checks provider configurations.
+  - Provides actionable troubleshooting advice.
+- **.env auto-discovery**: Configuration now automatically discovers `.env` files by walking up from the current directory.
+  - Supports nested project structures.
+  - Falls back to default locations if not found.
+- **get_index_status API**: New `pipeline.get_index_status(source_url)` method to check if a source is indexed without triggering re-indexing.
+  - Returns indexing status: `not_indexed`, `indexed`, or `failed`.
+  - Useful for checking pipeline state before queries.
+
+### Changed
+- **BudgetGovernor refactor**: Split into separate modules for better maintainability.
+  - `budget.py` - In-memory budget tracking
+  - `budget_store_sqlite.py` - SQLite-backed persistent storage
+  - `protocols/budget_store.py` - Protocol definition for custom stores
+
 ## [0.11.0] - 2026-02-14 - YouTube Improvements
 
 ### Added
@@ -375,7 +400,8 @@ For most users, YouTubeSource now works out of the box without any configuration
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/atharva-again/audiorag/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/atharva-again/audiorag/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/atharva-again/audiorag/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/atharva-again/audiorag/compare/v0.8.1...v0.9.0
