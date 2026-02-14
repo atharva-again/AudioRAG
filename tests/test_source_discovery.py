@@ -343,6 +343,26 @@ class TestBuildYdlOpts:
         assert result is not None
         assert result["extractor_args"]["youtube"]["visitor_data"] == "test_visitor_data"
 
+    def test_youtube_format(self) -> None:
+        """Test youtube format option for audio-only downloads."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(youtube_format="bestaudio")
+        result = build_ydl_opts(config)
+        assert result is not None
+        assert result["format"] == "bestaudio"
+
+    def test_youtube_format_with_fallback(self) -> None:
+        """Test youtube format with fallback option."""
+        from audiorag.core.config import AudioRAGConfig
+        from audiorag.source.ydl_utils import build_ydl_opts
+
+        config = AudioRAGConfig(youtube_format="bestaudio/best")
+        result = build_ydl_opts(config)
+        assert result is not None
+        assert result["format"] == "bestaudio/best"
+
     def test_multiple_options(self) -> None:
         """Test multiple options combined."""
         from audiorag.core.config import AudioRAGConfig

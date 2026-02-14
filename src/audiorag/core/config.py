@@ -89,6 +89,7 @@ class AdvancedConfig(BaseSettings):
     youtube_data_sync_id: str | None = None
     youtube_impersonate: str | None = "chrome-120"
     youtube_player_clients: list[str] = ["tv", "web", "mweb"]
+    youtube_format: str | None = None
     js_runtime: str | None = "deno"
 
     pinecone_index_name: str = "audiorag"
@@ -213,6 +214,7 @@ class AudioRAGConfig(BaseSettings):
     youtube_data_sync_id: str | None = None
     youtube_impersonate: str | None = "chrome-120"
     youtube_player_clients: list[str] = ["tv", "web", "mweb"]
+    youtube_format: str | None = None
     js_runtime: str | None = "deno"
 
     pinecone_index_name: str = "audiorag"
