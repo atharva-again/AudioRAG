@@ -169,7 +169,20 @@ class DownloadStage(Stage):
                         )
                         ctx.reserved_audio_seconds = seconds
                 except BudgetExceededError:
-                    raise
+                    # When sipping is enabled, make pre-download check soft
+                    # (allow download to proceed, sipping will handle budget in TranscribeStage)
+                    try:
+                        sip_max_retries = int(getattr(ctx.config, "budget_sip_max_retries", 0))
+                    except (TypeError, ValueError):
+                        sip_max_retries = 0
+                    if sip_max_retries > 0:
+                        ctx.logger.warning(
+                            "pre_download_budget_exceeded_sipping_enabled",
+                            message="Budget exceeded for pre-download check, "
+                            "but sipping is enabled - proceeding with download",
+                        )
+                    else:
+                        raise
                 except Exception as e:
                     ctx.logger.warning("pre_download_metadata_failed", error=str(e))
                     # Fallback to download without pre-reservation if metadata fails
@@ -255,6 +268,56 @@ class TranscribeStage(Stage):
     def name(self) -> str:
         return "transcribe"
 
+    async def _sip_reserve(
+        self,
+        pipeline: AudioRAGPipeline,
+        provider: str,
+        audio_seconds: int,
+        ctx: StageContext,
+    ) -> None:
+        """Reserve budget with sipping support - retry if budget exceeded.
+
+        When budget is exhausted, waits and retries up to max_retries.
+        Respects asyncio.CancelledError during sleep.
+        """
+        # Sipping only applies when budget is enabled and max_retries > 0
+        budget_enabled = getattr(ctx.config, "budget_enabled", False)
+        try:
+            max_retries = int(getattr(ctx.config, "budget_sip_max_retries", 60))
+        except (TypeError, ValueError):
+            max_retries = 60
+
+        # If sipping is disabled (max_retries = 0 or budget disabled), do direct reservation
+        if not budget_enabled or max_retries <= 0:
+            pipeline._budget_governor.reserve(
+                provider=provider, requests=1, audio_seconds=audio_seconds
+            )
+            return
+
+        try:
+            wait_seconds = float(getattr(ctx.config, "budget_sip_wait_seconds", 5.0))
+        except (TypeError, ValueError):
+            wait_seconds = 5.0
+
+        retries = 0
+        while True:
+            try:
+                pipeline._budget_governor.reserve(
+                    provider=provider, requests=1, audio_seconds=audio_seconds
+                )
+                break
+            except BudgetExceededError:
+                retries += 1
+                if retries > max_retries:
+                    raise
+                ctx.logger.info(
+                    "budget_sip_waiting",
+                    retry=retries,
+                    max_retries=max_retries,
+                    wait_seconds=wait_seconds,
+                )
+                await asyncio.sleep(wait_seconds)
+
     async def execute(self, ctx: StageContext, pipeline: AudioRAGPipeline) -> None:
         with Timer(ctx.logger, "stage_transcribe", parts=len(ctx.audio_parts)) as timer:
             await pipeline._state.update_source_status(ctx.url, IndexingStatus.TRANSCRIBING)
@@ -308,10 +371,11 @@ class TranscribeStage(Stage):
                     continue
 
                 part_logger.debug("transcribing_part")
-                pipeline._budget_governor.reserve(
+                await self._sip_reserve(
+                    pipeline,
                     provider=ctx.config.stt_provider,
-                    requests=1,
                     audio_seconds=estimated_part_seconds,
+                    ctx=ctx,
                 )
 
                 segments = await pipeline._stt.transcribe(part_path, ctx.config.stt_language)

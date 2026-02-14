@@ -1,6 +1,7 @@
 """AudioRAG package."""
 
 from .audio_source import AudioSourceProvider
+from .budget_store import BudgetStore
 from .embedding import EmbeddingProvider
 from .generation import GenerationProvider
 from .reranker import RerankerProvider
@@ -13,6 +14,7 @@ from .vector_store import (
 
 __all__ = [
     "AudioSourceProvider",
+    "BudgetStore",
     "EmbeddingProvider",
     "GenerationProvider",
     "RerankerProvider",

@@ -82,6 +82,8 @@ class AdvancedConfig(BaseSettings):
     budget_audio_seconds_per_hour: int | None = None
     budget_token_chars_per_token: int = 4
     budget_provider_overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    budget_sip_wait_seconds: float = 5.0
+    budget_sip_max_retries: int = 60
 
     vector_store_verify_mode: Literal["off", "best_effort", "strict"] = "best_effort"
     vector_store_verify_max_attempts: int = 5
@@ -192,6 +194,8 @@ class AudioRAGConfig(BaseSettings):
     budget_audio_seconds_per_hour: int | None = None
     budget_token_chars_per_token: int = 4
     budget_provider_overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    budget_sip_wait_seconds: float = 5.0
+    budget_sip_max_retries: int = 60
 
     vector_store_verify_mode: Literal["off", "best_effort", "strict"] = "best_effort"
     vector_store_verify_max_attempts: int = 5
