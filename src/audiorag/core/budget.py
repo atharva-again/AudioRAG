@@ -208,8 +208,9 @@ class BudgetGovernor:
             return
 
         # Use atomic reserve if the store supports it
-        if hasattr(self._store, "atomic_reserve"):
-            self._store.atomic_reserve(provider, limit_entries, now)
+        atomic_reserve = getattr(self._store, "atomic_reserve", None)  # type: ignore[attr-defined]
+        if atomic_reserve is not None:
+            atomic_reserve(provider, limit_entries, now)
         else:
             # Fallback to non-atomic check + record
             for metric, requested, limit, window_seconds in limit_entries:
