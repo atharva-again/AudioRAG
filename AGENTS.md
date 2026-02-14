@@ -196,7 +196,7 @@ All config uses `AUDIORAG_` prefix:
 ## Release Guidelines
 
 - Always follow SemVer guidelines while deciding tag number
-- Always update the changelog. Make sure all hyperlinks work correctly.
+- Always update the changelog. Make sure all hyperlinks at the end of changelog that are related to comparison work correctly.
 - Update the readme and docs if needed
 - All of this should be done directly on the master branch
 - After version is decided, update it in pyproject.toml, uv.lock, and audiorag/__init__.py
