@@ -258,8 +258,26 @@ class TranscribeStage(Stage):
     async def execute(self, ctx: StageContext, pipeline: AudioRAGPipeline) -> None:
         with Timer(ctx.logger, "stage_transcribe", parts=len(ctx.audio_parts)) as timer:
             await pipeline._state.update_source_status(ctx.url, IndexingStatus.TRANSCRIBING)
+
+            existing_transcripts = await pipeline._state.get_transcripts(ctx.url)
+            transcribed_parts = set(existing_transcripts.keys())
+
             all_segments: list[Any] = []
             cumulative_offset = 0.0
+
+            if transcribed_parts:
+                ctx.logger.info(
+                    "resuming_transcription",
+                    already_transcribed_parts=len(transcribed_parts),
+                    total_parts=len(ctx.audio_parts),
+                )
+                sorted_parts = sorted(existing_transcripts.keys())
+                for completed_part_idx in sorted_parts:
+                    if completed_part_idx < len(ctx.audio_parts):
+                        part_segs = existing_transcripts[completed_part_idx]["segments"]
+                        if part_segs:
+                            cumulative_offset = part_segs[-1]["end_time"]
+
             estimated_part_seconds = 0
             if (
                 ctx.reserved_audio_seconds == 0
@@ -271,6 +289,24 @@ class TranscribeStage(Stage):
 
             for part_idx, part_path in enumerate(ctx.audio_parts):
                 part_logger = ctx.logger.bind(part_index=part_idx, part_path=str(part_path))
+
+                if part_idx in transcribed_parts:
+                    part_logger.debug("skipping_already_transcribed_part")
+                    part_segments = existing_transcripts[part_idx]["segments"]
+                    for seg in part_segments:
+                        from audiorag.core.models import TranscriptionSegment
+
+                        all_segments.append(
+                            TranscriptionSegment(
+                                start_time=seg["start_time"],
+                                end_time=seg["end_time"],
+                                text=seg["text"],
+                            )
+                        )
+                    if part_segments:
+                        cumulative_offset = part_segments[-1]["end_time"]
+                    continue
+
                 part_logger.debug("transcribing_part")
                 pipeline._budget_governor.reserve(
                     provider=ctx.config.stt_provider,
@@ -279,11 +315,12 @@ class TranscribeStage(Stage):
                 )
 
                 segments = await pipeline._stt.transcribe(part_path, ctx.config.stt_language)
-                # Adjust timestamps for subsequent parts
-                if cumulative_offset > 0:
-                    from audiorag.core.models import TranscriptionSegment
 
-                    segments = [
+                from audiorag.core.models import TranscriptionSegment
+
+                adjusted_segments = segments
+                if cumulative_offset > 0:
+                    adjusted_segments = [
                         TranscriptionSegment(
                             start_time=s.start_time + cumulative_offset,
                             end_time=s.end_time + cumulative_offset,
@@ -291,11 +328,21 @@ class TranscribeStage(Stage):
                         )
                         for s in segments
                     ]
-                all_segments.extend(segments)
 
-                # Update offset: use the last segment's end time from this part
-                if segments:
-                    cumulative_offset = segments[-1].end_time
+                segment_dicts = [
+                    {
+                        "start_time": s.start_time,
+                        "end_time": s.end_time,
+                        "text": s.text,
+                    }
+                    for s in adjusted_segments
+                ]
+                await pipeline._state.store_transcript(ctx.url, part_idx, segment_dicts)
+
+                all_segments.extend(adjusted_segments)
+
+                if adjusted_segments:
+                    cumulative_offset = adjusted_segments[-1].end_time
 
             await pipeline._state.update_source_status(ctx.url, IndexingStatus.TRANSCRIBED)
             ctx.all_segments = all_segments

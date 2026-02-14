@@ -821,3 +821,146 @@ class TestErrorHandling:
         status = await state_manager.get_source_status(sample_source_path)
         assert status is not None
         assert status["metadata"] == metadata
+
+
+# ============================================================================
+# TestTranscriptOperations
+# ============================================================================
+
+
+class TestTranscriptOperations:
+    """Test transcript storage and retrieval operations."""
+
+    @pytest.mark.asyncio
+    async def test_store_and_get_transcripts(
+        self, state_manager: StateManager, sample_source_path: str
+    ):
+        """Test storing and retrieving transcripts for multiple parts."""
+        await state_manager.upsert_source(source_path=sample_source_path, status="pending")
+
+        segments_part0 = [
+            {"start_time": 0.0, "end_time": 5.5, "text": "Hello world"},
+            {"start_time": 5.5, "end_time": 10.2, "text": "This is part one"},
+        ]
+        segments_part1 = [
+            {"start_time": 60.0, "end_time": 65.5, "text": "Continuing from part two"},
+            {"start_time": 65.5, "end_time": 70.0, "text": "More content"},
+        ]
+
+        await state_manager.store_transcript(sample_source_path, 0, segments_part0)
+        await state_manager.store_transcript(sample_source_path, 1, segments_part1)
+
+        transcripts = await state_manager.get_transcripts(sample_source_path)
+
+        assert len(transcripts) == 2
+        assert transcripts[0]["segments"] == segments_part0
+        assert transcripts[1]["segments"] == segments_part1
+
+    @pytest.mark.asyncio
+    async def test_get_transcribed_part_indices(
+        self, state_manager: StateManager, sample_source_path: str
+    ):
+        """Test getting set of transcribed part indices."""
+        await state_manager.upsert_source(source_path=sample_source_path, status="pending")
+
+        await state_manager.store_transcript(
+            sample_source_path, 0, [{"start_time": 0.0, "end_time": 5.0, "text": "Part 0"}]
+        )
+        await state_manager.store_transcript(
+            sample_source_path, 2, [{"start_time": 120.0, "end_time": 125.0, "text": "Part 2"}]
+        )
+
+        indices = await state_manager.get_transcribed_part_indices(sample_source_path)
+
+        assert indices == {0, 2}
+
+    @pytest.mark.asyncio
+    async def test_get_transcripts_empty_source(
+        self, state_manager: StateManager, sample_source_path: str
+    ):
+        """Test getting transcripts for source with no transcripts."""
+        await state_manager.upsert_source(source_path=sample_source_path, status="pending")
+
+        transcripts = await state_manager.get_transcripts(sample_source_path)
+        assert transcripts == {}
+
+        indices = await state_manager.get_transcribed_part_indices(sample_source_path)
+        assert indices == set()
+
+    @pytest.mark.asyncio
+    async def test_store_transcript_with_raw_response(
+        self, state_manager: StateManager, sample_source_path: str
+    ):
+        """Test storing transcript with raw STT provider response."""
+        await state_manager.upsert_source(source_path=sample_source_path, status="pending")
+
+        segments = [{"start_time": 0.0, "end_time": 5.0, "text": "Test"}]
+        raw_response = {
+            "provider": "openai",
+            "model": "whisper-1",
+            "segments": [{"start": 0.0, "end": 5.0, "text": "Test", "avg_logprob": -0.5}],
+        }
+
+        await state_manager.store_transcript(
+            sample_source_path, 0, segments, raw_response=raw_response
+        )
+
+        transcripts = await state_manager.get_transcripts(sample_source_path)
+
+        assert transcripts[0]["raw_response"] == raw_response
+        assert transcripts[0]["segments"] == segments
+
+    @pytest.mark.asyncio
+    async def test_replace_transcript(self, state_manager: StateManager, sample_source_path: str):
+        """Test that storing transcript with same part index replaces existing."""
+        await state_manager.upsert_source(source_path=sample_source_path, status="pending")
+
+        original_segments = [{"start_time": 0.0, "end_time": 5.0, "text": "Original"}]
+        await state_manager.store_transcript(sample_source_path, 0, original_segments)
+
+        updated_segments = [{"start_time": 0.0, "end_time": 5.0, "text": "Updated"}]
+        await state_manager.store_transcript(sample_source_path, 0, updated_segments)
+
+        transcripts = await state_manager.get_transcripts(sample_source_path)
+
+        assert len(transcripts) == 1
+        assert transcripts[0]["segments"] == updated_segments
+
+    @pytest.mark.asyncio
+    async def test_transcript_cascade_delete(
+        self, state_manager: StateManager, sample_source_path: str
+    ):
+        """Test that deleting source cascades to transcripts."""
+        await state_manager.upsert_source(source_path=sample_source_path, status="pending")
+        await state_manager.store_transcript(
+            sample_source_path, 0, [{"start_time": 0.0, "end_time": 5.0, "text": "Test"}]
+        )
+
+        await state_manager.delete_source(sample_source_path)
+
+        transcripts = await state_manager.get_transcripts(sample_source_path)
+        assert transcripts == {}
+
+    @pytest.mark.asyncio
+    async def test_transcripts_ordered_by_part_index(
+        self, state_manager: StateManager, sample_source_path: str
+    ):
+        """Test that transcripts are retrieved in part order."""
+        await state_manager.upsert_source(source_path=sample_source_path, status="pending")
+
+        for i in reversed(range(5)):
+            await state_manager.store_transcript(
+                sample_source_path,
+                i,
+                [
+                    {
+                        "start_time": float(i * 60),
+                        "end_time": float(i * 60 + 60),
+                        "text": f"Part {i}",
+                    }
+                ],
+            )
+
+        transcripts = await state_manager.get_transcripts(sample_source_path)
+
+        assert list(transcripts.keys()) == [0, 1, 2, 3, 4]
