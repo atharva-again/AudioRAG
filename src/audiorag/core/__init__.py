@@ -8,6 +8,11 @@ from __future__ import annotations
 
 from audiorag.core.budget import BudgetGovernor, BudgetLimits
 from audiorag.core.config import AudioRAGConfig
+from audiorag.core.doctor import (
+    DependencyCheck,
+    DoctorResult,
+    check_dependencies,
+)
 from audiorag.core.exceptions import (
     AudioRAGError,
     BudgetExceededError,
@@ -44,6 +49,10 @@ __all__ = [
     "AudioFile",
     # Config
     "AudioRAGConfig",
+    # Doctor
+    "check_dependencies",
+    "DependencyCheck",
+    "DoctorResult",
     # Exceptions
     "AudioRAGError",
     # Protocols
