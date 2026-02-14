@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import math
-import sqlite3
 import time
 from collections import deque
 from collections.abc import Callable
-from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from audiorag.core.exceptions import BudgetExceededError, ConfigurationError
+
+if TYPE_CHECKING:
+    from audiorag.core.protocols.budget_store import BudgetStore
 
 
 @dataclass(slots=True)
@@ -38,6 +39,7 @@ class BudgetGovernor:
         token_chars_per_token: int = 4,
         now: Callable[[], float] | None = None,
         db_path: str | Path | None = None,
+        store: BudgetStore | None = None,
     ) -> None:
         if token_chars_per_token <= 0:
             raise ConfigurationError("budget token_chars_per_token must be > 0")
@@ -51,13 +53,20 @@ class BudgetGovernor:
         self._rpm_windows: dict[str, deque[tuple[float, int]]] = {}
         self._tpm_windows: dict[str, deque[tuple[float, int]]] = {}
         self._audio_windows: dict[str, deque[tuple[float, int]]] = {}
+        self._store: BudgetStore | None = None
 
-        if self._db_path is not None and self._enabled:
+        # Store parameter takes precedence over db_path
+        if store is not None:
+            self._store = store
+        elif self._db_path is not None and self._enabled:
+            # Initialize SQLite store for backward compatibility
+            from audiorag.core.budget_store_sqlite import SqliteBudgetStore
+
             self._db_path.parent.mkdir(parents=True, exist_ok=True)
-            self._initialize_budget_table()
+            self._store = SqliteBudgetStore(self._db_path)
 
     @classmethod
-    def from_config(cls, config: Any) -> BudgetGovernor:
+    def from_config(cls, config: Any, store: BudgetStore | None = None) -> BudgetGovernor:
         enabled = bool(getattr(config, "budget_enabled", False))
         rpm = getattr(config, "budget_rpm", None)
         tpm = getattr(config, "budget_tpm", None)
@@ -86,6 +95,7 @@ class BudgetGovernor:
             provider_overrides=parsed_overrides,
             token_chars_per_token=chars_per_token,
             db_path=getattr(config, "database_path", None),
+            store=store,
         )
 
     def reserve(
@@ -132,11 +142,10 @@ class BudgetGovernor:
         if not limit_entries:
             return
 
-        if self._db_path is not None:
+        if self._store is not None:
             self._reserve_persistent(provider_key, limit_entries, now)
-            return
-
-        self._reserve_in_memory(provider_key, limit_entries, now)
+        else:
+            self._reserve_in_memory(provider_key, limit_entries, now)
 
     def release(
         self,
@@ -185,59 +194,28 @@ class BudgetGovernor:
                 buckets=metric_to_bucket[metric],
             )
 
-    def _initialize_budget_table(self) -> None:
-        if self._db_path is None:
-            return
-        with sqlite3.connect(self._db_path) as conn:
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS budget_events ("
-                "provider TEXT NOT NULL,"
-                "metric TEXT NOT NULL,"
-                "units INTEGER NOT NULL,"
-                "event_time REAL NOT NULL"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_budget_events_metric_time "
-                "ON budget_events(provider, metric, event_time)"
-            )
-            conn.commit()
-
     def _reserve_persistent(
         self,
         provider: str,
         limit_entries: list[tuple[str, int, int, int]],
         now: float,
     ) -> None:
-        if self._db_path is None:
+        """Reserve budget using the configured store.
+
+        Uses atomic reserve when available for concurrency safety.
+        """
+        if self._store is None:
             return
 
-        conn = sqlite3.connect(self._db_path, timeout=30, isolation_level=None)
-        try:
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("BEGIN IMMEDIATE")
-
-            current_usage: dict[str, int] = {}
-            for metric, _requested, _limit, window_seconds in limit_entries:
-                cutoff = now - window_seconds
-                conn.execute(
-                    "DELETE FROM budget_events "
-                    "WHERE provider = ? AND metric = ? AND event_time <= ?",
-                    (provider, metric, cutoff),
-                )
-                cursor = conn.execute(
-                    "SELECT COALESCE(SUM(units), 0) FROM budget_events "
-                    "WHERE provider = ? AND metric = ?",
-                    (provider, metric),
-                )
-                row = cursor.fetchone()
-                current_usage[metric] = int(row[0] if row and row[0] is not None else 0)
-
+        # Use atomic reserve if the store supports it
+        atomic_reserve = getattr(self._store, "atomic_reserve", None)  # type: ignore[attr-defined]
+        if atomic_reserve is not None:
+            atomic_reserve(provider, limit_entries, now)
+        else:
+            # Fallback to non-atomic check + record
             for metric, requested, limit, window_seconds in limit_entries:
-                current = current_usage[metric]
+                current = self._store.check_usage(provider, metric, window_seconds, now)
                 if current + requested > limit:
-                    conn.execute("ROLLBACK")
                     raise BudgetExceededError(
                         provider=provider,
                         metric=metric,
@@ -248,20 +226,7 @@ class BudgetGovernor:
                     )
 
             for metric, requested, _limit, _window_seconds in limit_entries:
-                conn.execute(
-                    "INSERT INTO budget_events (provider, metric, units, event_time) "
-                    "VALUES (?, ?, ?, ?)",
-                    (provider, metric, requested, now),
-                )
-            conn.execute("COMMIT")
-        except BudgetExceededError:
-            raise
-        except sqlite3.DatabaseError as exc:
-            with suppress(sqlite3.DatabaseError):
-                conn.execute("ROLLBACK")
-            raise ConfigurationError(f"budget governor database failure: {exc}") from exc
-        finally:
-            conn.close()
+                self._store.record_usage(provider, metric, requested, now)
 
     def _resolve_tokens(self, *, tokens: int | None, text_chars: int | None) -> int:
         if tokens is not None:
