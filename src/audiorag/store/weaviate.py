@@ -60,11 +60,11 @@ class WeaviateVectorStore(VectorStoreMixin):
                     name=self._collection_name,
                     vectorizer_config=Configure.Vectorizer.none(),
                     properties=[
-                        Property(name="text", data_type=DataType.TEXT),
-                        Property(name="source_url", data_type=DataType.TEXT),
-                        Property(name="title", data_type=DataType.TEXT),
-                        Property(name="start_time", data_type=DataType.NUMBER),
-                        Property(name="end_time", data_type=DataType.NUMBER),
+                        Property(name="text", dataType=DataType.TEXT),
+                        Property(name="source_url", dataType=DataType.TEXT),
+                        Property(name="title", dataType=DataType.TEXT),
+                        Property(name="start_time", dataType=DataType.NUMBER),
+                        Property(name="end_time", dataType=DataType.NUMBER),
                     ],
                 )
 

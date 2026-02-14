@@ -60,13 +60,15 @@ class GroqTranscriber(TranscriberMixin):
         @retry_decorator
         async def _transcribe_with_retry() -> Any:
             with open(audio_path, "rb") as audio_file:
-                return await self.client.audio.transcriptions.create(
-                    model=self.model,
-                    file=audio_file,
-                    response_format="verbose_json",
-                    timestamp_granularities=["segment"],
-                    language=language,
-                )
+                kwargs: dict[str, Any] = {
+                    "model": self.model,
+                    "file": audio_file,
+                    "response_format": "verbose_json",
+                    "timestamp_granularities": ["segment"],
+                }
+                if language is not None:
+                    kwargs["language"] = language
+                return await self.client.audio.transcriptions.create(**kwargs)
 
         try:
             response = await _transcribe_with_retry()
