@@ -35,7 +35,7 @@ def sample_source_path() -> str:
     """Provide a sample source path for testing.
 
     Returns:
-        str: Sample YouTube URL.
+        str: Sample local file URL.
     """
     return "file:///tmp/sample_audio.mp3"
 
@@ -283,9 +283,7 @@ class TestSourceOperations:
     @pytest.mark.asyncio
     async def test_get_source_status_not_found(self, state_manager: StateManager):
         """Test getting status for non-existent source."""
-        status = await state_manager.get_source_status(
-            "file:///tmp/nonexistent.mp3"
-        )
+        status = await state_manager.get_source_status("file:///tmp/nonexistent.mp3")
         assert status is None
 
     @pytest.mark.asyncio

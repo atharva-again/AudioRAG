@@ -271,4 +271,4 @@ print(f"Status: {status['status']}")
 - Read the [Configuration Guide](configuration.md) for all options
 - Explore [Available Providers](providers.md)
 - Understand the [Pipeline Architecture](architecture.md)
-- Check the [API Reference](docs/api-reference.md) for detailed usage
+- Check the [API Reference](api-reference.md) for detailed usage

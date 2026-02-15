@@ -150,16 +150,14 @@ Index multiple inputs in one call with automatic source discovery.
 
 **Example:**
 ```python
+# Single batch index
 result = await pipeline.index_many([
     "./audio_directory/",
     "./audio_file.mp3",
-]
+], raise_on_error=False)
 
-# Batch index
-result = await pipeline.index_many(
-    inputs,
-    raise_on_error=False,
-)
+print(f"Indexed: {len(result.indexed_sources)}")
+print(f"Failed: {len(result.failures)}")
 ```
 
 ## Data Models
@@ -613,28 +611,22 @@ Expand input URLs and paths into individual indexable sources.
 ```python
 async def discover_sources(
     inputs: list[str],
-    config: AudioRAGConfig | None = None
 ) -> list[DiscoveredSource]
 ```
 
 Automatically handles:
 - **Directories**: Recursively scanned for audio files
-- **Local directories**: Recursively scanned for audio files
 - **Local files**: Added directly
-- **Direct URLs**: Passed through
 - **Deduplication**: Removes duplicate sources
 
 **Parameters:**
-- `inputs`: List of URLs or file paths to expand
-- `config`: Optional AudioRAGConfig for LocalSource configuration
+- `inputs`: List of file paths to expand
 
 **Returns:**
-- List of `DiscoveredSource` objects with `url` and optional `metadata` fields
-- Use `.url` attribute to get the source URL
-- Use `.metadata` attribute to get pre-fetched metadata (duration, title)
+- List of `DiscoveredSource` objects with `url` attribute
 
 **Supported Audio Formats:**
-`.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`, `.aac`, `.wma`
+`.mp3`, `.wav`, `.ogg`, `.flac`, `.m4a`, `.aac`, `.webm`
 
 **Example:**
 ```python
@@ -661,7 +653,7 @@ For code that only needs URLs, use `discover_source_urls()`:
 ```python
 from audiorag.source import discover_source_urls
 
-urls = await discover_source_urls(inputs, config)
+urls = await discover_source_urls(inputs)
 # Returns: list[str]
 ```
 
@@ -710,7 +702,6 @@ Convenience function that returns only URLs without metadata.
 ```python
 async def discover_source_urls(
     inputs: list[str],
-    config: AudioRAGConfig | None = None
 ) -> list[str]
 ```
 

@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from audiorag.core.logging_config import get_logger
 from audiorag.source.local import AUDIO_EXTENSIONS
+
+if TYPE_CHECKING:
+    from audiorag.core.models import SourceMetadata
 
 logger = get_logger(__name__)
 
@@ -21,7 +25,7 @@ class DiscoveredSource:
     """
 
     url: str
-    metadata: None = None
+    metadata: SourceMetadata | None = None
 
 
 def _expand_directory(path: Path) -> list[str]:

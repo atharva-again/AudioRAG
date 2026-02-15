@@ -229,7 +229,7 @@ class DownloadStage(Stage):
         Returns:
             Tuple of (metadata, reserved_audio_seconds)
         """
-        needs_check = ctx.url.startswith("file://") or Path(ctx.url).exists()
+        needs_check = ctx.url.startswith("file://") or Path(ctx.url.replace("file://", "")).exists()
         if not needs_check:
             return None, 0
 
