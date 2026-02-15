@@ -223,78 +223,15 @@ export AUDIORAG_AUDIO_SPLIT_MAX_SIZE_MB="24"
 
 ## Audio Source Provider
 
-### Audio Source Selection
+### Audio Source
 
-```bash
-# Audio source provider: youtube | local
-# - youtube: Download from YouTube (default)
-# - local: Use local audio files
-export AUDIORAG_AUDIO_SOURCE_PROVIDER="youtube"
-```
-
-| Provider | Value | Description |
-|----------|-------|-------------|
-| YouTube | `youtube` | Download audio from YouTube URLs |
-| Local | `local` | Use local audio files (file:// URLs or paths) |
+AudioRAG uses LocalSource for processing local audio files. No configuration needed.
 
 When using local files:
 - Pass file paths or `file://` URLs to `pipeline.index()`
 - LocalSource automatically generates unique IDs from file paths
-- Duration is detected using pydub (requires ffmpeg)
-- Pre-download budget checks work for local files
-
-## YouTube Scraping
-
-### Basic Configuration
-
-```bash
-# Path to download archive file (for resumable scraping)
-export AUDIORAG_YOUTUBE_DOWNLOAD_ARCHIVE="./download_archive.txt"
-
-# Concurrent fragments per download (higher = faster, more bandwidth)
-export AUDIORAG_YOUTUBE_CONCURRENT_FRAGMENTS="3"
-
-# Skip playlist after N consecutive errors
-export AUDIORAG_YOUTUBE_SKIP_AFTER_ERRORS="3"
-
-# Batch size for channel scraping
-export AUDIORAG_YOUTUBE_BATCH_SIZE="100"
-
-# Max concurrent downloads within a batch
-export AUDIORAG_YOUTUBE_MAX_CONCURRENT="3"
-```
-
-### YouTube 2026 Advanced Configuration
-
-For reliable extraction from YouTube in 2026, configure visitor context and PO tokens to bypass bot detection:
-
-```bash
-# PO Token: Cryptographically-signed token for YouTube bot detection bypass
-# Required for reliable extraction since 2026
-# Get from: https://github.com/yt-dlp/yt-dlp/wiki/Extractors#po-token-guide
-export AUDIORAG_YOUTUBE_PO_TOKEN="MnXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX..."
-
-# Visitor Data: Browser session identifier (MUST match PO token's visitor context)
-# PO tokens are cryptographically bound to visitor_data
-# Extract from browser cookies: "VISITOR_INFO1_LIVE" or "VISITOR_PRIVACY_METADATA"
-export AUDIORAG_YOUTUBE_VISITOR_DATA="CgtZZXXXXXXXXXXXXXXXXX..."
-
-# Data Sync ID: Account session identifier (optional, for authenticated access)
-# Use for accessing age-restricted or private videos
-# Extract from browser cookies: "DATASYNC_ID" or network inspector
-export AUDIORAG_YOUTUBE_DATA_SYNC_ID="XXXXXXXXXXXXXXXXXXXXXXXXXXXX..."
-
-# JS Runtime: External JavaScript runtime for signature challenge solving
-# Options: "deno" (recommended, fastest), "node", "bun"
-# Required since 2025.11.12 for YouTube extraction
-# Deno is #1 recommended per yt-dlp official documentation
-export AUDIORAG_JS_RUNTIME="deno"
-```
-
-**Important:**
-- PO tokens are bound to visitor_data. Mixing tokens and visitor_data from different sessions will cause extraction failures.
-- Run `audiorag setup` for interactive configuration with guided prompts for these advanced options.
-- JS runtime (Deno/Node/Bun) is mandatory for YouTube extraction since 2025.11.12.
+- Duration is detected using ffprobe (requires ffmpeg)
+- Budget checks work for local files
 
 ## Retrieval Settings
 
@@ -331,12 +268,10 @@ export AUDIORAG_BUDGET_PROVIDER_OVERRIDES='{"openai": {"rpm": 30, "tpm": 60000},
 
 Behavior:
 - Budget is checked before API-heavy stages (transcribe/embed/query/generate/rerank).
-- **Pre-download budget checks**: For YouTube URLs, metadata is extracted before download to estimate duration and reserve budget upfront. This prevents wasted bandwidth on files that would exceed budget limits.
-- **Duration reconciliation**: After download, actual duration is compared to estimated duration. Budget is adjusted accordingly (additional reservation or release).
-- **Failure recovery**: If download fails after pre-flight budget reservation, budget is automatically released to prevent "zombie reservations".
+- **Pre-ingest budget checks**: For local files, metadata is extracted before processing to estimate duration and reserve budget upfront.
+- **Duration reconciliation**: After processing, actual duration is compared to estimated duration. Budget is adjusted accordingly (additional reservation or release).
+- **Failure recovery**: If processing fails after pre-flight budget reservation, budget is automatically released to prevent "zombie reservations".
 - Limits are persisted in SQLite for restart/process safety.
-
-This reduces wasted costs by ~73% on free-tier transcription services by catching budget overruns before expensive downloads and transcriptions occur.
 
 ## Vector Write Verification
 

@@ -134,8 +134,3 @@ CHROMADB_EXCEPTIONS: tuple[type[Exception], ...] = (
     ConnectionError,
     TimeoutError,
 )
-
-YOUTUBE_EXCEPTIONS: tuple[type[Exception], ...] = (
-    ConnectionError,
-    TimeoutError,
-)

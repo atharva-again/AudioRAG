@@ -1,13 +1,13 @@
 # AudioRAG
 
-Provider-agnostic RAG pipeline for audio content. Download, transcribe, chunk, embed, and search audio from YouTube and other sources.
+Provider-agnostic RAG pipeline for audio content. Transcribe, chunk, embed, and search audio from local files.
 
 ## Features
 
 - **Multi-provider support**: OpenAI, Deepgram, AssemblyAI, Groq (STT); OpenAI, Voyage, Cohere (embeddings); OpenAI, Anthropic, Gemini (generation); ChromaDB, Pinecone, Weaviate, Supabase (vector stores)
-- **Auto-protocol detection**: Automatically detects file://, local paths, YouTube URLs, and HTTP URLs
-- **Batch indexing**: Index multiple URLs, playlists, and local directories in one command
-- **Source discovery**: Automatically expand playlists and recursively scan directories
+- **Local file support**: Process audio files and directories from local storage
+- **Batch indexing**: Index multiple files and directories in one command
+- **Source discovery**: Recursively scan directories for audio files
 - **Resumable processing**: SQLite state tracking with hash-based IDs
 - **Provider-aware vector IDs**: Canonical SHA-256 chunk IDs with optional UUID5 conversion per vector store
 - **Proactive budget governor**: Optional fail-fast limits for RPM, TPM, and audio-seconds/hour
@@ -40,15 +40,15 @@ async def main():
     
     # Use async context manager for automatic resource cleanup
     async with AudioRAGPipeline(config) as pipeline:
-        # Index audio from YouTube
-        await pipeline.index("https://youtube.com/watch?v=...")
+        # Index audio from local file
+        await pipeline.index("./podcast_episode.mp3")
 
     # Batch indexing with partial-failure reporting
         batch_result = await pipeline.index_many(
             [
-                "https://youtube.com/playlist?list=...",
                 "./podcasts/",
-                "https://youtube.com/watch?v=singleVideo",
+                "./interview.wav",
+                "./lecture.mp3",
             ],
             raise_on_error=False,
         )
@@ -83,14 +83,11 @@ pip install audiorag
 ### Optional Dependencies
 
 ```bash
-# Audio scraping utilities (yt-dlp, ffmpeg)
-uv add audiorag[defaults]  # or: pip install audiorag[defaults]
-
 # All providers and utilities
 uv add audiorag[all]  # or: pip install audiorag[all]
 
 # Specific providers only
-uv add audiorag[openai,chromadb,youtube,cohere]
+uv add audiorag[openai,chromadb,cohere]
 ```
 
 ## Command Line Interface
@@ -109,32 +106,28 @@ This will guide you through selecting providers for STT, embeddings, vector stor
 
 ### Indexing
 
-Index audio from multiple sources in a single command:
+Index audio from local files and directories:
 
 ```bash
-# Single YouTube video
-audiorag index "https://youtube.com/watch?v=..."
+# Single audio file
+audiorag index "./podcast_episode.mp3"
 
-# YouTube playlist (auto-expanded to individual videos)
-audiorag index "https://youtube.com/playlist?list=..."
+# Directory (recursively finds all audio files)
+audiorag index "./podcasts/"
 
-# Local audio files and folders
-audiorag index "./podcast.mp3" "./audio_folder/"
+# Multiple files at once
+audiorag index "./interview.wav" "./lecture.mp3"
 
-# Multiple URLs at once
-audiorag index "https://youtube.com/watch?v=video1" "https://youtube.com/watch?v=video2"
-
-# Mixed inputs
-audiorag index "./local_audio/" "https://youtube.com/watch?v=..." "./interview.wav"
+# Multiple directories
+audiorag index "./podcasts/" "./lectures/"
 ```
 
-**Note:** Always wrap URLs and paths containing spaces in quotes.
+**Note:** Always wrap paths containing spaces in quotes.
 
 **Options:**
-- `--force`: Re-process and re-index even if the URL has been processed before.
+- `--force`: Re-process and re-index even if the file has been processed before.
 
 The CLI automatically:
-- Expands YouTube playlists/channels into individual video URLs
 - Recursively discovers audio files in directories
 - Shows aggregate batch results (indexed/skipped/failed) with per-source failures
 - Handles errors per source without stopping the entire batch
@@ -169,14 +162,6 @@ export AUDIORAG_EMBEDDING_PROVIDER="voyage"
 export AUDIORAG_CHUNK_DURATION_SECONDS="30"
 export AUDIORAG_RETRIEVAL_TOP_K="10"
 export AUDIORAG_RERANK_TOP_N="3"
-
-# Optional YouTube 2026 advanced configuration (for stability)
-export AUDIORAG_YOUTUBE_PO_TOKEN="..."           # PO token for bot detection bypass
-export AUDIORAG_YOUTUBE_VISITOR_DATA="..."       # Visitor session (bound to PO token)
-export AUDIORAG_JS_RUNTIME="deno"                # JS runtime (deno/node/bun)
-
-# Optional YouTube audio-only download (saves ~95% bandwidth)
-export AUDIORAG_YOUTUBE_FORMAT="bestaudio"       # bestaudio | bestaudio/best | worstaudio
 
 # Optional budget governor
 export AUDIORAG_BUDGET_ENABLED="true"
@@ -225,7 +210,7 @@ uv run prek install
 
 ## Pipeline Stages
 
-1. **Download**: Fetch audio from URL (YouTube supported)
+1. **Ingest**: Load audio from local files
 2. **Split**: Divide large files into processable chunks
 3. **Transcribe**: Convert audio to text using STT provider
 4. **Chunk**: Group transcription into time-based segments
@@ -235,8 +220,7 @@ uv run prek install
 ## Reliability Controls
 
 - **Budget governor** (`AUDIORAG_BUDGET_ENABLED=true`): reserves budget before expensive calls and fails fast with `BudgetExceededError` when limits would be exceeded.
-- **Pre-download budget checks**: for YouTube URLs, metadata is extracted before download to reserve budget upfront, preventing wasted bandwidth on files exceeding budget limits (~73% cost reduction on free-tier services).
-- **Duration reconciliation**: actual audio duration is compared to estimated duration after download, with automatic budget adjustment.
+- **Duration reconciliation**: actual audio duration is compared to estimated duration after processing, with automatic budget adjustment.
 - **Preflight transcription reservation**: when audio duration is known, indexing reserves full audio-seconds budget before STT starts.
 - **Persistent budget accounting**: budget usage is persisted in SQLite for cross-process and restart safety.
 - **Vector write verification**: after `add()`, providers that support `verify(ids)` are checked.

@@ -22,8 +22,6 @@ import pytest
         ("audiorag.store.pinecone", "pinecone"),
         ("audiorag.store.weaviate", "weaviate"),
         ("audiorag.store.supabase", "vecs"),
-        ("audiorag.source.url", "aiohttp"),
-        ("audiorag.source.youtube", "yt_dlp"),
     ],
 )
 def test_lazy_import_module_imports_without_optional_dependency(

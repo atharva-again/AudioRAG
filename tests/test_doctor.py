@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
 from io import StringIO
 from unittest.mock import patch
 
@@ -17,24 +16,6 @@ from audiorag.core.doctor import (
 )
 
 
-@dataclass
-class MockConfig:
-    """Mock config for testing."""
-
-    js_runtime: str | None = "deno"
-
-    @property
-    def advanced(self):
-        return MockAdvanced(self.js_runtime)
-
-
-@dataclass
-class MockAdvanced:
-    """Mock advanced config for testing."""
-
-    js_runtime: str | None = "deno"
-
-
 class TestCheckDependencies:
     """Tests for check_dependencies function."""
 
@@ -45,15 +26,13 @@ class TestCheckDependencies:
             result = check_dependencies()
 
         assert isinstance(result, DoctorResult)
-        assert len(result.checks) == 4
+        assert len(result.checks) == 2
         assert all(check.available for check in result.checks)
         assert result.all_ok is True
 
         check_names = [check.name for check in result.checks]
         assert "ffmpeg" in check_names
         assert "ffprobe" in check_names
-        assert "yt-dlp" in check_names
-        assert "deno" in check_names
 
     def test_ffmpeg_missing(self) -> None:
         """Test when ffmpeg is not available."""
@@ -87,53 +66,6 @@ class TestCheckDependencies:
         assert ffprobe_check.path is None
         assert result.all_ok is False
 
-    def test_yt_dlp_missing(self) -> None:
-        """Test when yt-dlp is not available."""
-
-        def mock_which(name: str) -> str | None:
-            if name == "yt-dlp":
-                return None
-            return f"/usr/bin/{name}"
-
-        with patch("shutil.which", side_effect=mock_which):
-            result = check_dependencies()
-
-        ytdlp_check = next(c for c in result.checks if c.name == "yt-dlp")
-        assert ytdlp_check.available is False
-        assert ytdlp_check.path is None
-        assert result.all_ok is False
-
-    def test_js_runtime_missing(self) -> None:
-        """Test when configured js_runtime is not available."""
-
-        def mock_which(name: str) -> str | None:
-            if name == "deno":
-                return None
-            return f"/usr/bin/{name}"
-
-        with patch("shutil.which", side_effect=mock_which):
-            result = check_dependencies()
-
-        deno_check = next(c for c in result.checks if c.name == "deno")
-        assert deno_check.available is False
-        assert deno_check.path is None
-        assert result.all_ok is False
-
-    def test_js_runtime_none_configured(self) -> None:
-        """Test when js_runtime is None - should skip check."""
-        config = MockConfig(js_runtime=None)
-
-        with patch("shutil.which") as mock_which:
-            mock_which.side_effect = lambda name: f"/usr/bin/{name}"
-            result = check_dependencies(config)  # type: ignore[arg-type]
-
-        check_names = [check.name for check in result.checks]
-        assert "deno" not in check_names
-        assert "node" not in check_names
-        assert "bun" not in check_names
-        assert len(result.checks) == 3  # Only ffmpeg, ffprobe, yt-dlp
-        assert result.all_ok is True
-
     def test_returns_structured_result(self) -> None:
         """Test that function returns properly structured DoctorResult."""
         with patch("shutil.which") as mock_which:
@@ -149,26 +81,6 @@ class TestCheckDependencies:
         assert all(hasattr(check, "required") for check in result.checks)
         assert hasattr(result, "all_ok")
         assert isinstance(result.all_ok, bool)
-
-    def test_custom_js_runtime_checked(self) -> None:
-        """Test that custom js_runtime from config is checked, not default."""
-        config = MockConfig(js_runtime="node")
-
-        checked_tools: list[str] = []
-
-        def mock_which(name: str) -> str | None:
-            checked_tools.append(name)
-            return f"/usr/bin/{name}"
-
-        with patch("shutil.which", side_effect=mock_which):
-            result = check_dependencies(config)  # type: ignore[arg-type]
-
-        assert "node" in checked_tools
-        assert "deno" not in checked_tools
-        assert "bun" not in checked_tools
-
-        node_check = next(c for c in result.checks if c.name == "node")
-        assert node_check.available is True
 
     def test_dependency_check_required_field(self) -> None:
         """Test that required field is present in DependencyCheck."""

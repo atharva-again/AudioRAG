@@ -3,14 +3,14 @@
 A modular RAG (Retrieval Augmented Generation) library for audio content.
 
 This package provides composable components for:
-- Ingesting audio (download, transcribe, chunk, embed, store)
+- Ingesting audio (transcribe, chunk, embed, store)
 - Querying indexed content (embed query, search, generate)
 
 Usage:
     # Full pipeline (backward compatible)
     from audiorag import AudioRAGPipeline, AudioRAGConfig
     pipeline = AudioRAGPipeline(config)
-    await pipeline.index("https://youtube.com/...")
+    await pipeline.index("./podcast_episode.mp3")
     result = await pipeline.query("What is discussed?")
 
     # Modular imports (new)

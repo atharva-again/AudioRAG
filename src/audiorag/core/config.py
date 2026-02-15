@@ -77,21 +77,6 @@ class AdvancedConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="AUDIORAG_ADVANCED_", extra="ignore")
 
-    youtube_download_archive: str | None = None
-    youtube_concurrent_fragments: int = 3
-    youtube_skip_after_errors: int = 3
-    youtube_batch_size: int = 100
-    youtube_max_concurrent: int = 3
-    youtube_cookie_file: str | None = None
-    youtube_cookies_from_browser: str | None = None
-    youtube_po_token: str | None = None
-    youtube_visitor_data: str | None = None
-    youtube_data_sync_id: str | None = None
-    youtube_impersonate: str | None = "chrome-120"
-    youtube_player_clients: list[str] = ["tv", "web", "mweb"]
-    youtube_format: str | None = None
-    js_runtime: str | None = "deno"
-
     pinecone_index_name: str = "audiorag"
     pinecone_namespace: str = "default"
     weaviate_collection_name: str = "AudioRAG"
@@ -176,7 +161,6 @@ class AudioRAGConfig(BaseSettings):
         extra="ignore",
     )
 
-    audio_source_provider: str = "youtube"
     stt_provider: str = "openai"
     embedding_provider: str = "openai"
     vector_store_provider: str = "chromadb"
@@ -201,21 +185,6 @@ class AudioRAGConfig(BaseSettings):
     audio_split_max_size_mb: int = 24
     database_path: str = "audiorag.db"
     work_dir: Path = Field(default_factory=_get_default_work_dir)
-
-    youtube_download_archive: str | None = None
-    youtube_concurrent_fragments: int = 3
-    youtube_skip_after_errors: int = 3
-    youtube_batch_size: int = 100
-    youtube_max_concurrent: int = 3
-    youtube_cookie_file: str | None = None
-    youtube_cookies_from_browser: str | None = None
-    youtube_po_token: str | None = None
-    youtube_visitor_data: str | None = None
-    youtube_data_sync_id: str | None = None
-    youtube_impersonate: str | None = "chrome-120"
-    youtube_player_clients: list[str] = ["tv", "web", "mweb"]
-    youtube_format: str | None = None
-    js_runtime: str | None = "deno"
 
     pinecone_index_name: str = "audiorag"
     pinecone_namespace: str = "default"

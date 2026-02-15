@@ -143,17 +143,15 @@ class TestPipelineIndex:
     @pytest.mark.asyncio
     async def test_index_creates_source_entry(self, pipeline_for_index) -> None:
         """Test that index creates a source entry in database."""
-        await pipeline_for_index.index("https://youtube.com/watch?v=test123")
+        await pipeline_for_index.index("file:///tmp/test_audio.mp3")
 
-        status = await pipeline_for_index._state.get_source_status(
-            "https://youtube.com/watch?v=test123"
-        )
+        status = await pipeline_for_index._state.get_source_status("file:///tmp/test_audio.mp3")
         assert status is not None
 
     @pytest.mark.asyncio
     async def test_index_skips_already_indexed(self, pipeline_for_index, mocker) -> None:
         """Test that index skips already indexed URLs."""
-        url = "https://youtube.com/watch?v=test123"
+        url = "file:///tmp/test_audio.mp3"
 
         # First index
         await pipeline_for_index.index(url)
@@ -170,7 +168,7 @@ class TestPipelineIndex:
     @pytest.mark.asyncio
     async def test_index_force_reindexes(self, pipeline_for_index, mocker) -> None:
         """Test that index with force=True reindexes."""
-        url = "https://youtube.com/watch?v=test123"
+        url = "file:///tmp/test_audio.mp3"
 
         # First index
         await pipeline_for_index.index(url)
@@ -187,7 +185,7 @@ class TestPipelineIndex:
     @pytest.mark.asyncio
     async def test_index_tracks_status_progression(self, pipeline_for_index, mocker) -> None:
         """Test that index tracks status through pipeline stages."""
-        url = "https://youtube.com/watch?v=test123"
+        url = "file:///tmp/test_audio.mp3"
 
         # Mock state methods to capture status updates
         status_updates = []
@@ -210,7 +208,7 @@ class TestPipelineIndex:
     @pytest.mark.asyncio
     async def test_index_skips_when_in_progress(self, pipeline_for_index) -> None:
         """Test that index skips if status is in-progress."""
-        url = "https://youtube.com/watch?v=test123"
+        url = "file:///tmp/test_audio.mp3"
         await pipeline_for_index._state.upsert_source(url, IndexingStatus.DOWNLOADING)
 
         await pipeline_for_index.index(url)
@@ -221,7 +219,7 @@ class TestPipelineIndex:
     @pytest.mark.asyncio
     async def test_index_force_overrides_in_progress(self, pipeline_for_index, mocker) -> None:
         """Test that force reindexes even if status is in-progress."""
-        url = "https://youtube.com/watch?v=test123"
+        url = "file:///tmp/test_audio.mp3"
         await pipeline_for_index._state.upsert_source(url, IndexingStatus.DOWNLOADING)
 
         spy = mocker.spy(pipeline_for_index._audio_source, "download")
@@ -235,10 +233,10 @@ class TestPipelineIndex:
         self, pipeline_for_index, mocker
     ) -> None:
         """Test that SDK index() expands playlist URLs into per-video sources."""
-        playlist_url = "https://youtube.com/playlist?list=test-playlist"
+        playlist_url = "/path/to/audio_directory"
         expanded_sources = [
-            "https://youtube.com/watch?v=video1",
-            "https://youtube.com/watch?v=video2",
+            "file:///tmp/audio1.mp3",
+            "file:///tmp/audio2.mp3",
         ]
         from audiorag.source.discovery import DiscoveredSource
 
@@ -250,7 +248,7 @@ class TestPipelineIndex:
 
         await pipeline_for_index.index(playlist_url)
 
-        discover_mock.assert_awaited_once_with([playlist_url], pipeline_for_index._config)
+        discover_mock.assert_awaited_once_with([playlist_url])
         for source in expanded_sources:
             status = await pipeline_for_index._state.get_source_status(source)
             assert status is not None
@@ -259,10 +257,10 @@ class TestPipelineIndex:
     @pytest.mark.asyncio
     async def test_index_many_resumes_per_source(self, pipeline_for_index, mocker) -> None:
         """Test that index_many skips already completed sources on rerun."""
-        inputs = ["https://youtube.com/playlist?list=test-playlist"]
+        inputs = ["/path/to/audio_directory"]
         expanded_sources = [
-            "https://youtube.com/watch?v=video1",
-            "https://youtube.com/watch?v=video2",
+            "file:///tmp/audio1.mp3",
+            "file:///tmp/audio2.mp3",
         ]
         from audiorag.source.discovery import DiscoveredSource
 
@@ -281,10 +279,10 @@ class TestPipelineIndex:
 
     @pytest.mark.asyncio
     async def test_index_many_returns_structured_result(self, pipeline_for_index, mocker) -> None:
-        inputs = ["https://youtube.com/playlist?list=test-playlist"]
+        inputs = ["/path/to/audio_directory"]
         expanded_sources = [
-            "https://youtube.com/watch?v=video1",
-            "https://youtube.com/watch?v=video2",
+            "file:///tmp/audio1.mp3",
+            "file:///tmp/audio2.mp3",
         ]
         from audiorag.source.discovery import DiscoveredSource
 
@@ -308,11 +306,11 @@ class TestPipelineIndex:
         self, pipeline_for_index, mocker
     ) -> None:
         """Test that index_many continues processing and raises aggregate failure."""
-        inputs = ["https://youtube.com/playlist?list=test-playlist"]
+        inputs = ["/path/to/audio_directory"]
         expanded_sources = [
-            "https://youtube.com/watch?v=video1",
-            "https://youtube.com/watch?v=video2",
-            "https://youtube.com/watch?v=video3",
+            "file:///tmp/audio1.mp3",
+            "file:///tmp/audio2.mp3",
+            "file:///tmp/audio3.mp3",
         ]
         from audiorag.source.discovery import DiscoveredSource
 
@@ -325,7 +323,7 @@ class TestPipelineIndex:
         default_audio_file = pipeline_for_index._audio_source.download.return_value
 
         async def download_with_partial_failures(url: str, *_args, **_kwargs):
-            if url.endswith("video2") or url.endswith("video3"):
+            if url.endswith("audio2.mp3") or url.endswith("audio3.mp3"):
                 raise Exception(f"download failed for {url}")
             return default_audio_file
 
@@ -339,8 +337,8 @@ class TestPipelineIndex:
             await pipeline_for_index.index_many(inputs)
 
         assert exc_info.value.stage == "index_many"
-        assert "video2" in str(exc_info.value)
-        assert "video3" in str(exc_info.value)
+        assert "audio2.mp3" in str(exc_info.value)
+        assert "audio3.mp3" in str(exc_info.value)
         assert [call.args[0] for call in download_mock.call_args_list] == expanded_sources
 
         completed = await pipeline_for_index._state.get_source_status(expanded_sources[0])
@@ -358,11 +356,11 @@ class TestPipelineIndex:
     async def test_index_many_normalizes_non_pipeline_errors(
         self, pipeline_for_index, mocker
     ) -> None:
-        inputs = ["https://youtube.com/playlist?list=test-playlist"]
+        inputs = ["/path/to/audio_directory"]
         expanded_sources = [
-            "https://youtube.com/watch?v=video1",
-            "https://youtube.com/watch?v=video2",
-            "https://youtube.com/watch?v=video3",
+            "file:///tmp/audio1.mp3",
+            "file:///tmp/audio2.mp3",
+            "file:///tmp/audio3.mp3",
         ]
         from audiorag.source.discovery import DiscoveredSource
 
@@ -375,7 +373,7 @@ class TestPipelineIndex:
         original_index_single = pipeline_for_index._index_single_source
 
         async def failing_index_single(url: str, *, force: bool = False, **kwargs):
-            if url.endswith("video2"):
+            if url.endswith("audio2.mp3"):
                 raise RuntimeError("unexpected crash")
             return await original_index_single(url, force=force, **kwargs)
 
@@ -406,7 +404,7 @@ class TestPipelineErrorHandling:
     @pytest.mark.asyncio
     async def test_index_sets_failed_status_on_error(self, pipeline_for_error, mocker) -> None:
         """Test that index sets FAILED status when error occurs."""
-        url = "https://youtube.com/watch?v=test123"
+        url = "file:///tmp/test_audio.mp3"
 
         # Mock audio_source to raise exception
         mocker.patch.object(

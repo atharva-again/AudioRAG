@@ -137,7 +137,6 @@ src/audiorag/
     chromadb_store.py
     pinecone_store.py
     weaviate_store.py
-    youtube_scraper.py
     audio_splitter.py
     passthrough_reranker.py
   protocols/           # Protocol definitions

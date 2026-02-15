@@ -38,7 +38,7 @@ async def test_embed_stage_verifies_on_success(
 
     try:
         await pipeline._ensure_initialized()
-        await pipeline.index("https://youtube.com/watch?v=test123")
+        await pipeline.index("file:///tmp/test_audio.mp3")
         all_mock_providers["vector_store"].verify.assert_called_once()
     finally:
         await pipeline._state.close()
@@ -65,7 +65,7 @@ async def test_embed_stage_skips_verification_when_missing(
 
     try:
         await pipeline._ensure_initialized()
-        await pipeline.index("https://youtube.com/watch?v=test123")
+        await pipeline.index("file:///tmp/test_audio.mp3")
     finally:
         await pipeline._state.close()
 
@@ -92,7 +92,7 @@ async def test_embed_stage_strict_mode_requires_verification_method(
     try:
         await pipeline._ensure_initialized()
         with pytest.raises(PipelineError):
-            await pipeline.index("https://youtube.com/watch?v=test123")
+            await pipeline.index("file:///tmp/test_audio.mp3")
     finally:
         await pipeline._state.close()
 
@@ -122,7 +122,7 @@ async def test_embed_stage_strict_mode_blocks_on_failed_verification(
     try:
         await pipeline._ensure_initialized()
         with pytest.raises(PipelineError):
-            await pipeline.index("https://youtube.com/watch?v=test123")
+            await pipeline.index("file:///tmp/test_audio.mp3")
     finally:
         await pipeline._state.close()
 
@@ -151,8 +151,8 @@ async def test_embed_stage_best_effort_allows_failed_verification(
 
     try:
         await pipeline._ensure_initialized()
-        await pipeline.index("https://youtube.com/watch?v=test123")
-        status = await pipeline._state.get_source_status("https://youtube.com/watch?v=test123")
+        await pipeline.index("file:///tmp/test_audio.mp3")
+        status = await pipeline._state.get_source_status("file:///tmp/test_audio.mp3")
         assert status is not None
         assert status["status"] == IndexingStatus.COMPLETED
     finally:
@@ -185,7 +185,7 @@ async def test_embed_stage_verification_retries_until_success(
 
     try:
         await pipeline._ensure_initialized()
-        await pipeline.index("https://youtube.com/watch?v=test123")
+        await pipeline.index("file:///tmp/test_audio.mp3")
         assert vector_store_with_verification.verify.await_count == 3
     finally:
         await pipeline._state.close()
@@ -218,7 +218,7 @@ async def test_embed_stage_strict_mode_raises_after_retry_exhaustion(
     try:
         await pipeline._ensure_initialized()
         with pytest.raises(PipelineError):
-            await pipeline.index("https://youtube.com/watch?v=test123")
+            await pipeline.index("file:///tmp/test_audio.mp3")
         assert vector_store_with_verification.verify.await_count == 2
     finally:
         await pipeline._state.close()

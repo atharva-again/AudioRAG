@@ -15,6 +15,9 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Supported audio extensions
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac", ".webm"}
+
 
 class LocalSource:
     """Audio source for local files and directories.

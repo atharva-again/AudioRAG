@@ -19,7 +19,7 @@ class DependencyCheck:
     """Result of checking a single dependency.
 
     Attributes:
-        name: Name of the dependency (e.g., "ffmpeg", "yt-dlp")
+        name: Name of the dependency (e.g., "ffmpeg", "ffprobe")
         available: Whether the dependency was found in PATH
         path: Full path to the executable if found, None otherwise
         required: Whether this dependency is required for operation
@@ -48,19 +48,16 @@ class DoctorResult:
 
 
 def check_dependencies(
-    config: AudioRAGConfig | None = None,
+    config: AudioRAGConfig | None = None,  # noqa: ARG001
 ) -> DoctorResult:
     """Check if required system dependencies are available.
 
     Checks the following dependencies:
     - ffmpeg: Required for audio processing
     - ffprobe: Required for audio metadata extraction
-    - yt-dlp: Required for YouTube video downloading
-    - js_runtime: Configurable (deno/node/bun) for YouTube JS execution
 
     Args:
-        config: AudioRAG configuration. If None, uses default config
-               which checks for "deno" as the js_runtime.
+        config: AudioRAG configuration (not used, kept for API compatibility).
 
     Returns:
         DoctorResult containing all dependency check results
@@ -69,15 +66,7 @@ def check_dependencies(
     binaries = [
         ("ffmpeg", True),
         ("ffprobe", True),
-        ("yt-dlp", True),
     ]
-
-    # Determine which JS runtime to check
-    js_runtime = config.advanced.js_runtime if config is not None else "deno"
-
-    # Add JS runtime to check list if configured
-    if js_runtime is not None:
-        binaries.append((js_runtime, True))
 
     # Check each binary
     checks: list[DependencyCheck] = []

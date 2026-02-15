@@ -37,7 +37,7 @@ def sample_source_path() -> str:
     Returns:
         str: Sample YouTube URL.
     """
-    return "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    return "file:///tmp/sample_audio.mp3"
 
 
 @pytest.fixture
@@ -284,7 +284,7 @@ class TestSourceOperations:
     async def test_get_source_status_not_found(self, state_manager: StateManager):
         """Test getting status for non-existent source."""
         status = await state_manager.get_source_status(
-            "https://www.youtube.com/watch?v=nonexistent"
+            "file:///tmp/nonexistent.mp3"
         )
         assert status is None
 
@@ -625,7 +625,7 @@ class TestDeleteOperations:
     @pytest.mark.asyncio
     async def test_delete_nonexistent_source(self, state_manager: StateManager):
         """Test deleting a source that doesn't exist."""
-        deleted = await state_manager.delete_source("https://www.youtube.com/watch?v=nonexistent")
+        deleted = await state_manager.delete_source("file:///tmp/nonexistent.mp3")
         assert deleted is False
 
     @pytest.mark.asyncio
@@ -682,7 +682,7 @@ class TestIdempotency:
     @pytest.mark.asyncio
     async def test_source_id_generation_deterministic(self, state_manager: StateManager):
         """Test that source ID generation is deterministic."""
-        url = "https://www.youtube.com/watch?v=test123"
+        url = "file:///tmp/test_audio.mp3"
 
         source_id_1 = state_manager._generate_source_id(url)
         source_id_2 = state_manager._generate_source_id(url)
@@ -693,8 +693,8 @@ class TestIdempotency:
     @pytest.mark.asyncio
     async def test_different_urls_produce_different_ids(self, state_manager: StateManager):
         """Test that different URLs produce different source IDs."""
-        url1 = "https://www.youtube.com/watch?v=test123"
-        url2 = "https://www.youtube.com/watch?v=test456"
+        url1 = "file:///tmp/test_audio.mp3"
+        url2 = "file:///tmp/test_audio2.mp3"
 
         source_id_1 = state_manager._generate_source_id(url1)
         source_id_2 = state_manager._generate_source_id(url2)
@@ -704,7 +704,7 @@ class TestIdempotency:
     @pytest.mark.asyncio
     async def test_sha256_hash_format(self, state_manager: StateManager):
         """Test that source IDs are valid SHA-256 hashes."""
-        url = "https://www.youtube.com/watch?v=test123"
+        url = "file:///tmp/test_audio.mp3"
         source_id = state_manager._generate_source_id(url)
 
         # Verify it's a valid hex string

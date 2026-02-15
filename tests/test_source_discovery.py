@@ -1,9 +1,8 @@
-"""Tests for source discovery and YouTube source functionality."""
+"""Tests for source discovery functionality."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -15,9 +14,9 @@ class TestDiscoveryError:
 
     def test_discovery_error_creation(self) -> None:
         """Test DiscoveryError can be created with message and URL."""
-        error = DiscoveryError("Failed to expand playlist", url="https://example.com")
-        assert str(error) == "Failed to expand playlist"
-        assert error.url == "https://example.com"
+        error = DiscoveryError("Failed to expand directory", url="/path/to/dir")
+        assert str(error) == "Failed to expand directory"
+        assert error.url == "/path/to/dir"
 
     def test_discovery_error_without_url(self) -> None:
         """Test DiscoveryError works without URL."""
@@ -31,196 +30,6 @@ class TestDiscoveryError:
 
         error = DiscoveryError("Test")
         assert isinstance(error, AudioRAGError)
-
-
-class TestIsYouTubeCollection:
-    """Test _is_youtube_collection helper function."""
-
-    def test_playlist_urls(self) -> None:
-        """Test detection of playlist URLs."""
-        from audiorag.source.discovery import _is_youtube_collection
-
-        playlist_urls = [
-            "https://www.youtube.com/playlist?list=PLxxxxxxxxxx",
-            "https://youtube.com/playlist?list=PLxxxxxxxxxx",
-            "https://www.youtube.com/watch?v=abc123&list=PLxxxxxxxxxx",
-        ]
-        for url in playlist_urls:
-            assert _is_youtube_collection(url) is True, f"Failed for {url}"
-
-    def test_channel_urls(self) -> None:
-        """Test detection of channel URLs."""
-        from audiorag.source.discovery import _is_youtube_collection
-
-        channel_urls = [
-            "https://www.youtube.com/channel/UCxxxxxxxxxx",
-            "https://youtube.com/channel/UCxxxxxxxxxx",
-            "https://www.youtube.com/c/ChannelName",
-            "https://www.youtube.com/user/username",
-            "https://www.youtube.com/@handle",
-            "https://youtube.com/@handle",
-        ]
-        for url in channel_urls:
-            assert _is_youtube_collection(url) is True, f"Failed for {url}"
-
-    def test_video_urls_not_collections(self) -> None:
-        """Test that single video URLs are not detected as collections."""
-        from audiorag.source.discovery import _is_youtube_collection
-
-        video_urls = [
-            "https://www.youtube.com/watch?v=abc123",
-            "https://youtu.be/abc123",
-            "https://youtube.com/watch?v=xyz789",
-        ]
-        for url in video_urls:
-            assert _is_youtube_collection(url) is False, f"Failed for {url}"
-
-    def test_video_with_playlist_in_title(self) -> None:
-        """Test videos with 'playlist' in title are not treated as playlists."""
-        from audiorag.source.discovery import _is_youtube_collection
-
-        # Video URL with "playlist" in the path (but not /playlist)
-        url = "https://www.youtube.com/watch?v=abc123&title=my+playlist+video"
-        assert _is_youtube_collection(url) is False
-
-
-class TestExpandYouTubeSource:
-    """Test _expand_youtube_source function."""
-
-    @pytest.mark.asyncio
-    async def test_raises_discovery_error_for_empty_playlist(self) -> None:
-        """Test that DiscoveryError is raised when playlist returns no videos."""
-        from audiorag.source.discovery import _expand_youtube_source
-
-        mock_scraper = MagicMock()
-        mock_scraper.list_channel_videos = AsyncMock(return_value=[])
-
-        with patch("audiorag.source.youtube.YouTubeSource", return_value=mock_scraper):
-            with pytest.raises(DiscoveryError) as exc_info:
-                await _expand_youtube_source(
-                    "https://www.youtube.com/playlist?list=PLtest",
-                    None,
-                )
-
-        assert "Failed to expand YouTube source" in str(exc_info.value)
-        assert exc_info.value.url == "https://www.youtube.com/playlist?list=PLtest"
-
-    @pytest.mark.asyncio
-    async def test_raises_discovery_error_for_empty_channel(self) -> None:
-        """Test that DiscoveryError is raised when channel returns no videos."""
-        from audiorag.source.discovery import _expand_youtube_source
-
-        mock_scraper = MagicMock()
-        mock_scraper.list_channel_videos = AsyncMock(return_value=[])
-
-        with patch("audiorag.source.youtube.YouTubeSource", return_value=mock_scraper):
-            with pytest.raises(DiscoveryError) as exc_info:
-                await _expand_youtube_source(
-                    "https://www.youtube.com/@testchannel",
-                    None,
-                )
-
-        assert "Failed to expand YouTube source" in str(exc_info.value)
-
-    @pytest.mark.asyncio
-    async def test_returns_original_url_for_single_video(self) -> None:
-        """Test that single video URLs return themselves on empty result."""
-        from audiorag.source.discovery import _expand_youtube_source
-
-        mock_scraper = MagicMock()
-        mock_scraper.list_channel_videos = AsyncMock(return_value=[])
-
-        with patch("audiorag.source.youtube.YouTubeSource", return_value=mock_scraper):
-            result = await _expand_youtube_source(
-                "https://www.youtube.com/watch?v=abc123",
-                None,
-            )
-
-        assert len(result) == 1
-        assert result[0].url == "https://www.youtube.com/watch?v=abc123"
-
-    @pytest.mark.asyncio
-    async def test_returns_expanded_videos_on_success(self) -> None:
-        """Test successful expansion returns video URLs with metadata."""
-        from audiorag.source.discovery import _expand_youtube_source
-
-        mock_video = MagicMock()
-        mock_video.url = "https://www.youtube.com/watch?v=video1"
-        mock_video.duration = 120.0
-        mock_video.title = "Test Video"
-
-        mock_scraper = MagicMock()
-        mock_scraper.list_channel_videos = AsyncMock(return_value=[mock_video])
-
-        with patch("audiorag.source.youtube.YouTubeSource", return_value=mock_scraper):
-            result = await _expand_youtube_source(
-                "https://www.youtube.com/playlist?list=PLtest",
-                None,
-            )
-
-        assert len(result) == 1
-        assert result[0].url == "https://www.youtube.com/watch?v=video1"
-        assert result[0].metadata is not None
-        assert result[0].metadata.duration == 120.0
-        assert result[0].metadata.title == "Test Video"
-
-
-class TestYouTubeSourceYdlOpts:
-    """Test YouTubeSource ydl_opts handling."""
-
-    def test_format_excluded_during_metadata_only(self) -> None:
-        """Test format option is excluded during metadata-only extraction (Issue #43)."""
-        from audiorag.source.youtube import YouTubeSource
-
-        # The issue is triggered by youtube_format config which sets the format option
-        source = YouTubeSource(
-            ydl_opts={
-                "format": "bestaudio",  # This should be excluded during metadata-only
-                "extractor_args": {"youtube": {"player_client": ["tv", "android"]}},
-            }
-        )
-        opts = source._get_opts(metadata_only=True)
-
-        # Format should be excluded to avoid "Requested format is not available" errors
-        assert "format" not in opts
-        # But other options like extractor_args should still be applied
-        assert opts["extractor_args"]["youtube"]["player_client"] == ["tv", "android"]
-        assert opts["skip_download"] is True
-
-    def test_ydl_opts_applied_during_download(self) -> None:
-        """Test ydl_opts ARE applied during actual downloads."""
-        from pathlib import Path
-
-        from audiorag.source.youtube import YouTubeSource
-
-        source = YouTubeSource(
-            ydl_opts={"extractor_args": {"youtube": {"player_client": ["tv", "android"]}}}
-        )
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            opts = source._get_opts(output_dir=Path(tmp_dir), metadata_only=False)
-
-            # ydl_opts SHOULD be applied during actual downloads
-            assert opts["extractor_args"]["youtube"]["player_client"] == ["tv", "android"]
-
-    def test_download_archive_supported(self) -> None:
-        """Test download_archive is passed to yt-dlp."""
-        from audiorag.source.youtube import YouTubeSource
-
-        source = YouTubeSource(download_archive="/tmp/archive.txt")
-        opts = source._get_opts(metadata_only=True)
-
-        assert opts["download_archive"] == "/tmp/archive.txt"
-
-    def test_empty_ydl_opts_uses_defaults(self) -> None:
-        """Test default options when no ydl_opts provided."""
-        from audiorag.source.youtube import YouTubeSource
-
-        source = YouTubeSource()
-        opts = source._get_opts(metadata_only=True)
-
-        assert opts["skip_download"] is True
 
 
 class TestDiscoverSources:
@@ -237,7 +46,7 @@ class TestDiscoverSources:
         (audio_dir / "test1.mp3").write_text("fake audio")
         (audio_dir / "test2.wav").write_text("fake audio")
 
-        result = await discover_sources([str(audio_dir)], None)
+        result = await discover_sources([str(audio_dir)])
 
         assert len(result) == 2
         urls = [r.url for r in result]
@@ -249,166 +58,22 @@ class TestDiscoverSources:
         from audiorag.source.discovery import discover_sources
 
         result = await discover_sources(
-            ["https://example.com/audio.mp3", "https://example.com/audio.mp3"],
-            None,
+            ["/path/to/audio.mp3", "/path/to/audio.mp3"],
         )
 
         assert len(result) == 1
-        assert result[0].url == "https://example.com/audio.mp3"
+        assert result[0].url == "/path/to/audio.mp3"
 
     @pytest.mark.asyncio
-    async def test_propagates_discovery_error(self) -> None:
-        """Test DiscoveryError is propagated from playlist expansion."""
-        from audiorag.source.discovery import discover_sources
-
-        mock_scraper = MagicMock()
-        mock_scraper.list_channel_videos = AsyncMock(return_value=[])
-
-        with patch("audiorag.source.youtube.YouTubeSource", return_value=mock_scraper):
-            with pytest.raises(DiscoveryError):
-                await discover_sources(
-                    ["https://www.youtube.com/playlist?list=PLtest"],
-                    None,
-                )
-
-    @pytest.mark.asyncio
-    async def test_preserves_non_youtube_urls(self) -> None:
-        """Test non-YouTube URLs are preserved as-is."""
+    async def test_preserves_file_paths(self) -> None:
+        """Test file paths are preserved as-is."""
         from audiorag.source.discovery import discover_sources
 
         result = await discover_sources(
-            ["https://example.com/audio.mp3", "https://another.com/song.wav"],
-            None,
+            ["/path/to/audio.mp3", "/another/path/song.wav"],
         )
 
         assert len(result) == 2
         urls = [r.url for r in result]
-        assert "https://example.com/audio.mp3" in urls
-        assert "https://another.com/song.wav" in urls
-
-
-class TestBuildYdlOpts:
-    """Test build_ydl_opts function."""
-
-    def test_no_youtube_options_returns_none(self) -> None:
-        """Test config with only defaults returns None."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(
-            youtube_impersonate=None,
-            youtube_cookie_file=None,
-            youtube_cookies_from_browser=None,
-            youtube_po_token=None,
-            youtube_visitor_data=None,
-        )
-        result = build_ydl_opts(config)
-        assert result is None
-
-    def test_cookie_file(self) -> None:
-        """Test cookie file option."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(youtube_cookie_file="/path/to/cookies.txt")
-        result = build_ydl_opts(config)
-        assert result is not None
-        assert result["cookiefile"] == "/path/to/cookies.txt"
-
-    def test_cookies_from_browser_chrome(self) -> None:
-        """Test cookies from browser option."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(youtube_cookies_from_browser="chrome")
-        result = build_ydl_opts(config)
-        assert result is not None
-        assert result["cookiesfrombrowser"] == "chrome"
-
-    def test_cookies_from_browser_with_profile(self) -> None:
-        """Test cookies from browser with profile."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(youtube_cookies_from_browser="firefox:default")
-        result = build_ydl_opts(config)
-        assert result is not None
-        assert result["cookiesfrombrowser"] == "firefox:default"
-
-    def test_cookies_from_browser_with_keyring(self) -> None:
-        """Test cookies from browser with keyring."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(youtube_cookies_from_browser="chrome+gnomekeyring")
-        result = build_ydl_opts(config)
-        assert result is not None
-        assert result["cookiesfrombrowser"] == "chrome+gnomekeyring"
-
-    def test_cookies_from_browser_invalid(self) -> None:
-        """Test invalid browser raises ValueError."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(youtube_cookies_from_browser="invalid_browser")
-        with pytest.raises(ValueError, match="Unsupported browser"):
-            build_ydl_opts(config)
-
-    def test_po_token(self) -> None:
-        """Test po_token option."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(youtube_po_token="test_token")
-        result = build_ydl_opts(config)
-        assert result is not None
-        assert "extractor_args" in result
-        assert "youtube" in result["extractor_args"]
-        assert "po_token" in result["extractor_args"]["youtube"]
-        assert "web.gvs+test_token" in result["extractor_args"]["youtube"]["po_token"][0]
-
-    def test_visitor_data(self) -> None:
-        """Test visitor_data option."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(youtube_visitor_data="test_visitor_data")
-        result = build_ydl_opts(config)
-        assert result is not None
-        assert result["extractor_args"]["youtube"]["visitor_data"] == "test_visitor_data"
-
-    def test_youtube_format(self) -> None:
-        """Test youtube format option for audio-only downloads."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(youtube_format="bestaudio")
-        result = build_ydl_opts(config)
-        assert result is not None
-        assert result["format"] == "bestaudio"
-
-    def test_youtube_format_with_fallback(self) -> None:
-        """Test youtube format with fallback option."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(youtube_format="bestaudio/best")
-        result = build_ydl_opts(config)
-        assert result is not None
-        assert result["format"] == "bestaudio/best"
-
-    def test_multiple_options(self) -> None:
-        """Test multiple options combined."""
-        from audiorag.core.config import AudioRAGConfig
-        from audiorag.source.ydl_utils import build_ydl_opts
-
-        config = AudioRAGConfig(
-            youtube_cookie_file="/path/to/cookies.txt",
-            youtube_po_token="test_token",
-            youtube_visitor_data="test_visitor",
-        )
-        result = build_ydl_opts(config)
-        assert result is not None
-        assert result["cookiefile"] == "/path/to/cookies.txt"
-        assert "extractor_args" in result
-        assert "youtube" in result["extractor_args"]
+        assert "/path/to/audio.mp3" in urls
+        assert "/another/path/song.wav" in urls

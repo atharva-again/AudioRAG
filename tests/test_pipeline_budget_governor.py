@@ -30,7 +30,7 @@ async def test_index_reserves_full_audio_budget_before_transcription(
     try:
         await pipeline._ensure_initialized()
         spy = mocker.spy(pipeline._budget_governor, "reserve")
-        await pipeline.index("https://youtube.com/watch?v=test123")
+        await pipeline.index("file:///tmp/test_audio.mp3")
 
         audio_reservations = [
             call.kwargs for call in spy.call_args_list if call.kwargs.get("audio_seconds", 0) > 0
@@ -65,11 +65,11 @@ async def test_index_fails_fast_when_audio_budget_insufficient(
         await pipeline._ensure_initialized()
 
         with pytest.raises(PipelineError) as exc_info:
-            await pipeline.index("https://youtube.com/watch?v=test123")
+            await pipeline.index("file:///tmp/test_audio.mp3")
 
         assert isinstance(exc_info.value.__cause__, BudgetExceededError)
         assert all_mock_providers["stt"].transcribe.await_count == 0
-        status = await pipeline._state.get_source_status("https://youtube.com/watch?v=test123")
+        status = await pipeline._state.get_source_status("file:///tmp/test_audio.mp3")
         assert status is not None
         assert status["status"] == "failed"
     finally:
@@ -104,7 +104,7 @@ async def test_index_releases_budget_when_download_fails(
         spy = mocker.spy(pipeline._budget_governor, "release")
 
         with pytest.raises(PipelineError):
-            await pipeline.index("https://youtube.com/watch?v=test123")
+            await pipeline.index("file:///tmp/test_audio.mp3")
 
         assert spy.call_count == 1
         assert spy.call_args.kwargs["audio_seconds"] == 120
@@ -135,7 +135,7 @@ async def test_index_reconciles_duration_when_actual_exceeds_estimate(
     )
     all_mock_providers["audio_source"].download.return_value = AudioFile(
         path=audio_path,
-        source_url="https://youtube.com/watch?v=test123",
+        source_url="file:///tmp/test_audio.mp3",
         title="Test Video Title",
         duration=150.0,
     )
@@ -154,7 +154,7 @@ async def test_index_reconciles_duration_when_actual_exceeds_estimate(
         await pipeline._ensure_initialized()
         spy = mocker.spy(pipeline._budget_governor, "reserve")
 
-        await pipeline.index("https://youtube.com/watch?v=test123")
+        await pipeline.index("file:///tmp/test_audio.mp3")
 
         audio_reservations = [
             call.kwargs for call in spy.call_args_list if call.kwargs.get("audio_seconds", 0) > 0
@@ -189,7 +189,7 @@ async def test_index_reconciles_duration_when_actual_less_than_estimate(
     )
     all_mock_providers["audio_source"].download.return_value = AudioFile(
         path=audio_path,
-        source_url="https://youtube.com/watch?v=test123",
+        source_url="file:///tmp/test_audio.mp3",
         title="Test Video Title",
         duration=100.0,
     )
@@ -209,7 +209,7 @@ async def test_index_reconciles_duration_when_actual_less_than_estimate(
         reserve_spy = mocker.spy(pipeline._budget_governor, "reserve")
         release_spy = mocker.spy(pipeline._budget_governor, "release")
 
-        await pipeline.index("https://youtube.com/watch?v=test123")
+        await pipeline.index("file:///tmp/test_audio.mp3")
 
         audio_reservations = [
             call.kwargs

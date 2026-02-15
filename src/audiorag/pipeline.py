@@ -66,8 +66,6 @@ if TYPE_CHECKING:
         TranscriptionSegment,
     )
 
-# YouTubeSource imported lazily to avoid yt_dlp dependency at module load time
-
 logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -231,12 +229,7 @@ class DownloadStage(Stage):
         Returns:
             Tuple of (metadata, reserved_audio_seconds)
         """
-        needs_check = (
-            "youtube.com" in ctx.url
-            or "youtu.be" in ctx.url
-            or ctx.url.startswith("file://")
-            or Path(ctx.url).exists()
-        )
+        needs_check = ctx.url.startswith("file://") or Path(ctx.url).exists()
         if not needs_check:
             return None, 0
 
@@ -608,7 +601,7 @@ class AudioRAGPipeline:
 
         Args:
             config: AudioRAG configuration.
-            audio_source: Custom audio source provider. Defaults to YouTubeSource.
+            audio_source: Custom audio source provider. Defaults to LocalSource.
             stt: Custom STT provider. Defaults based on config.stt_provider.
             embedder: Custom embedding provider. Defaults based on config.embedding_provider.
             vector_store: Custom vector store provider. Defaults based on
@@ -704,9 +697,9 @@ class AudioRAGPipeline:
     def clear_cache(self) -> int:
         """Clear the work directory cache.
 
-        Removes all downloaded audio files and YouTube download archive
-        from the work directory. This does not affect the database or
-        indexed vectors - only the cached audio files.
+        Removes all downloaded audio files from the work directory.
+        This does not affect the database or indexed vectors - only
+        the cached audio files.
 
         The database still contains records of indexed sources, so
         re-indexing will skip sources that haven't changed.
@@ -1026,7 +1019,7 @@ class AudioRAGPipeline:
             raise_on_error=raise_on_error,
         )
 
-        sources = await discover_sources(inputs, self._config)
+        sources = await discover_sources(inputs)
         if not sources:
             operation_logger.warning("index_many_no_sources")
             return BatchIndexResult(inputs=inputs)
