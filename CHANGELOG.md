@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-02-15 - Narrow YouTube Format Exclusion
+
+### Fixed
+- **Copilot review follow-up**: Narrowed Issue #43 fix to only exclude the `format` key during metadata-only extraction, rather than all `ydl_opts`. This preserves auth/session options (cookies, po_token, visitor_data, extractor_args) needed for age-restricted/private content discovery.
+
 ## [0.14.0] - 2026-02-15 - YouTube Discovery Fixes
 
 ### Fixed
@@ -418,7 +423,8 @@ For most users, YouTubeSource now works out of the box without any configuration
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/atharva-again/audiorag/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/atharva-again/audiorag/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/atharva-again/audiorag/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/atharva-again/audiorag/compare/v0.11.0...v0.12.0
