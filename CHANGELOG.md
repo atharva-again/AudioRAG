@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-02-15 - Local-Only Audio Processing
+
+### Breaking
+- **Removed YouTube/URL support**: AudioRAG now processes only local audio files. Removed all YouTube, yt-dlp, and HTTP URL source providers.
+  - Removed `YouTubeSource`, `URLSource`, `AudioSourceRouter`
+  - Removed `youtube` optional dependency group
+  - Removed `ydl_utils.py` and `yt-dlp` integration
+  - Removed `source_path` in favor of local paths only
+  - `discover_sources()` now only expands directories to audio files
+- **Config changes**: Removed YouTube-related config options (`youtube_format`, `youtube_cookies_from_browser`, `youtube_cookie_file`, etc.)
+
+### Changed
+- **Simplified CLI**: Index command now only accepts local file/directory paths
+- **README and docs updated**: Reflects local-only operation
+
+### Fixed
+- **file:// URL handling**: Fixed local file processing to properly handle file:// URLs in both `LocalSource.download()` and `discover_sources()`
+- **Copilot review fixes**: Various docstring and help text updates
+
 ## [0.14.1] - 2026-02-15 - Narrow YouTube Format Exclusion
 
 ### Fixed
@@ -423,7 +442,8 @@ For most users, YouTubeSource now works out of the box without any configuration
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/atharva-again/audiorag/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/atharva-again/audiorag/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/atharva-again/audiorag/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/atharva-again/audiorag/compare/v0.12.0...v0.13.0
