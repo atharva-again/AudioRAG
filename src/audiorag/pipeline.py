@@ -59,7 +59,12 @@ from audiorag.source.discovery import discover_sources
 if TYPE_CHECKING:
     import structlog
 
-    from audiorag.core.models import AudioFile, ChunkMetadata, TranscriptionSegment
+    from audiorag.core.models import (
+        AudioFile,
+        ChunkMetadata,
+        SourceMetadata,
+        TranscriptionSegment,
+    )
 
 # YouTubeSource imported lazily to avoid yt_dlp dependency at module load time
 
@@ -104,6 +109,7 @@ class StageContext:
     chunks: list[ChunkMetadata] = field(default_factory=list)
     chunk_ids: list[str] = field(default_factory=list)
     reserved_audio_seconds: int = 0
+    cached_metadata: SourceMetadata | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +242,11 @@ class DownloadStage(Stage):
 
         ctx.logger.debug("pre_download_metadata_extraction")
         try:
-            metadata = await pipeline._audio_source.get_metadata(ctx.url)
+            metadata = ctx.cached_metadata
+            if metadata is None:
+                metadata = await pipeline._audio_source.get_metadata(ctx.url)
+            else:
+                ctx.logger.debug("using_cached_metadata_from_discovery")
             if not (
                 metadata
                 and hasattr(metadata, "duration")
@@ -884,7 +894,11 @@ class AudioRAGPipeline:
     # ------------------------------------------------------------------
 
     async def _index_single_source(
-        self, url: str, *, force: bool = False
+        self,
+        url: str,
+        *,
+        force: bool = False,
+        cached_metadata: SourceMetadata | None = None,
     ) -> Literal["indexed", "skipped"]:
         """Index one fully-resolved source URL/path through the full pipeline."""
         # Bind URL context for all logging in this operation
@@ -951,6 +965,7 @@ class AudioRAGPipeline:
                     logger=operation_logger,
                     work_dir=work_dir,
                     created_temp_dir=created_temp_dir,
+                    cached_metadata=cached_metadata,
                 )
 
                 await self._run_stages(_DEFAULT_STAGES, ctx)
@@ -1016,25 +1031,27 @@ class AudioRAGPipeline:
             operation_logger.warning("index_many_no_sources")
             return BatchIndexResult(inputs=inputs)
 
-        result = BatchIndexResult(inputs=inputs, discovered_sources=sources)
+        result = BatchIndexResult(inputs=inputs, discovered_sources=[s.url for s in sources])
         pipeline_failures: list[PipelineError] = []
         failure_causes: list[Exception | None] = []
 
         for source in sources:
             try:
-                source_result = await self._index_single_source(source, force=force)
+                source_result = await self._index_single_source(
+                    source.url, force=force, cached_metadata=source.metadata
+                )
                 if source_result == "indexed":
-                    result.indexed_sources.append(source)
+                    result.indexed_sources.append(source.url)
                 else:
-                    result.skipped_sources.append(source)
+                    result.skipped_sources.append(source.url)
             except Exception as exc:
-                pipeline_error, failure, cause = self._normalize_batch_failure(source, exc)
+                pipeline_error, failure, cause = self._normalize_batch_failure(source.url, exc)
                 pipeline_failures.append(pipeline_error)
                 failure_causes.append(cause)
                 result.failures.append(failure)
                 operation_logger.error(
                     "index_many_source_failed",
-                    source_url=source,
+                    source_url=source.url,
                     stage=failure.stage,
                     error=failure.error_message,
                 )

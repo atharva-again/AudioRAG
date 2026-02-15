@@ -240,9 +240,12 @@ class TestPipelineIndex:
             "https://youtube.com/watch?v=video1",
             "https://youtube.com/watch?v=video2",
         ]
+        from audiorag.source.discovery import DiscoveredSource
+
+        discovered = [DiscoveredSource(url=u) for u in expanded_sources]
         discover_mock = mocker.patch(
             "audiorag.pipeline.discover_sources",
-            new=AsyncMock(return_value=expanded_sources),
+            new=AsyncMock(return_value=discovered),
         )
 
         await pipeline_for_index.index(playlist_url)
@@ -261,9 +264,12 @@ class TestPipelineIndex:
             "https://youtube.com/watch?v=video1",
             "https://youtube.com/watch?v=video2",
         ]
+        from audiorag.source.discovery import DiscoveredSource
+
+        discovered = [DiscoveredSource(url=u) for u in expanded_sources]
         mocker.patch(
             "audiorag.pipeline.discover_sources",
-            new=AsyncMock(return_value=expanded_sources),
+            new=AsyncMock(return_value=discovered),
         )
 
         await pipeline_for_index.index_many(inputs)
@@ -280,9 +286,12 @@ class TestPipelineIndex:
             "https://youtube.com/watch?v=video1",
             "https://youtube.com/watch?v=video2",
         ]
+        from audiorag.source.discovery import DiscoveredSource
+
+        discovered = [DiscoveredSource(url=u) for u in expanded_sources]
         mocker.patch(
             "audiorag.pipeline.discover_sources",
-            new=AsyncMock(return_value=expanded_sources),
+            new=AsyncMock(return_value=discovered),
         )
 
         result = await pipeline_for_index.index_many(inputs, raise_on_error=False)
@@ -305,9 +314,12 @@ class TestPipelineIndex:
             "https://youtube.com/watch?v=video2",
             "https://youtube.com/watch?v=video3",
         ]
+        from audiorag.source.discovery import DiscoveredSource
+
+        discovered = [DiscoveredSource(url=u) for u in expanded_sources]
         mocker.patch(
             "audiorag.pipeline.discover_sources",
-            new=AsyncMock(return_value=expanded_sources),
+            new=AsyncMock(return_value=discovered),
         )
 
         default_audio_file = pipeline_for_index._audio_source.download.return_value
@@ -352,17 +364,20 @@ class TestPipelineIndex:
             "https://youtube.com/watch?v=video2",
             "https://youtube.com/watch?v=video3",
         ]
+        from audiorag.source.discovery import DiscoveredSource
+
+        discovered = [DiscoveredSource(url=u) for u in expanded_sources]
         mocker.patch(
             "audiorag.pipeline.discover_sources",
-            new=AsyncMock(return_value=expanded_sources),
+            new=AsyncMock(return_value=discovered),
         )
 
         original_index_single = pipeline_for_index._index_single_source
 
-        async def failing_index_single(url: str, *, force: bool = False):
+        async def failing_index_single(url: str, *, force: bool = False, **kwargs):
             if url.endswith("video2"):
                 raise RuntimeError("unexpected crash")
-            return await original_index_single(url, force=force)
+            return await original_index_single(url, force=force, **kwargs)
 
         mocker.patch.object(
             pipeline_for_index,

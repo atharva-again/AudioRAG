@@ -136,15 +136,18 @@ class TestExpandYouTubeSource:
                 None,
             )
 
-        assert result == ["https://www.youtube.com/watch?v=abc123"]
+        assert len(result) == 1
+        assert result[0].url == "https://www.youtube.com/watch?v=abc123"
 
     @pytest.mark.asyncio
     async def test_returns_expanded_videos_on_success(self) -> None:
-        """Test successful expansion returns video URLs."""
+        """Test successful expansion returns video URLs with metadata."""
         from audiorag.source.discovery import _expand_youtube_source
 
         mock_video = MagicMock()
         mock_video.url = "https://www.youtube.com/watch?v=video1"
+        mock_video.duration = 120.0
+        mock_video.title = "Test Video"
 
         mock_scraper = MagicMock()
         mock_scraper.list_channel_videos = AsyncMock(return_value=[mock_video])
@@ -155,14 +158,18 @@ class TestExpandYouTubeSource:
                 None,
             )
 
-        assert result == ["https://www.youtube.com/watch?v=video1"]
+        assert len(result) == 1
+        assert result[0].url == "https://www.youtube.com/watch?v=video1"
+        assert result[0].metadata is not None
+        assert result[0].metadata.duration == 120.0
+        assert result[0].metadata.title == "Test Video"
 
 
 class TestYouTubeSourceYdlOpts:
     """Test YouTubeSource ydl_opts handling."""
 
-    def test_ydl_opts_passed_to_extractor(self) -> None:
-        """Test ydl_opts are passed through to yt-dlp options."""
+    def test_ydl_opts_not_applied_during_metadata_only(self) -> None:
+        """Test ydl_opts are NOT applied during metadata-only extraction (Issue #43)."""
         from audiorag.source.youtube import YouTubeSource
 
         source = YouTubeSource(
@@ -170,7 +177,27 @@ class TestYouTubeSourceYdlOpts:
         )
         opts = source._get_opts(metadata_only=True)
 
-        assert opts["extractor_args"]["youtube"]["player_client"] == ["tv", "android"]
+        # ydl_opts should NOT be applied during metadata-only extraction
+        # to avoid format errors during playlist discovery
+        assert "extractor_args" not in opts
+        assert opts["skip_download"] is True
+
+    def test_ydl_opts_applied_during_download(self) -> None:
+        """Test ydl_opts ARE applied during actual downloads."""
+        from pathlib import Path
+
+        from audiorag.source.youtube import YouTubeSource
+
+        source = YouTubeSource(
+            ydl_opts={"extractor_args": {"youtube": {"player_client": ["tv", "android"]}}}
+        )
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            opts = source._get_opts(output_dir=Path(tmp_dir), metadata_only=False)
+
+            # ydl_opts SHOULD be applied during actual downloads
+            assert opts["extractor_args"]["youtube"]["player_client"] == ["tv", "android"]
 
     def test_download_archive_supported(self) -> None:
         """Test download_archive is passed to yt-dlp."""
@@ -208,7 +235,8 @@ class TestDiscoverSources:
         result = await discover_sources([str(audio_dir)], None)
 
         assert len(result) == 2
-        assert all("test1.mp3" in r or "test2.wav" in r for r in result)
+        urls = [r.url for r in result]
+        assert all("test1.mp3" in url or "test2.wav" in url for url in urls)
 
     @pytest.mark.asyncio
     async def test_deduplicates_sources(self) -> None:
@@ -221,7 +249,7 @@ class TestDiscoverSources:
         )
 
         assert len(result) == 1
-        assert result[0] == "https://example.com/audio.mp3"
+        assert result[0].url == "https://example.com/audio.mp3"
 
     @pytest.mark.asyncio
     async def test_propagates_discovery_error(self) -> None:
@@ -249,8 +277,9 @@ class TestDiscoverSources:
         )
 
         assert len(result) == 2
-        assert "https://example.com/audio.mp3" in result
-        assert "https://another.com/song.wav" in result
+        urls = [r.url for r in result]
+        assert "https://example.com/audio.mp3" in urls
+        assert "https://another.com/song.wav" in urls
 
 
 class TestBuildYdlOpts:
