@@ -60,7 +60,8 @@ class YouTubeSource:
             self._download_archive.parent.mkdir(parents=True, exist_ok=True)
             opts["download_archive"] = str(self._download_archive)
 
-        opts.update(self._ydl_opts)
+        if not metadata_only:
+            opts.update(self._ydl_opts)
 
         if metadata_only:
             opts["skip_download"] = True
