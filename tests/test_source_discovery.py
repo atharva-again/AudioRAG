@@ -168,18 +168,23 @@ class TestExpandYouTubeSource:
 class TestYouTubeSourceYdlOpts:
     """Test YouTubeSource ydl_opts handling."""
 
-    def test_ydl_opts_not_applied_during_metadata_only(self) -> None:
-        """Test ydl_opts are NOT applied during metadata-only extraction (Issue #43)."""
+    def test_format_excluded_during_metadata_only(self) -> None:
+        """Test format option is excluded during metadata-only extraction (Issue #43)."""
         from audiorag.source.youtube import YouTubeSource
 
+        # The issue is triggered by youtube_format config which sets the format option
         source = YouTubeSource(
-            ydl_opts={"extractor_args": {"youtube": {"player_client": ["tv", "android"]}}}
+            ydl_opts={
+                "format": "bestaudio",  # This should be excluded during metadata-only
+                "extractor_args": {"youtube": {"player_client": ["tv", "android"]}},
+            }
         )
         opts = source._get_opts(metadata_only=True)
 
-        # ydl_opts should NOT be applied during metadata-only extraction
-        # to avoid format errors during playlist discovery
-        assert "extractor_args" not in opts
+        # Format should be excluded to avoid "Requested format is not available" errors
+        assert "format" not in opts
+        # But other options like extractor_args should still be applied
+        assert opts["extractor_args"]["youtube"]["player_client"] == ["tv", "android"]
         assert opts["skip_download"] is True
 
     def test_ydl_opts_applied_during_download(self) -> None:

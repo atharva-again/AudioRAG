@@ -60,8 +60,12 @@ class YouTubeSource:
             self._download_archive.parent.mkdir(parents=True, exist_ok=True)
             opts["download_archive"] = str(self._download_archive)
 
-        if not metadata_only:
-            opts.update(self._ydl_opts)
+        # Apply ydl_opts, but skip format during metadata-only extraction
+        # to avoid "Requested format is not available" errors (Issue #43)
+        for key, value in self._ydl_opts.items():
+            if metadata_only and key == "format":
+                continue
+            opts[key] = value
 
         if metadata_only:
             opts["skip_download"] = True
