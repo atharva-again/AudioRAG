@@ -54,8 +54,8 @@ async def index_content():
 
     # Use async context manager for automatic resource cleanup
     async with AudioRAGPipeline(config) as pipeline:
-        # Index a YouTube video
-        await pipeline.index("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        # Index a local audio file
+        await pipeline.index("./my_podcast.mp3")
         print("Indexing complete!")
 
 asyncio.run(index_content())
@@ -63,7 +63,7 @@ asyncio.run(index_content())
 
 ### Batch Indexing Multiple Sources
 
-Index mixed sources directly with the pipeline API:
+Index multiple files and directories:
 
 ```python
 import asyncio
@@ -74,12 +74,11 @@ async def batch_index():
 
     # Async context manager ensures resources are cleaned up
     async with AudioRAGPipeline(config) as pipeline:
-        # Define your inputs - mix of URLs, playlists, and local paths
+        # Define your inputs - files and directories
         inputs = [
-            "https://www.youtube.com/playlist?list=...",  # Entire playlist
-            "./podcasts/",                                 # Local directory
-            "https://youtube.com/watch?v=video1",         # Single video
-            "./interviews/special.mp3",                   # Local file
+            "./podcasts/",                      # Local directory
+            "./interviews/special.mp3",        # Single file
+            "./lectures/intro.wav",           # Another file
         ]
 
         result = await pipeline.index_many(inputs, raise_on_error=False)
@@ -94,10 +93,10 @@ asyncio.run(batch_index())
 ```
 
 `index_many()` automatically handles source discovery for:
-- **YouTube playlists/channels**: Expands to individual video URLs
 - **Local directories**: Recursively finds audio files (`.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`)
-- **Mixed inputs**: Combines all sources into a unique, deduplicated list
-- **Per-source resumability**: Each expanded source is tracked independently in state
+- **Files**: Processes individual audio files
+- **Deduplication**: Combines all sources into a unique list
+- **Per-source resumability**: Each file is tracked independently in state
 
 ### Resource Cleanup
 
@@ -106,7 +105,7 @@ AudioRAG ensures proper cleanup of resources (database connections, etc.) in all
 **Using async context manager (recommended):**
 ```python
 async with AudioRAGPipeline(config) as pipeline:
-    await pipeline.index_many(urls)
+    await pipeline.index_many(paths)
     result = await pipeline.query("question")
 # Resources automatically cleaned up here
 ```
@@ -114,7 +113,7 @@ async with AudioRAGPipeline(config) as pipeline:
 **Manual cleanup:**
 ```python
 pipeline = AudioRAGPipeline(config)
-await pipeline.index_many(urls)
+await pipeline.index_many(paths)
 await pipeline.close()  # Safe to call multiple times
 ```
 
@@ -130,7 +129,7 @@ async def query_content():
     config = AudioRAGConfig()
 
     async with AudioRAGPipeline(config) as pipeline:
-        result = await pipeline.query("What is the main topic of this video?")
+        result = await pipeline.query("What is the main topic of this audio?")
 
         print("Answer:", result.answer)
         print("\nSources:")
@@ -138,7 +137,7 @@ async def query_content():
             print(f"  - {source.title}")
             print(f"    Timestamp: {source.start_time}s")
             print(f"    Relevance: {source.relevance_score:.2f}")
-            print(f"    URL: {source.source_url}")
+            print(f"    Source: {source.source_url}")
 
 asyncio.run(query_content())
 ```
@@ -155,11 +154,11 @@ async def main():
 
     # Use async context manager for automatic cleanup
     async with AudioRAGPipeline(config) as pipeline:
-        # Index multiple sources (mix of playlists, directories, and URLs)
+        # Index multiple sources
         inputs = [
-            "https://www.youtube.com/playlist?list=PL...",  # Playlist
-            "./my_podcasts/",                                 # Local directory
-            "https://youtube.com/watch?v=singleVideo",      # Single video
+            "./my_podcasts/",           # Directory
+            "./interview.mp3",         # Single file
+            "./lecture.wav",            # Another file
         ]
 
         batch_result = await pipeline.index_many(inputs, raise_on_error=False)
@@ -201,7 +200,7 @@ config = AudioRAGConfig(
 )
 
 async with AudioRAGPipeline(config) as pipeline:
-    await pipeline.index("https://youtube.com/watch?v=...")
+    await pipeline.index("./audio.mp3")
 ```
 
 ### With Anthropic for Generation
@@ -229,12 +228,12 @@ config = AudioRAGConfig(
 
 ## Reindexing Content
 
-By default, AudioRAG skips already-indexed URLs and any URL already in progress.
+By default, AudioRAG skips already-indexed files.
 To force reindexing:
 
 ```python
-# Force reindex a specific URL
-await pipeline.index(url, force=True)
+# Force reindex a specific file
+await pipeline.index(path, force=True)
 ```
 
 ## Budget and Verification (Optional)
@@ -263,7 +262,7 @@ Notes:
 ```python
 # Access state manager to check status
 await pipeline._ensure_initialized()
-status = await pipeline._state.get_source_status(url)
+status = await pipeline._state.get_source_status(path)
 print(f"Status: {status['status']}")
 ```
 

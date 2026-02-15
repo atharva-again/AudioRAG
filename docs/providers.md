@@ -6,7 +6,7 @@ AudioRAG uses a provider-agnostic architecture. Each stage of the pipeline can u
 
 | Stage | Protocol | Available Providers |
 |-------|----------|---------------------|
-| Audio Source | `AudioSourceProvider` | YouTubeSource, LocalSource, URLSource |
+| Audio Source | `AudioSourceProvider` | LocalSource |
 | STT | `STTProvider` | OpenAI, Deepgram, AssemblyAI, Groq |
 | Embeddings | `EmbeddingProvider` | OpenAI, Voyage, Cohere |
 | Vector Store | `VectorStoreProvider` | ChromaDB, Pinecone, Weaviate, Supabase |
@@ -16,64 +16,24 @@ AudioRAG uses a provider-agnostic architecture. Each stage of the pipeline can u
 
 ## Audio Source Providers
 
-### YouTubeSource
+### LocalSource
 
-Downloads audio from YouTube videos using yt-dlp with 2026 bleeding-edge extraction patterns.
+Reads audio files from local storage. This is the only audio source provider in AudioRAG.
 
-**Installation:**
+**Requirements:**
 ```bash
-# Requires ffmpeg to be installed on your system
+# Requires ffmpeg and ffprobe to be installed on your system
 # On macOS: brew install ffmpeg
 # On Ubuntu/Debian: sudo apt install ffmpeg
-
-# YouTube extraction
-uv add yt-dlp
-# For YouTube 2026 JS challenge solving (mandatory since 2025.11.12)
-uv add yt-dlp-ejs curl-cffi
 ```
 
-**Basic Configuration:**
-```bash
-export AUDIORAG_YOUTUBE_CONCURRENT_FRAGMENTS="3"
-export AUDIORAG_YOUTUBE_SKIP_AFTER_ERRORS="3"
-export AUDIORAG_YOUTUBE_DOWNLOAD_ARCHIVE="./archive.txt"
-```
-
-**Advanced Configuration (YouTube 2026 Stability):**
-
-For reliable extraction from YouTube, configure visitor context and PO tokens:
-
-```bash
-# PO Token: Required for bypassing YouTube bot detection
-# Get from: https://github.com/yt-dlp/yt-dlp/wiki/Extractors#po-token-guide
-export AUDIORAG_YOUTUBE_PO_TOKEN="MnXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX..."
-
-# Visitor Data: Session identifier (cryptographically bound to PO token)
-# Extract from browser cookies or network inspector
-export AUDIORAG_YOUTUBE_VISITOR_DATA="CgtZZXXXXXXXXXXXXXXXXX..."
-
-# Data Sync ID: Account session identifier (optional, for authenticated access)
-export AUDIORAG_YOUTUBE_DATA_SYNC_ID="XXXXXXXXXXXXXXXXXXXXXXXXXXXX..."
-
-# JS Runtime: External JavaScript runtime for signature challenge solving
-# Options: "deno" (recommended, fastest), "node", "bun"
-export AUDIORAG_JS_RUNTIME="deno"
-```
-
-**Important Notes:**
-- **PO Token Binding**: PO tokens are cryptographically bound to visitor_data. Tokens generated for one visitor_data value will fail with a different visitor_data.
-- **JS Runtime**: YouTube requires external JS runtime since 2025.11.12 for signature challenges. Deno is recommended per yt-dlp documentation.
-- **Interactive Setup**: Run `audiorag setup` for guided configuration with prompts for PO token and visitor context.
+**Supported Formats:**
+- MP3, WAV, OGG, FLAC, M4A, AAC, WebM
 
 **Features:**
-- Automatic audio format conversion
-- Resumable downloads via archive file
-- Concurrent fragment downloading
-- Playlist and channel support
-- Pre-flight metadata extraction for budget checks
-- Browser impersonation (chrome-120) for evasion
-- Optimized player skip patterns (25-33% latency reduction)
-- Cryptographically-bound PO token support
+- Automatic duration detection using ffprobe
+- Local file path support
+- Directory recursive scanning
 
 ## STT Providers
 

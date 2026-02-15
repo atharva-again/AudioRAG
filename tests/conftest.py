@@ -121,8 +121,8 @@ def sample_chunk_metadata() -> ChunkMetadata:
         start_time=0.0,
         end_time=5.5,
         text="This is a sample text chunk for testing.",
-        source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        title="Sample Video Title",
+        source_url="file:///path/to/audio.mp3",
+        title="Sample Audio Title",
     )
 
 
@@ -138,22 +138,22 @@ def sample_chunks_metadata() -> list[ChunkMetadata]:
             start_time=0.0,
             end_time=5.5,
             text="First chunk of text content.",
-            source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            title="Sample Video Title",
+            source_url="file:///path/to/audio.mp3",
+            title="Sample Audio Title",
         ),
         ChunkMetadata(
             start_time=5.5,
             end_time=11.2,
             text="Second chunk with more information.",
-            source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            title="Sample Video Title",
+            source_url="file:///path/to/audio.mp3",
+            title="Sample Audio Title",
         ),
         ChunkMetadata(
             start_time=11.2,
             end_time=18.8,
             text="Third chunk continuing the narrative.",
-            source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            title="Sample Video Title",
+            source_url="file:///path/to/audio.mp3",
+            title="Sample Audio Title",
         ),
     ]
 
@@ -321,8 +321,8 @@ def mock_audio_source_provider(tmp_path) -> AsyncMock:
     mock.download = AsyncMock(
         return_value=AudioFile(
             path=audio_path,
-            source_url="https://youtube.com/watch?v=test123",
-            title="Test Video Title",
+            source_url=f"file://{audio_path.absolute()}",
+            title="Test Audio Title",
             duration=120.0,
         )
     )
@@ -395,14 +395,6 @@ def mock_config(tmp_db_path: Path, tmp_vector_store_dir: Path):
     config.log_timestamps = True
     config.chromadb_persist_directory = str(tmp_vector_store_dir)
     config.chromadb_collection_name = "audiorag"
-    config.youtube_download_archive = None
-    config.youtube_concurrent_fragments = 3
-    config.youtube_skip_after_errors = 3
-    config.youtube_cookie_file = None
-    config.youtube_po_token = None
-    config.youtube_impersonate = None
-    config.youtube_player_clients = ["tv", "web", "mweb"]
-    config.js_runtime = None
     config.retry_max_attempts = 3
     config.retry_min_wait_seconds = 4.0
     config.retry_max_wait_seconds = 60.0
@@ -476,8 +468,8 @@ def sample_metadata_dict() -> dict:
     return {
         "start_time": 0.0,
         "end_time": 5.5,
-        "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        "title": "Sample Video Title",
+        "source_url": "file:///path/to/audio.mp3",
+        "title": "Sample Audio Title",
     }
 
 
@@ -492,19 +484,19 @@ def sample_metadata_dicts() -> list[dict]:
         {
             "start_time": 0.0,
             "end_time": 5.5,
-            "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "title": "Sample Video Title",
+            "source_url": "file:///path/to/audio.mp3",
+            "title": "Sample Audio Title",
         },
         {
             "start_time": 5.5,
             "end_time": 11.2,
-            "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "title": "Sample Video Title",
+            "source_url": "file:///path/to/audio.mp3",
+            "title": "Sample Audio Title",
         },
         {
             "start_time": 11.2,
             "end_time": 18.8,
-            "source_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "title": "Sample Video Title",
+            "source_url": "file:///path/to/audio.mp3",
+            "title": "Sample Audio Title",
         },
     ]

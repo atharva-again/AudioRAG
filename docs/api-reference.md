@@ -27,7 +27,7 @@ class AudioRAGPipeline:
 
 **Parameters:**
 - `config`: AudioRAGConfig instance with all settings
-- `audio_source`: Custom audio source provider (default: YouTubeSource)
+- `audio_source`: Custom audio source provider (default: LocalSource)
 - `stt`: Custom STT provider (default: from config.stt_provider)
 - `embedder`: Custom embedding provider (default: from config.embedding_provider)
 - `vector_store`: Custom vector store (default: from config.vector_store_provider)
@@ -40,14 +40,14 @@ class AudioRAGPipeline:
 async def index(self, url: str, *, force: bool = False) -> None
 ```
 
-Index audio from a URL/path through the full pipeline.
+Index audio from a file path through the full pipeline.
 
-`index()` performs source discovery first. If `url` is a YouTube playlist/channel
-or a local directory path, it is expanded into individual sources and each source
-is tracked independently for resumability.
+`index()` performs source discovery first. If `path` is a local directory,
+it is expanded into individual audio files and each source is tracked
+independently for resumability.
 
 **Stages:**
-1. Download audio from URL
+1. Load audio from local file
 2. Split large files if needed
 3. Transcribe audio to text
 4. Chunk transcription by duration
@@ -69,16 +69,16 @@ is tracked independently for resumability.
 # Using async context manager (recommended)
 async with AudioRAGPipeline(config) as pipeline:
     # First index
-    await pipeline.index("https://youtube.com/watch?v=...")
+    await pipeline.index("./audio_file.mp3")
 
     # Skip if already indexed
-    await pipeline.index("https://youtube.com/watch?v=...")  # No-op
+    await pipeline.index("./audio_file.mp3")  # No-op
 
     # Force reindex
-    await pipeline.index("https://youtube.com/watch?v=...", force=True)
+    await pipeline.index("./audio.mp3", force=True)
 
     # Playlist URL (auto-expanded to per-video sources)
-    await pipeline.index("https://youtube.com/playlist?list=...")
+    await pipeline.index("./audio_directory/")
 ```
 
 #### close
@@ -150,132 +150,14 @@ Index multiple inputs in one call with automatic source discovery.
 
 **Example:**
 ```python
+# Single batch index
 result = await pipeline.index_many([
-    "https://youtube.com/playlist?list=...",
-    "./podcasts/",
-    "https://youtube.com/watch?v=singleVideo",
+    "./audio_directory/",
+    "./audio_file.mp3",
 ], raise_on_error=False)
 
-print(result.indexed_sources)
-print(result.failures)
-```
-
-#### query
-
-```python
-async def query(self, query: str) -> QueryResult
-```
-
-Query the indexed audio content.
-
-**Steps:**
-1. Embed the query text
-2. Retrieve top-k documents from vector store
-3. Rerank by relevance
-4. Generate answer using LLM
-5. Return answer with sources
-
-**Parameters:**
-- `query`: The user's question as a string
-
-**Returns:**
-- `QueryResult` with answer and sources
-
-**Raises:**
-- `ProviderError`: If embedding or generation fails
-- `StateError`: If database access fails
-
-**Example:**
-```python
-result = await pipeline.query("What are the main points?")
-print(result.answer)
-for source in result.sources:
-    print(f"{source.title} at {source.start_time}s")
-```
-
-### AudioRAGConfig
-
-Configuration management with environment variable support.
-
-**Location:** `audiorag.core.config.AudioRAGConfig`
-
-**Environment Variable Prefix:** `AUDIORAG_`
-
-**Key Attributes:**
-
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `stt_provider` | str | STT provider name (openai, deepgram, assemblyai, groq) |
-| `embedding_provider` | str | Embedding provider name (openai, voyage, cohere) |
-| `vector_store_provider` | str | Vector store provider name (chromadb, pinecone, weaviate, supabase) |
-| `generation_provider` | str | Generation provider name (openai, anthropic, gemini) |
-| `reranker_provider` | str | Reranker provider name (cohere, passthrough) |
-| `openai_api_key` | str | OpenAI API key |
-| `deepgram_api_key` | str | Deepgram API key |
-| `assemblyai_api_key` | str | AssemblyAI API key |
-| `groq_api_key` | str | Groq API key |
-| `voyage_api_key` | str | Voyage AI API key |
-| `cohere_api_key` | str | Cohere API key |
-| `anthropic_api_key` | str | Anthropic API key |
-| `google_api_key` | str | Google API key for Gemini |
-| `chunk_duration_seconds` | int | Duration per chunk in seconds |
-| `retrieval_top_k` | int | Documents to retrieve from vector store |
-| `rerank_top_n` | int | Documents to keep after reranking |
-| `database_path` | str | SQLite database path |
-| `cleanup_audio` | bool | Whether to cleanup temp files after processing |
-| `log_level` | str | Logging level (DEBUG, INFO, WARNING, ERROR) |
-| `budget_enabled` | bool | Enable proactive API budget enforcement |
-| `budget_rpm` | int \| None | Global requests-per-minute limit |
-| `budget_tpm` | int \| None | Global tokens-per-minute limit |
-| `budget_audio_seconds_per_hour` | int \| None | Global STT audio-seconds/hour limit |
-| `budget_provider_overrides` | dict | Provider-specific limit overrides |
-| `vector_store_verify_mode` | str | Vector verify mode: off, best_effort, strict |
-| `vector_store_verify_max_attempts` | int | Max verification attempts |
-| `vector_store_verify_wait_seconds` | float | Delay between verification attempts |
-| `vector_id_format` | str | Vector ID strategy: auto, sha256, uuid5 |
-| `vector_id_uuid5_namespace` | str \| None | Optional UUID namespace for deterministic UUID5 conversion |
-
-**Methods:**
-
-```python
-def get_stt_model(self) -> str
-```
-
-Get the appropriate STT model based on provider. Returns provider-specific default if using generic name.
-
-```python
-def get_embedding_model(self) -> str
-```
-
-Get the appropriate embedding model based on provider.
-
-```python
-def get_generation_model(self) -> str
-```
-
-Get the appropriate generation model based on provider.
-
-### Vector ID behavior
-
-- Canonical `source_id` and `chunk_id` in SQLite state are SHA-256 hashes.
-- `vector_id_format="auto"` applies provider defaults for vector-store-facing IDs.
-- Current built-in default mapping: `weaviate -> uuid5`, others -> `sha256`.
-- `vector_id_uuid5_namespace` allows deterministic UUID5 namespace override.
-- If a source has existing metadata with a different vector ID strategy, run
-  `index(..., force=True)` before reindexing that source.
-
-**Example:**
-```python
-from audiorag import AudioRAGConfig
-
-# From environment variables
-config = AudioRAGConfig()
-
-# With overrides
-config = AudioRAGConfig(
-    stt_provider="deepgram",
-    chunk_duration_seconds=600,
-)
+print(f"Indexed: {len(result.indexed_sources)}")
+print(f"Failed: {len(result.failures)}")
 ```
 
 ## Data Models
@@ -705,7 +587,7 @@ Raised when proactive budget checks fail.
 
 ### DiscoveryError
 
-Raised when source discovery or expansion fails (e.g., YouTube playlist/channel returns no videos).
+Raised when source discovery or expansion fails (e.g., empty directory).
 
 **Location:** `audiorag.core.exceptions.DiscoveryError`
 
@@ -729,28 +611,22 @@ Expand input URLs and paths into individual indexable sources.
 ```python
 async def discover_sources(
     inputs: list[str],
-    config: AudioRAGConfig | None = None
 ) -> list[DiscoveredSource]
 ```
 
 Automatically handles:
-- **YouTube playlists/channels**: Expanded to individual video URLs with metadata
-- **Local directories**: Recursively scanned for audio files
+- **Directories**: Recursively scanned for audio files
 - **Local files**: Added directly
-- **Direct URLs**: Passed through
 - **Deduplication**: Removes duplicate sources
 
 **Parameters:**
-- `inputs`: List of URLs or file paths to expand
-- `config`: Optional AudioRAGConfig for YouTubeSource configuration
+- `inputs`: List of file paths to expand
 
 **Returns:**
-- List of `DiscoveredSource` objects with `url` and optional `metadata` fields
-- Use `.url` attribute to get the source URL
-- Use `.metadata` attribute to get pre-fetched metadata (duration, title)
+- List of `DiscoveredSource` objects with `url` attribute
 
 **Supported Audio Formats:**
-`.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`, `.aac`, `.wma`
+`.mp3`, `.wav`, `.ogg`, `.flac`, `.m4a`, `.aac`, `.webm`
 
 **Example:**
 ```python
@@ -760,12 +636,11 @@ from audiorag import AudioRAGConfig
 config = AudioRAGConfig()
 
 inputs = [
-    "https://youtube.com/playlist?list=...",  # Playlist
     "./podcasts/",                             # Directory
     "./single.mp3",                           # Single file
 ]
 
-sources = await discover_sources(inputs, config)
+sources = await discover_sources(inputs)
 for source in sources:
     print(source.url)
     if source.metadata:
@@ -778,14 +653,14 @@ For code that only needs URLs, use `discover_source_urls()`:
 ```python
 from audiorag.source import discover_source_urls
 
-urls = await discover_source_urls(inputs, config)
+urls = await discover_source_urls(inputs)
 # Returns: list[str]
 ```
 
 **Error Handling:**
 - Invalid paths are skipped
-- YouTube expansion failures return the original URL
-- Missing optional dependencies (yt-dlp) log warnings but don't fail
+- Directory expansion failures return the original path
+- All dependencies are required (no optional dependencies)
 
 ### DiscoveredSource
 
@@ -810,7 +685,7 @@ class DiscoveredSource:
 ```python
 from audiorag.source.discovery import discover_sources
 
-sources = await discover_sources(["https://youtube.com/playlist?list=..."])
+sources = await discover_sources(["./audio_directory/"])
 for source in sources:
     print(f"URL: {source.url}")
     if source.metadata:
@@ -827,7 +702,6 @@ Convenience function that returns only URLs without metadata.
 ```python
 async def discover_source_urls(
     inputs: list[str],
-    config: AudioRAGConfig | None = None
 ) -> list[str]
 ```
 
@@ -905,15 +779,13 @@ Providers are grouped by capability modules:
 
 **Audio Source Providers:**
 - `audiorag.source`
-- `YouTubeSource`
 - `LocalSource`
-- `URLSource`
 
 **Example:**
 ```python
-from audiorag.source import YouTubeSource
+from audiorag.source import LocalSource
 from audiorag.transcribe import OpenAITranscriber
 
-source = YouTubeSource()
-audio_file = await source.download(url, output_dir)
+source = LocalSource()
+audio_file = await source.download(path, output_dir)
 ```

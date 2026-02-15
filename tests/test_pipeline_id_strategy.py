@@ -17,7 +17,7 @@ async def test_pipeline_auto_weaviate_transforms_vector_ids_to_uuid5(
     all_mock_providers,
     tmp_audio_dir,
 ) -> None:
-    url = "https://youtube.com/watch?v=test123"
+    url = "file:///tmp/test_audio.mp3"
     mock_config.work_dir = tmp_audio_dir
     mock_config.vector_store_provider = "weaviate"
     mock_config.vector_id_format = "auto"
@@ -58,7 +58,7 @@ async def test_pipeline_weaviate_respects_sha256_override(
     all_mock_providers,
     tmp_audio_dir,
 ) -> None:
-    url = "https://youtube.com/watch?v=test123"
+    url = "file:///tmp/test_audio.mp3"
     mock_config.work_dir = tmp_audio_dir
     mock_config.vector_store_provider = "weaviate"
     mock_config.vector_id_format = "sha256"
@@ -98,7 +98,7 @@ async def test_index_raises_on_vector_id_strategy_change_without_force(
     all_mock_providers,
     tmp_audio_dir,
 ) -> None:
-    url = "https://youtube.com/watch?v=test123"
+    url = "file:///tmp/test_audio.mp3"
     mock_config.work_dir = tmp_audio_dir
     mock_config.vector_store_provider = "weaviate"
     mock_config.vector_id_format = "sha256"

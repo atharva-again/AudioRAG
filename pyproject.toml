@@ -47,13 +47,9 @@ Issues = "https://github.com/atharva-again/audiorag/issues"
 audiorag = "audiorag.cli:main"
 
 [project.optional-dependencies]
-defaults = [
-    "yt-dlp>=2026.02.04",
-]
 all = [
     "openai>=1.0",
     "chromadb>=0.4",
-    "yt-dlp>=2026.02.04",
     "cohere>=5.0",
     "pinecone-client>=2.0",
     "weaviate-client>=3.0",
@@ -63,8 +59,6 @@ all = [
     "voyageai>=0.2",
     "groq>=0.4",
     "assemblyai>=0.51",
-    "yt-dlp-ejs>=0.4.0",
-    "curl_cffi>=0.7.0,<0.15.0",
 ]
 # STT providers
 openai = ["openai>=1.0"]
@@ -84,12 +78,6 @@ anthropic = ["anthropic>=0.18"]
 google-genai = ["google-genai>=1.0"]
 # Reranking
 rerank-cohere = ["cohere>=5.0"]
-# YouTube scraping
-youtube = [
-    "yt-dlp>=2026.02.04",
-    "yt-dlp-ejs>=0.4.0",
-    "curl_cffi>=0.7.0,<0.15.0",
-]
 
 [dependency-groups]
 dev = [
@@ -165,7 +153,7 @@ ignore = [
     "ANN401",  # Any is acceptable
     # Security rules - relaxed for tests/scripts
     "S101",  # assert in tests
-    "S603",  # subprocess for yt-dlp
+    "S603",  # subprocess calls (ffprobe, ffmpeg)
     "S608",  # SQL in tests
     # Other practical relaxations
     "PLC0415",  # lazy imports

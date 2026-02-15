@@ -61,9 +61,9 @@ class PipelineError(AudioRAGError):
 
     Example:
         raise PipelineError(
-            "Failed to download audio: connection timeout",
+            "Failed to process audio: file not found",
             stage="download",
-            source_url="https://youtube.com/watch?v=abc123"
+            source_url="file:///path/to/audio.mp3"
         )
     """
 
@@ -149,20 +149,20 @@ class StateError(AudioRAGError):
 class DiscoveryError(AudioRAGError):
     """Exception raised when source discovery or expansion fails.
 
-    This exception indicates that a source URL (playlist, channel, etc.)
-    could not be expanded into individual video URLs, preventing indexing.
+    This exception indicates that a source path could not be expanded
+    into individual audio files, preventing indexing.
 
     Args:
         message: Human-readable error message describing the discovery failure.
-        url: The URL that failed to expand.
+        url: The path that failed to expand.
 
     Attributes:
-        url: The source URL that could not be expanded.
+        url: The source path that could not be expanded.
 
     Example:
         raise DiscoveryError(
-            "Failed to expand YouTube playlist: no videos found",
-            url="https://youtube.com/playlist?list=..."
+            "Failed to expand directory: no audio files found",
+            url="/path/to/empty/directory"
         )
     """
 

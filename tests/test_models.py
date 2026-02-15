@@ -24,13 +24,13 @@ class TestChunkMetadata:
             start_time=0.0,
             end_time=5.5,
             text="Sample text",
-            source_url="https://youtube.com/watch?v=abc123",
+            source_url="file:///tmp/test_audio.mp3",
             title="Test Video",
         )
         assert chunk.start_time == 0.0
         assert chunk.end_time == 5.5
         assert chunk.text == "Sample text"
-        assert chunk.source_url == "https://youtube.com/watch?v=abc123"
+        assert chunk.source_url == "file:///tmp/test_audio.mp3"
         assert chunk.title == "Test Video"
 
     def test_field_types_validation(self):
@@ -145,7 +145,7 @@ class TestSource:
             text="Source text",
             start_time=10.0,
             end_time=15.0,
-            source_url="https://youtube.com/watch?v=abc123",
+            source_url="file:///tmp/test_audio.mp3",
             title="Test Video",
             relevance_score=0.95,
         )
@@ -183,7 +183,7 @@ class TestSource:
             text="Text",
             start_time=10.0,
             end_time=15.0,
-            source_url="https://youtube.com/watch?v=abc123",
+            source_url="file:///tmp/test_audio.mp3",
             title="Title",
             relevance_score=0.8,
         )
@@ -196,7 +196,7 @@ class TestSource:
             text="Text",
             start_time=20.0,
             end_time=25.0,
-            source_url="https://youtube.com/watch?v=xyz789",
+            source_url="file:///tmp/test_audio2.mp3",
             title="Title",
             relevance_score=0.75,
         )
@@ -687,12 +687,12 @@ class TestIndexingStatus:
 class TestBatchIndexModels:
     def test_batch_index_failure_creation(self):
         failure = BatchIndexFailure(
-            source_url="https://youtube.com/watch?v=video1",
+            source_url="file:///tmp/audio1.mp3",
             stage="download",
             error_message="network timeout",
         )
 
-        assert failure.source_url.endswith("video1")
+        assert failure.source_url.endswith("audio1.mp3")
         assert failure.stage == "download"
         assert failure.error_message == "network timeout"
 
@@ -707,13 +707,13 @@ class TestBatchIndexModels:
 
     def test_batch_index_result_serialization(self):
         result = BatchIndexResult(
-            inputs=["https://youtube.com/playlist?list=abc"],
-            discovered_sources=["https://youtube.com/watch?v=video1"],
+            inputs=["/path/to/playlist_directory"],
+            discovered_sources=["file:///tmp/audio1.mp3"],
             indexed_sources=[],
             skipped_sources=[],
             failures=[
                 BatchIndexFailure(
-                    source_url="https://youtube.com/watch?v=video1",
+                    source_url="file:///tmp/audio1.mp3",
                     stage="index_many",
                     error_message="RuntimeError: unexpected crash",
                 )
@@ -721,5 +721,5 @@ class TestBatchIndexModels:
         )
 
         payload = result.model_dump()
-        assert payload["inputs"] == ["https://youtube.com/playlist?list=abc"]
+        assert payload["inputs"] == ["/path/to/playlist_directory"]
         assert payload["failures"][0]["stage"] == "index_many"

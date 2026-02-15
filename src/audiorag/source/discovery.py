@@ -5,15 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
-from audiorag.core.exceptions import DiscoveryError
 from audiorag.core.logging_config import get_logger
-from audiorag.source.url import AUDIO_EXTENSIONS
-from audiorag.source.ydl_utils import build_ydl_opts
+from audiorag.source.local import AUDIO_EXTENSIONS
 
 if TYPE_CHECKING:
-    from audiorag.core import AudioRAGConfig
     from audiorag.core.models import SourceMetadata
 
 logger = get_logger(__name__)
@@ -32,27 +28,6 @@ class DiscoveredSource:
     metadata: SourceMetadata | None = None
 
 
-def _is_youtube_collection(url: str) -> bool:
-    """Check if URL is a YouTube playlist or channel.
-
-    Args:
-        url: The URL to check.
-
-    Returns:
-        True if the URL represents a collection (playlist/channel).
-    """
-    parsed = urlparse(url)
-    path = parsed.path.lower()
-    query = parsed.query.lower()
-
-    # Playlist URLs: /playlist or list= parameter
-    if "/playlist" in path or "list=" in query:
-        return True
-
-    # Channel URLs: /channel/, /c/, /user/, or /@handle
-    return "/channel/" in path or "/c/" in path or "/user/" in path or "/@" in path
-
-
 def _expand_directory(path: Path) -> list[str]:
     """Expand a directory to a list of audio file paths."""
     logger.info("expanding_directory", path=str(path))
@@ -64,71 +39,18 @@ def _expand_directory(path: Path) -> list[str]:
     return unique_files
 
 
-async def _expand_youtube_source(
-    item: str, config: AudioRAGConfig | None
-) -> list[DiscoveredSource]:
-    """Expand a YouTube URL to individual video URLs with metadata."""
-    logger.info("checking_youtube_source", url=item)
-    try:
-        from audiorag.core.models import SourceMetadata
-        from audiorag.source.youtube import YouTubeSource
-
-        ydl_opts = build_ydl_opts(config) if config else None
-
-        scraper = YouTubeSource(
-            download_archive=config.youtube_download_archive if config else None,
-            ydl_opts=ydl_opts,
-        )
-        videos = await scraper.list_channel_videos(item)
-
-        if videos:
-            discovered = [
-                DiscoveredSource(
-                    url=v.url,
-                    metadata=SourceMetadata(
-                        duration=v.duration,
-                        title=v.title,
-                        raw=None,
-                    ),
-                )
-                for v in videos
-            ]
-            logger.debug("youtube_source_expanded", count=len(discovered))
-            return discovered
-
-        # Raise error for collections that failed to expand
-        if _is_youtube_collection(item):
-            raise DiscoveryError(
-                f"Failed to expand YouTube source: no videos found for {item}",
-                url=item,
-            )
-    except ImportError:
-        logger.warning("youtube_source_not_available_for_expansion", url=item)
-    except DiscoveryError:
-        raise
-    except Exception as e:
-        logger.warning("youtube_expansion_failed", url=item, error=str(e))
-    return [DiscoveredSource(url=item)]
-
-
-async def discover_sources(
-    inputs: list[str], config: AudioRAGConfig | None = None
-) -> list[DiscoveredSource]:
-    """Expand input URLs and paths into individual indexable sources.
+async def discover_sources(inputs: list[str]) -> list[DiscoveredSource]:
+    """Expand input paths into individual indexable sources.
 
     Handles:
-    - YouTube video URLs
-    - YouTube playlist/channel URLs (expanded to video URLs)
     - Local audio file paths
     - Local directories (expanded recursively to audio file paths)
-    - Direct HTTP audio URLs
 
     Args:
-        inputs: List of URLs or paths to expand.
-        config: Optional configuration for YouTubeSource.
+        inputs: List of paths to expand.
 
     Returns:
-        List of discovered sources with optional metadata.
+        List of discovered sources.
     """
     expanded_sources: list[DiscoveredSource] = []
 
@@ -142,10 +64,7 @@ async def discover_sources(
                 expanded_sources.append(DiscoveredSource(url=str(path.absolute())))
             continue
 
-        if "youtube.com" in item or "youtu.be" in item:
-            expanded_sources.extend(await _expand_youtube_source(item, config))
-            continue
-
+        # For non-existent paths, pass through as-is (will fail later if invalid)
         expanded_sources.append(DiscoveredSource(url=item))
 
     seen: set[str] = set()
@@ -158,19 +77,16 @@ async def discover_sources(
     return unique_sources
 
 
-async def discover_source_urls(
-    inputs: list[str], config: AudioRAGConfig | None = None
-) -> list[str]:
-    """Expand input URLs and paths into individual indexable source URLs.
+async def discover_source_urls(inputs: list[str]) -> list[str]:
+    """Expand input paths into individual indexable source URLs.
 
     Convenience wrapper that returns only URLs without metadata.
 
     Args:
-        inputs: List of URLs or paths to expand.
-        config: Optional configuration for YouTubeSource.
+        inputs: List of paths to expand.
 
     Returns:
-        List of expanded source URLs/paths.
+        List of expanded source paths.
     """
-    discovered = await discover_sources(inputs, config)
+    discovered = await discover_sources(inputs)
     return [s.url for s in discovered]

@@ -27,10 +27,10 @@ User Query
           | Index Pipeline
           v
 +-------------------+     +-------------------+     +-------------------+
-|     Download      |---->|      Split        |---->|   Transcribe      |
+|     Ingest        |---->|      Split        |---->|   Transcribe      |
 |                   |     |                   |     |                   |
-| - YouTube/audio   |     | - Large files     |     | - STT provider    |
-| - yt-dlp          |     | - ffmpeg          |     | - Whisper/Deepgram|
+| - Local files     |     | - Large files     |     | - STT provider    |
+| - Duration detect |     | - ffmpeg          |     | - Whisper/Deepgram|
 +-------------------+     +-------------------+     +-------------------+
                                                                |
                                                                v
@@ -139,11 +139,10 @@ Pydantic-settings based configuration with environment variable support.
 
 ### Index Pipeline
 
-1. **Download**
-   - Fetch audio from YouTube or other sources
-   - Uses yt-dlp for YouTube URLs
-   - Supports concurrent fragments
-   - Archive file for resumable scraping
+1. **Ingest**
+   - Load audio from local files
+   - Extract duration using ffprobe
+   - No external downloads required
 
  2. **Split**
    - Check file size against threshold
@@ -226,7 +225,7 @@ statuses to reduce multi-process collisions unless `force=True` is used.
 ### Indexing Flow
 
 ```
-URL -> YouTubeSource -> AudioFile
+File Path -> LocalSource -> AudioFile
                             |
                             v
                     AudioSplitter (if needed)

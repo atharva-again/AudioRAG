@@ -357,7 +357,7 @@ class TestChunkingMetadata:
             TranscriptionSegment(start_time=3.0, end_time=6.0, text="B"),
             TranscriptionSegment(start_time=6.0, end_time=9.0, text="C"),
         ]
-        source_url = "https://youtube.com/watch?v=abc123"
+        source_url = "file:///tmp/test_audio.mp3"
         chunks = chunk_transcription(
             segments=segments,
             chunk_duration_seconds=6,
