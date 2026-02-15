@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-02-15 - YouTube Discovery Fixes
+
+### Fixed
+- **Issue #43: youtube_format applied during playlist discovery**: Skip yt-dlp options during metadata-only extraction to prevent format errors when discovering playlists with `youtube_format` config set.
+- **Issue #41: Redundant YouTube discovery calls**: Cache metadata during discovery and pass to pipeline to avoid redundant yt-dlp network calls when indexing each video in a playlist.
+
+### Breaking
+- **`discover_sources()` returns rich objects**: Now returns `list[DiscoveredSource]` with `url` and `metadata` fields instead of plain strings. This enables metadata caching.
+- Added `discover_source_urls()` convenience function for backward compatibility when only URLs are needed.
+
 ## [0.13.0] - 2026-02-15 - YouTube Audio-Only Downloads
 
 ### Added
@@ -408,7 +418,8 @@ For most users, YouTubeSource now works out of the box without any configuration
 - Base mixin classes for all provider categories
 - Protocol-based provider abstractions
 
-[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/atharva-again/audiorag/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/atharva-again/audiorag/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/atharva-again/audiorag/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/atharva-again/audiorag/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/atharva-again/audiorag/compare/v0.10.0...v0.11.0

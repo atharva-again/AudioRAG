@@ -730,11 +730,11 @@ Expand input URLs and paths into individual indexable sources.
 async def discover_sources(
     inputs: list[str],
     config: AudioRAGConfig | None = None
-) -> list[str]
+) -> list[DiscoveredSource]
 ```
 
 Automatically handles:
-- **YouTube playlists/channels**: Expanded to individual video URLs
+- **YouTube playlists/channels**: Expanded to individual video URLs with metadata
 - **Local directories**: Recursively scanned for audio files
 - **Local files**: Added directly
 - **Direct URLs**: Passed through
@@ -745,7 +745,9 @@ Automatically handles:
 - `config`: Optional AudioRAGConfig for YouTubeSource configuration
 
 **Returns:**
-- List of expanded, unique source URLs/paths ready for indexing
+- List of `DiscoveredSource` objects with `url` and optional `metadata` fields
+- Use `.url` attribute to get the source URL
+- Use `.metadata` attribute to get pre-fetched metadata (duration, title)
 
 **Supported Audio Formats:**
 `.mp3`, `.wav`, `.m4a`, `.ogg`, `.flac`, `.aac`, `.wma`
@@ -764,13 +766,81 @@ inputs = [
 ]
 
 sources = await discover_sources(inputs, config)
-# Returns: ["https://youtube.com/watch?v=video1", "https://youtube.com/watch?v=video2", "/abs/path/to/podcasts/ep1.mp3", ...]
+for source in sources:
+    print(source.url)
+    if source.metadata:
+        print(f"  Duration: {source.metadata.duration}s")
+        print(f"  Title: {source.metadata.title}")
+```
+
+**Backward Compatibility:**
+For code that only needs URLs, use `discover_source_urls()`:
+```python
+from audiorag.source import discover_source_urls
+
+urls = await discover_source_urls(inputs, config)
+# Returns: list[str]
 ```
 
 **Error Handling:**
 - Invalid paths are skipped
 - YouTube expansion failures return the original URL
 - Missing optional dependencies (yt-dlp) log warnings but don't fail
+
+### DiscoveredSource
+
+Dataclass representing a discovered source with optional pre-fetched metadata.
+
+**Location:** `audiorag.source.discovery.DiscoveredSource`
+
+```python
+@dataclass
+class DiscoveredSource:
+    url: str
+    metadata: SourceMetadata | None = None
+```
+
+**Attributes:**
+- `url`: The source URL or file path
+- `metadata`: Pre-fetched metadata from discovery (if available), containing:
+  - `duration`: Audio duration in seconds (float | None)
+  - `title`: Video/audio title (str | None)
+
+**Example:**
+```python
+from audiorag.source.discovery import discover_sources
+
+sources = await discover_sources(["https://youtube.com/playlist?list=..."])
+for source in sources:
+    print(f"URL: {source.url}")
+    if source.metadata:
+        print(f"  Title: {source.metadata.title}")
+        print(f"  Duration: {source.metadata.duration}")
+```
+
+### discover_source_urls
+
+Convenience function that returns only URLs without metadata.
+
+**Location:** `audiorag.source.discovery.discover_source_urls`
+
+```python
+async def discover_source_urls(
+    inputs: list[str],
+    config: AudioRAGConfig | None = None
+) -> list[str]
+```
+
+**Returns:**
+- List of expanded source URLs/paths as strings
+
+**Example:**
+```python
+from audiorag.source import discover_source_urls
+
+urls = await discover_source_urls(["./audio/"])
+# Returns: ["/abs/path/to/audio/file1.mp3", "/abs/path/to/audio/file2.wav", ...]
+```
 
 ## Chunking
 

@@ -34,7 +34,7 @@ from audiorag.core import (
 )
 from audiorag.pipeline import AudioRAGPipeline
 
-__version__ = "0.13.0"
+__version__ = "0.14.0"
 
 __all__ = [
     "AudioRAGConfig",
